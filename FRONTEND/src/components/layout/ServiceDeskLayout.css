@@ -1,0 +1,310 @@
+/* ─── Variables Service Desk (ITIL Blue) ─── */
+:root {
+  --sd-primary: #1e40af;    /* Blue 700 */
+  --sd-secondary: #3b82f6;  /* Blue 500 */
+  --sd-dark: #1e3a8a;       /* Blue 800 */
+  --sd-sidebar-bg: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+  --sidebar-width: 280px;
+}
+
+.sd-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ─── Sidebar ─── */
+.sd-sidebar {
+  width: var(--sidebar-width);
+  background: var(--sd-sidebar-bg);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-closed .sd-sidebar {
+  transform: translateX(-100%);
+}
+
+.sd-sidebar-header {
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sd-logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sd-logo-icon {
+  width: 36px;
+  height: 36px;
+  background: white;
+  color: var(--sd-primary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.sd-logo-text {
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.sidebar-toggle-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  padding: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* ─── Navigation ─── */
+.sd-sidebar-nav {
+  padding: 1.5rem 1rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.52rem;
+}
+
+.sd-nav-item {
+  display: flex;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  border-radius: 12px;
+  transition: all 0.2s;
+  font-weight: 500;
+  gap: 1rem;
+}
+
+.sd-nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.sd-nav-item.active {
+  background: white;
+  color: var(--sd-dark);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.sd-nav-icon {
+  font-size: 1.25rem;
+}
+
+/* ─── Main Content ─── */
+.sd-main-content {
+  flex: 1;
+  padding-left: var(--sidebar-width);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-closed .sd-main-content {
+  padding-left: 0;
+}
+
+/* ─── Header (Standard Blue) ─── */
+.sd-header {
+  height: 70px;
+  background: var(--sd-primary);
+  padding: 0 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);
+}
+
+.sd-page-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: white;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+}
+
+.sd-action-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.sd-action-btn:hover {
+  background: white;
+  color: var(--sd-primary);
+}
+
+.sd-action-btn .badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 10px;
+  height: 10px;
+  background: #ef4444;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+/* ─── User Profile ─── */
+.sd-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 12px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.sd-user-profile:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sd-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.sd-user-name {
+  font-weight: 700;
+  color: white;
+  font-size: 0.95rem;
+}
+
+.sd-user-role {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+}
+
+.sd-avatar {
+  width: 44px;
+  height: 44px;
+  background: white;
+  color: var(--sd-primary);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.dropdown-arrow {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ─── Logout Dropdown ─── */
+.sd-logout-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 220px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid #f1f5f9;
+  animation: slideInDown 0.2s ease-out;
+}
+
+.dropdown-header {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 0.5rem;
+}
+
+.dropdown-header strong {
+  display: block;
+  font-size: 0.8rem;
+  color: #64748b;
+  word-break: break-all;
+}
+
+.sd-logout-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  color: #475569;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.sd-logout-dropdown-item:hover {
+  background: #f1f5f9;
+  color: var(--sd-primary);
+}
+
+.sd-logout-dropdown-item.logout:hover {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+/* ─── Content Area ─── */
+.sd-content-inner {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@keyframes slideInDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1024px) {
+  .sd-sidebar {
+    width: 80px;
+  }
+  .sd-logo-text, .sd-nav-item span, .sd-user-info, .mini-info {
+    display: none;
+  }
+  .sd-main-content {
+    padding-left: 80px;
+  }
+}

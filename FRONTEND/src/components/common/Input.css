@@ -1,0 +1,78 @@
+.input-wrapper {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.input-label {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-color, #333);
+}
+
+.input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.common-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: var(--radius-md, 8px);
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  background-color: var(--input-bg, #fff);
+  color: var(--text-color, #333);
+  box-sizing: border-box;
+}
+
+.common-input:focus {
+  outline: none;
+  border-color: var(--primary-color, #4f46e5);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.common-input.with-icon {
+  padding-left: 2.5rem;
+}
+
+.common-input.with-suffix {
+  padding-right: 2.5rem;
+}
+
+.input-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--text-muted, #888);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.input-suffix {
+  position: absolute;
+  right: 0.75rem;
+  color: var(--text-muted, #888);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.has-error .common-input {
+  border-color: var(--error-color, #dc2626);
+}
+
+.has-error .common-input:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.input-error-message {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--error-color, #dc2626);
+}

@@ -1,0 +1,152 @@
+:root {
+  --primary-color: #003366; /* CASNOS Deep Blue */
+  --secondary-color: #f1c40f; /* Gold accent */
+  --text-color: #2c3e50;
+  --bg-color: #f4f7f6;
+  --error-color: #e74c3c;
+  --success-color: #2ecc71;
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  line-height: 1.6;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+/* Global Transitions */
+a, button, input {
+  transition: all 0.3s ease;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--primary-color);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #004085;
+}
+
+/* ── Status Badges (Semantic & Premium) ── */
+.status-badge, .status-pill {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.status-working { 
+  background: #eff6ff; 
+  color: #1d4ed8; 
+  border: 1px solid #dbeafe;
+}
+
+.status-success { 
+  background: #f0fdf4; 
+  color: #166534; 
+  border: 1px solid #dcfce7;
+}
+
+.status-danger { 
+  background: #fef2f2; 
+  color: #991b1b; 
+  border: 1px solid #fee2e2;
+}
+
+.status-neutral {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* Row hover highlight */
+.eval-row:hover {
+  background-color: #f7f9fc !important;
+  cursor: pointer;
+}
+
+.selected-active {
+  background-color: #f0f7ff !important;
+  border-left: 4px solid #1d4ed8 !important;
+}
+
+/* ── Type Badges ── */
+.type-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-block;
+}
+.type-urgent { background: #fee2e2; color: #991b1b; border: 1px solid #fecdd3; }
+.type-normal { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+.type-standard { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+
+/* KPI Cards */
+.stat-card {
+  background: white;
+  padding: 1.25rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  border-left: 4px solid #cbd5e1;
+}
+.stat-card.blue { border-left-color: #3b82f6; }
+.stat-card.purple { border-left-color: #8b5cf6; }
+.stat-card.amber { border-left-color: #f59e0b; }
+.stat-card.green { border-left-color: #10b981; }
+
+.stat-icon-wrapper {
+  background: #f8fafc;
+  padding: 10px;
+  border-radius: 10px;
+  margin-right: 15px;
+  color: #64748b;
+}
+
+.stat-info { display: flex; flex-direction: column; }
+.stat-value { font-size: 1.5rem; font-weight: 800; color: #1e293b; line-height: 1; }
+.stat-label { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; margin-top: 4px; }
