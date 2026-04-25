@@ -1,0 +1,93 @@
+/* ============================================================
+   Card.css — CASNOS ITIL Design System v2
+   ============================================================ */
+
+.common-card {
+  background: var(--card-bg, #ffffff);
+  border-radius: var(--radius-xl, 18px);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 4px 12px rgba(0,0,0,0.06);
+  padding: 1.75rem;
+  border: 1px solid var(--slate-100, #f1f5f9);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.common-card:hover {
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 8px 24px rgba(0,0,0,0.08);
+}
+
+/* Glass variant */
+.common-card.glass {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 51, 102, 0.08);
+}
+
+/* Elevated variant */
+.common-card.elevated {
+  box-shadow: var(--shadow-lg, 0 10px 28px rgba(0,0,0,0.1));
+}
+
+/* Interactive variant */
+.common-card.interactive {
+  cursor: pointer;
+}
+
+.common-card.interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-xl, 0 20px 48px rgba(0,0,0,0.12));
+}
+
+/* Colored accent variants */
+.common-card.accent-blue {
+  border-top: 3px solid var(--casnos-blue-500, #0050a0);
+}
+
+.common-card.accent-gold {
+  border-top: 3px solid var(--casnos-gold-400, #f1c40f);
+}
+
+.common-card.accent-green {
+  border-top: 3px solid var(--success-base, #10b981);
+}
+
+/* Card sections */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--slate-100, #f1f5f9);
+}
+
+.card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--slate-800, #1e293b);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.card-subtitle {
+  font-size: 0.8rem;
+  color: var(--slate-500, #64748b);
+  margin: 0;
+  font-weight: 400;
+}
+
+.card-footer {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--slate-100, #f1f5f9);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

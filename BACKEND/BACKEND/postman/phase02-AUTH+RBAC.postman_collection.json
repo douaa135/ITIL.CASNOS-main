@@ -1,0 +1,284 @@
+{
+  "info": {
+    "_postman_id": "b63fe616-5ce4-4ff8-95d0-419e107d43dc",
+    "name": "My Collection",
+    "description": "### Welcome to Postman! This is your first collection. \n\nCollections are your starting point for building and testing APIs. You can use this one to:\n\n• Group related requests\n• Test your API in real-world scenarios\n• Document and share your requests\n\nUpdate the name and overview whenever you’re ready to make it yours.\n\n[Learn more about Postman Collections.](https://learning.postman.com/docs/collections/collections-overview/)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "53589867",
+    "_collection_link": "https://go.postman.co/collection/53589867-b63fe616-5ce4-4ff8-95d0-419e107d43dc?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Post data",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Successful POST request\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});",
+              ""
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n\t\"name\": \"Add your name in the body\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "postman-echo.com/post",
+          "host": [
+            "postman-echo",
+            "com"
+          ],
+          "path": [
+            "post"
+          ]
+        },
+        "description": "This is a POST request, submitting data to an API via the request body. This request submits JSON data, and the data is reflected in the response.\n\nA successful POST request typically returns a `200 OK` or `201 Created` response code."
+      },
+      "response": []
+    },
+    {
+      "name": "1. Health check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/api/health",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "health"
+          ]
+        },
+        "description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Login valide",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"login\": \"admin\",\n    \"password\": \"password\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/auth/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. GET /me avec token",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJhMDczOTI3YS1lNGZhLTQ4M2EtOGJlZC0wMTA0NjIxMzA3NzciLCJzdWIiOjEsImxvZ2luIjoiYWRtaW4iLCJlbWFpbCI6ImFkbWluQGNhc25vcy5keiIsInJvbGUiOiJBRE1JTiIsIm5vbSI6IkJvdWtoZXR0YWxhIiwicHJlbm9tIjoiQW1pcmEiLCJpYXQiOjE3NzQ5NTIxMDgsImV4cCI6MTc3NDk4MDkwOCwiYXVkIjoiY2Fzbm9zLWl0aWwtY2xpZW50IiwiaXNzIjoiY2Fzbm9zLWl0aWwifQ.eHXHLPUNGTSO21C_sF-M37TVYqrtMrE8qbvspKYSrvo",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/api/auth/me",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "me"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. RBAC refusé",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"login\": \"s.rahmani\", \n    \"password\": \"password\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/auth/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4.1. RBAC refusé",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3ZmFjNGE1ZC04YmQwLTQyZDMtYTBhYy02NjM2YjFlNmM5NTMiLCJzdWIiOjMsImxvZ2luIjoicy5yYWhtYW5pIiwiZW1haWwiOiJkZW1hbmRldXJAY2Fzbm9zLmR6Iiwicm9sZSI6IkRFTUFOREVVUiIsIm5vbSI6IlJhaG1hbmkiLCJwcmVub20iOiJTYXJhIiwiaWF0IjoxNzc0OTUyNDExLCJleHAiOjE3NzQ5ODEyMTEsImF1ZCI6ImNhc25vcy1pdGlsLWNsaWVudCIsImlzcyI6ImNhc25vcy1pdGlsIn0.nUuV87YK-BPR4AVDK1ICUMfNiPq11JzWWgCwcg3bv3U",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"login\": \"s.rahmani\", \n    \"password\": \"password\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/rfc/1/approve",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "rfc",
+            "1",
+            "approve"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5.Logout",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5ZDU5MWRhYy00NDA4LTRmYzMtOTFjMS0xM2Q4Y2MyODJkMDYiLCJzdWIiOjMsImxvZ2luIjoicy5yYWhtYW5pIiwiZW1haWwiOiJkZW1hbmRldXJAY2Fzbm9zLmR6Iiwicm9sZSI6IkRFTUFOREVVUiIsIm5vbSI6IlJhaG1hbmkiLCJwcmVub20iOiJTYXJhIiwiaWF0IjoxNzc0OTUyOTE4LCJleHAiOjE3NzQ5ODE3MTgsImF1ZCI6ImNhc25vcy1pdGlsLWNsaWVudCIsImlzcyI6ImNhc25vcy1pdGlsIn0.w5dFmXdgsob0ocEXDQPm1LpLE1r39yfF1Rj-jkJcZD4",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/api/auth/logout",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "logout"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5.1 token revoque",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5ZDU5MWRhYy00NDA4LTRmYzMtOTFjMS0xM2Q4Y2MyODJkMDYiLCJzdWIiOjMsImxvZ2luIjoicy5yYWhtYW5pIiwiZW1haWwiOiJkZW1hbmRldXJAY2Fzbm9zLmR6Iiwicm9sZSI6IkRFTUFOREVVUiIsIm5vbSI6IlJhaG1hbmkiLCJwcmVub20iOiJTYXJhIiwiaWF0IjoxNzc0OTUyOTE4LCJleHAiOjE3NzQ5ODE3MTgsImF1ZCI6ImNhc25vcy1pdGlsLWNsaWVudCIsImlzcyI6ImNhc25vcy1pdGlsIn0.w5dFmXdgsob0ocEXDQPm1LpLE1r39yfF1Rj-jkJcZD4",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/api/auth/me",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "api",
+            "auth",
+            "me"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

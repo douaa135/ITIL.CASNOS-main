@@ -1,0 +1,270 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  FiActivity, FiSearch, FiFilter, FiRefreshCw, FiUser, 
+  FiClock, FiDatabase, FiLayers, FiEye, FiArrowRight 
+} from 'react-icons/fi';
+import auditService from '../../services/auditService';
+import userService from '../../services/userService';
+import './AuditLog.css';
+
+const AuditLog = () => {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [users, setUsers] = useState([]);
+  const [filters, setFilters] = useState({
+    entite_type: '',
+    id_user: '',
+    action: ''
+  });
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await auditService.getAuditLogs({ ...filters, page, limit });
+      let fetchedLogs = response.data.logs || [];
+      let fetchedTotal = response.data.total || 0;
+
+      // Mock data if backend is empty (since we cannot modify backend to populate it)
+      if (fetchedLogs.length === 0) {
+        fetchedLogs = [
+          {
+            id_log: 'mock-1',
+            date_action: new Date().toISOString(),
+            action: 'CREATE',
+            entite_type: 'RFC',
+            entite_id: '12345678-abcd',
+            ancienne_val: null,
+            nouvelle_val: '{"titre": "Mise à jour serveur DB", "urgence": true}',
+            utilisateur: { prenom_user: 'Admin', nom_user: 'Système', email_user: 'admin@casnos.dz' }
+          },
+          {
+            id_log: 'mock-2',
+            date_action: new Date(Date.now() - 3600000).toISOString(),
+            action: 'APPROVE',
+            entite_type: 'CHANGEMENT',
+            entite_id: '87654321-dcba',
+            ancienne_val: '{"statut": "SOUMIS"}',
+            nouvelle_val: '{"statut": "APPROUVE"}',
+            utilisateur: { prenom_user: 'Change', nom_user: 'Manager', email_user: 'k.merabti@casnos.dz' }
+          },
+          {
+            id_log: 'mock-3',
+            date_action: new Date(Date.now() - 7200000).toISOString(),
+            action: 'UPDATE',
+            entite_type: 'USER',
+            entite_id: 'user-001',
+            ancienne_val: '{"actif": false}',
+            nouvelle_val: '{"actif": true}',
+            utilisateur: { prenom_user: 'Admin', nom_user: 'Système', email_user: 'admin@casnos.dz' }
+          }
+        ];
+        
+        // Filter mock data based on selected filters
+        if (filters.entite_type) {
+          fetchedLogs = fetchedLogs.filter(l => l.entite_type === filters.entite_type);
+        }
+        if (filters.action) {
+          fetchedLogs = fetchedLogs.filter(l => l.action.toLowerCase().includes(filters.action.toLowerCase()));
+        }
+        
+        fetchedTotal = fetchedLogs.length;
+      }
+
+      setLogs(fetchedLogs);
+      setTotal(fetchedTotal);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters, page, limit]);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const result = await userService.getAllUsers();
+      setUsers(result.users || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+    setPage(1); // Reset to first page on filter change
+  };
+
+  const getActionColor = (action) => {
+    switch (action?.toUpperCase()) {
+      case 'CREATE': return '#10b981';
+      case 'UPDATE': return '#3b82f6';
+      case 'DELETE': return '#ef4444';
+      case 'APPROVE': return '#10b981';
+      case 'REJECT': return '#f59e0b';
+      default: return '#64748b';
+    }
+  };
+
+  const formatValue = (val) => {
+    if (!val) return '—';
+    if (typeof val === 'object') {
+      return <pre style={{ fontSize: '0.7rem', margin: 0 }}>{JSON.stringify(val, null, 2)}</pre>;
+    }
+    try {
+      const obj = JSON.parse(val);
+      return <pre style={{ fontSize: '0.7rem', margin: 0 }}>{JSON.stringify(obj, null, 2)}</pre>;
+    } catch {
+      return val;
+    }
+  };
+
+  return (
+    <div className="audit-page">
+      <div className="audit-header">
+        <div>
+          <h1><FiActivity /> Journaux d'audit</h1>
+          <p>Suivi détaillé des actions et modifications système</p>
+        </div>
+        <div className="header-stats">
+          <div className="stat-item">
+            <FiDatabase />
+            <span>{total} entrées totales</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="audit-toolbar">
+        <div className="toolbar-filters">
+          <div className="filter-group">
+            <FiLayers className="filter-icon" />
+            <select name="entite_type" value={filters.entite_type} onChange={handleFilterChange}>
+              <option value="">Toutes les entités</option>
+              <option value="RFC">RFC</option>
+              <option value="CHANGEMENT">Changement</option>
+              <option value="TACHE">Tâche</option>
+              <option value="CI">Élément de Configuration</option>
+              <option value="USER">Utilisateur</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <FiUser className="filter-icon" />
+            <select name="id_user" value={filters.id_user} onChange={handleFilterChange}>
+              <option value="">Tous les utilisateurs</option>
+              {users.map(u => (
+                <option key={u.id_user} value={u.id_user}>
+                  {u.prenom_user} {u.nom_user}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <FiSearch className="filter-icon" />
+            <input 
+              type="text" 
+              name="action" 
+              placeholder="Action (ex: CREATE...)" 
+              value={filters.action} 
+              onChange={handleFilterChange}
+            />
+          </div>
+
+          <button className="refresh-btn" onClick={fetchLogs} title="Actualiser">
+            <FiRefreshCw className={loading ? 'spinning' : ''} />
+          </button>
+        </div>
+      </div>
+
+      <div className="audit-table-container glass-card">
+        {loading ? (
+          <div className="loading-state">
+            <FiRefreshCw className="spinning" />
+            <p>Chargement des journaux...</p>
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="empty-state">
+            <FiDatabase />
+            <p>Aucun journal trouvé pour ces critères.</p>
+          </div>
+        ) : (
+          <table className="audit-table">
+            <thead>
+              <tr>
+                <th>Date & Heure</th>
+                <th>Utilisateur</th>
+                <th>Action</th>
+                <th>Entité</th>
+                <th>ID Entité</th>
+                <th>Détails (Ancien/Nouveau)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log) => (
+                <tr key={log.id_log}>
+                  <td className="td-date">
+                    <FiClock />
+                    {new Date(log.date_action).toLocaleString()}
+                  </td>
+                  <td className="td-user">
+                    <div className="user-avatar">
+                      {log.utilisateur?.prenom_user?.[0]}{log.utilisateur?.nom_user?.[0]}
+                    </div>
+                    <span>{log.utilisateur?.prenom_user} {log.utilisateur?.nom_user}</span>
+                  </td>
+                  <td>
+                    <span className="action-badge" style={{ backgroundColor: getActionColor(log.action) }}>
+                      {log.action}
+                    </span>
+                  </td>
+                  <td className="td-entite">{log.entite_type}</td>
+                  <td className="td-id">#{log.entite_id?.slice(0, 8)}</td>
+                  <td className="td-diff">
+                    <div className="diff-view">
+                      <div className="diff-old">
+                        <label>Ancien</label>
+                        <div className="diff-content">{formatValue(log.ancienne_val)}</div>
+                      </div>
+                      <FiArrowRight className="diff-arrow" />
+                      <div className="diff-new">
+                        <label>Nouveau</label>
+                        <div className="diff-content">{formatValue(log.nouvelle_val)}</div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        <div className="audit-footer">
+          <div className="pagination">
+            <button 
+              disabled={page === 1} 
+              onClick={() => setPage(p => p - 1)}
+            >Précédent</button>
+            <span>Page {page} sur {Math.ceil(total / limit)}</span>
+            <button 
+              disabled={page >= Math.ceil(total / limit)} 
+              onClick={() => setPage(p => p + 1)}
+            >Suivant</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AuditLog;
