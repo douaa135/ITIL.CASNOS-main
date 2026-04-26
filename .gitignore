@@ -1,8 +1,11 @@
 node_modules/
+BACKEND/node_modules/
 .DS_Store
 dist/
 build/
 .env
+BACKEND/.env
 *.log
 .gemini/
 .antigravity/
+/src/generated/prisma
