@@ -3,7 +3,7 @@ import changeService from '../../services/changeService';
 import dashboardService from '../../services/dashboardService';
 import { 
     FiRefreshCw, FiTrendingUp, FiActivity, FiXCircle, 
-    FiSearch, FiFilter, FiEye, FiClock, FiCheckCircle, FiFileText, FiX, FiInfo
+    FiSearch, FiFilter, FiEye, FiClock, FiCheckCircle, FiFileText, FiX, FiInfo, FiEdit3
 } from 'react-icons/fi';
 import Badge from '../../components/common/Badge';
 import api from '../../api/axiosClient';
@@ -22,6 +22,15 @@ const AdminChangementList = () => {
     const [showProcess, setShowProcess] = useState(false);
     const [showReportForm, setShowReportForm] = useState(false);
     const [reportForm, setReportForm] = useState({ titre_rapport: '', type_rapport: 'Audit', contenu_rapport: '' });
+    const [editMode, setEditMode] = useState(false);
+    const [editForm, setEditForm] = useState({
+        titre: '',
+        description: '',
+        priorite: '',
+        date_debut: '',
+        date_fin: '',
+        environnement: ''
+    });
 
     const handleOpenProcess = (c) => {
         setSelectedChangement(c);
@@ -32,6 +41,34 @@ const AdminChangementList = () => {
         setShowProcess(false);
         setSelectedChangement(null);
         setShowReportForm(false);
+        setEditMode(false);
+    };
+
+    const handleEditChangement = () => {
+        if (!selectedChangement) return;
+        setEditForm({
+            titre: selectedChangement.titre || '',
+            description: selectedChangement.description || '',
+            priorite: selectedChangement.priorite || '',
+            date_debut: selectedChangement.date_debut || '',
+            date_fin: selectedChangement.date_fin || '',
+            environnement: selectedChangement.environnement?.id_env || ''
+        });
+        setEditMode(true);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!selectedChangement) return;
+        try {
+            await changeService.updateChangement(selectedChangement.id_changement, editForm);
+            alert('Changement modifié avec succès !');
+            setEditMode(false);
+            // Recharger la liste
+            const updatedChangements = await changeService.getAllChangements();
+            setChangements(updatedChangements);
+        } catch (error) {
+            alert('Erreur lors de la modification du changement.');
+        }
     };
 
     const handleCreateReport = async () => {
@@ -219,6 +256,12 @@ const AdminChangementList = () => {
                             </div>
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                 <button 
+                                    onClick={handleEditChangement}
+                                    style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600', fontSize: '0.85rem' }}
+                                >
+                                    <FiEdit3 /> Modifier
+                                </button>
+                                <button 
                                     onClick={() => setShowReportForm(!showReportForm)}
                                     style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#b45309', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600', fontSize: '0.85rem' }}
                                 >
@@ -258,6 +301,73 @@ const AdminChangementList = () => {
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
                                                     <button onClick={() => setShowReportForm(false)} style={{ background: 'transparent', border: 'none', color: '#92400e', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>Annuler</button>
                                                     <button onClick={handleCreateReport} style={{ background: '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }}>Enregistrer le Rapport</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {editMode && (
+                                        <div style={{ background: '#f0f9ff', padding: '1.5rem', borderRadius: '12px', border: '1px solid #bae6fd', marginBottom: '1.5rem' }}>
+                                            <h4 style={{ margin: '0 0 1rem 0', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FiEdit3 /> Modifier le Changement</h4>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                                    <div>
+                                                        <label style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: '600' }}>Titre</label>
+                                                        <input 
+                                                            type="text" 
+                                                            value={editForm.titre} 
+                                                            onChange={e => setEditForm({...editForm, titre: e.target.value})}
+                                                            style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #7dd3fc', outline: 'none' }} 
+                                                            placeholder="Titre du changement..." 
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: '600' }}>Priorité</label>
+                                                        <select 
+                                                            value={editForm.priorite} 
+                                                            onChange={e => setEditForm({...editForm, priorite: e.target.value})}
+                                                            style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #7dd3fc', outline: 'none', background: 'white' }}
+                                                        >
+                                                            <option value="">Sélectionner...</option>
+                                                            <option value="BASSE">Basse</option>
+                                                            <option value="MOYENNE">Moyenne</option>
+                                                            <option value="HAUTE">Haute</option>
+                                                            <option value="CRITIQUE">Critique</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: '600' }}>Description</label>
+                                                    <textarea 
+                                                        value={editForm.description} 
+                                                        onChange={e => setEditForm({...editForm, description: e.target.value})}
+                                                        style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #7dd3fc', outline: 'none', minHeight: '80px' }} 
+                                                        placeholder="Description du changement..." 
+                                                    />
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                                    <div>
+                                                        <label style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: '600' }}>Date début</label>
+                                                        <input 
+                                                            type="datetime-local" 
+                                                            value={editForm.date_debut} 
+                                                            onChange={e => setEditForm({...editForm, date_debut: e.target.value})}
+                                                            style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #7dd3fc', outline: 'none' }} 
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: '600' }}>Date fin</label>
+                                                        <input 
+                                                            type="datetime-local" 
+                                                            value={editForm.date_fin} 
+                                                            onChange={e => setEditForm({...editForm, date_fin: e.target.value})}
+                                                            style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #7dd3fc', outline: 'none' }} 
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                                                    <button onClick={() => setEditMode(false)} style={{ background: 'transparent', border: 'none', color: '#0369a1', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>Annuler</button>
+                                                    <button onClick={handleSaveEdit} style={{ background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }}>Enregistrer</button>
                                                 </div>
                                             </div>
                                         </div>

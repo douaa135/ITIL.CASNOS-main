@@ -22,8 +22,12 @@ import UserManagement       from './pages/admin/UserManagement';
 import CiManagement         from './pages/admin/CiManagement';
 import AuditLog             from './pages/admin/AuditLog';
 import BroadcastCenter      from './pages/admin/BroadcastCenter';
-import SystemSettings       from './pages/admin/SystemSettings';
+import EnvironmentManagement from './pages/admin/SystemSettings';
 import AdminChangementList  from './pages/admin/AdminChangementList';
+import DirectionManagement  from './pages/admin/DirectionManagement';
+import TaskManagement from './pages/admin/TaskManagement';
+import AdminCabManagement from './pages/admin/AdminCabManagement';
+
 
 // ── Demandeur ─────────────────────────────────────────────────
 import DemandeurDashboard from './pages/demandeur/DemandeurDashboard';
@@ -175,10 +179,26 @@ function App() {
             <ProtectedRoute><AdminLayout><BroadcastCenter /></AdminLayout></ProtectedRoute>
           } />
           <Route path="/admin-system/settings" element={
-            <ProtectedRoute><AdminLayout><SystemSettings /></AdminLayout></ProtectedRoute>
+            <ProtectedRoute><AdminLayout><EnvironmentManagement /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/cab" element={
+            <ProtectedRoute><AdminLayout><AdminCabManagement /></AdminLayout></ProtectedRoute>
+          } />
+
+          <Route path="/admin-system/cab/meetings" element={
+            <ProtectedRoute><AdminLayout><CabMeetings /></AdminLayout></ProtectedRoute>
           } />
           <Route path="/admin-system/changes" element={
             <ProtectedRoute><AdminLayout><AdminChangementList /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/directions" element={
+            <ProtectedRoute><AdminLayout><DirectionManagement /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/environments" element={
+            <ProtectedRoute><AdminLayout><EnvironmentManagement /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/tasks" element={
+            <ProtectedRoute><AdminLayout><TaskManagement /></AdminLayout></ProtectedRoute>
           } />
 
           {/* ── Demandeur ────────────────────────────────────── */}
