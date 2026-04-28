@@ -5,7 +5,19 @@ import {
   FiClock, FiPlay, FiPause, FiUser, FiCalendar, FiInfo, FiRefreshCw, FiLayers
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
-import './SystemSettings.css'; // Using the premium admin styles
+import './SystemSettings.css'; 
+import '../changemanager/RfcManagement.css'; 
+
+const getTaskStatusClass = (status) => {
+  switch(status) {
+    case 'PLANIFIEE': return 'status-blue';
+    case 'EN_COURS':  return 'status-pink';
+    case 'EN_PAUSE':  return 'status-amber';
+    case 'TERMINEE':  return 'status-green';
+    case 'ANNULEE':   return 'status-red';
+    default:          return 'status-default';
+  }
+};
 
 // ── Toast notifications ───────────────────────────────────────
 const Toast = ({ msg, type, onClose }) => (
@@ -42,66 +54,80 @@ const TaskDetailModal = ({ task, onClose, onEdit, onDelete }) => {
             <h2>Détails de la Tâche</h2>
             <div className="rfc-style-subtitle">Référence : {task.code_tache}</div>
           </div>
-          <div className="rfc-style-actions">
-            <button className="rfc-action-btn edit" onClick={() => onEdit(task)}><FiEdit3 /> Modifier</button>
-            <button className="rfc-action-btn delete" onClick={() => onDelete(task)}><FiTrash2 /> Supprimer</button>
-          </div>
           <button className="close-btn-rfc-style" onClick={onClose}><FiX size={24} /></button>
         </div>
 
         <div className="modal-body-rfc-style">
-          <div className="rfc-details-grid">
-            <div className="detail-item full">
-              <label>Titre de la tâche</label>
-              <div className="detail-value" style={{ fontSize: '1.1rem', fontWeight: '700' }}>{task.titre_tache}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div className="form-group-cab" style={{ gridColumn: 'span 2' }}>
+              <label>Titre de la Tâche</label>
+              <div className="detail-value-display" style={{ fontSize: '1.05rem', fontWeight: '800', color: '#1e40af', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                {task.titre_tache}
+              </div>
             </div>
-            <div className="detail-item full">
+            <div className="form-group-cab" style={{ gridColumn: 'span 2' }}>
               <label>Description</label>
-              <div className="detail-value">{task.description || 'Aucune description fournie.'}</div>
+              <div className="detail-value-display" style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', minHeight: '80px', lineHeight: '1.5' }}>
+                {task.description || 'Aucune description fournie.'}
+              </div>
             </div>
-            <div className="detail-item">
+            <div className="form-group-cab">
               <label>Statut</label>
-              <div className="detail-value">
-                <span className={`ref-badge`} style={{ 
-                  background: task.statut === 'TERMINEE' ? '#d1fae5' : '#dbeafe',
-                  color: task.statut === 'TERMINEE' ? '#047857' : '#1e40af'
-                }}>
+              <div className="detail-value-display" style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <span className={`status-badge ${getTaskStatusClass(task.statut)}`} style={{ fontSize: '0.75rem' }}>
                   {task.statut}
                 </span>
               </div>
             </div>
-            <div className="detail-item">
+            <div className="form-group-cab">
               <label>Priorité</label>
-              <div className="detail-value">
-                <span className={`ref-badge`} style={{ 
-                  background: task.priorite === 'CRITIQUE' ? '#fee2e2' : '#fef3c7',
-                  color: task.priorite === 'CRITIQUE' ? '#991b1b' : '#92400e'
+              <div className="detail-value-display" style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <span className={`ref-badge`} style={{
+                  background: task.priorite === 'CRITIQUE' ? '#fee2e2' : task.priorite === 'HAUTE' ? '#fef3c7' : '#f0f9ff',
+                  color: task.priorite === 'CRITIQUE' ? '#991b1b' : task.priorite === 'HAUTE' ? '#92400e' : '#0369a1',
+                  fontSize: '0.75rem', padding: '0.4rem 0.8rem', borderRadius: '6px'
                 }}>
                   {task.priorite}
                 </span>
               </div>
             </div>
-            <div className="detail-item">
+            <div className="form-group-cab">
               <label>Assigné à</label>
-              <div className="detail-value"><FiUser style={{ marginRight: '8px' }}/> {task.implementeur?.prenom} {task.implementeur?.nom}</div>
+              <div className="detail-value-display" style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center' }}>
+                <FiUser style={{ marginRight: '8px', color: '#64748b' }}/>
+                {task.implementeur?.prenom} {task.implementeur?.nom}
+              </div>
             </div>
-            <div className="detail-item">
+            <div className="form-group-cab">
               <label>Changement associé</label>
-              <div className="detail-value" style={{ color: '#3b82f6', fontWeight: '600' }}>{task.changement?.code_changement}</div>
+              <div className="detail-value-display" style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#2563eb', fontWeight: '800' }}>
+                {task.changement?.code_changement}
+              </div>
             </div>
-            <div className="detail-item">
+            <div className="form-group-cab">
               <label>Début prévu</label>
-              <div className="detail-value"><FiCalendar style={{ marginRight: '8px' }}/> {task.date_debut_prevue ? new Date(task.date_debut_prevue).toLocaleString() : 'Non définie'}</div>
+              <div className="detail-value-display" style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center' }}>
+                <FiCalendar style={{ marginRight: '8px', color: '#64748b' }}/>
+                {task.date_debut_prevue ? new Date(task.date_debut_prevue).toLocaleString() : 'Non définie'}
+              </div>
             </div>
-            <div className="detail-item">
+            <div className="form-group-cab">
               <label>Fin prévue</label>
-              <div className="detail-value"><FiClock style={{ marginRight: '8px' }}/> {task.date_fin_prevue ? new Date(task.date_fin_prevue).toLocaleString() : 'Non définie'}</div>
+              <div className="detail-value-display" style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center' }}>
+                <FiClock style={{ marginRight: '8px', color: '#64748b' }}/>
+                {task.date_fin_prevue ? new Date(task.date_fin_prevue).toLocaleString() : 'Non définie'}
+              </div>
             </div>
           </div>
         </div>
 
         <div className="modal-footer-rfc-style">
-          <button className="btn-cancel-rfc-style" onClick={onClose}>Fermer</button>
+          <button type="button" className="btn-cancel-rfc-style" onClick={() => { onClose(); onDelete(task); }}>
+            <FiTrash2 size={16} /> Supprimer
+          </button>
+          <button type="button" className="btn-submit-rfc-style" onClick={() => { onClose(); onEdit(task); }}>
+            <FiEdit3 size={16} /> Modifier
+          </button>
         </div>
       </div>
     </div>
@@ -109,12 +135,10 @@ const TaskDetailModal = ({ task, onClose, onEdit, onDelete }) => {
 };
 
 // ── Modal d'ajout/édition ─────────────────────────────────────
-const TaskModal = ({ task, onClose, onSave, loading }) => {
+const TaskModal = ({ task, onClose, onSave, loading, implementers }) => {
   const [form, setForm] = useState({
-    code_tache: task?.code_tache || '',
     titre_tache: task?.titre_tache || '',
     description: task?.description || '',
-    statut: task?.statut || 'PLANIFIEE',
     priorite: task?.priorite || 'MOYENNE',
     date_debut_prevue: task?.date_debut_prevue || '',
     date_fin_prevue: task?.date_fin_prevue || '',
@@ -123,13 +147,12 @@ const TaskModal = ({ task, onClose, onSave, loading }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.code_tache.trim() || !form.titre_tache.trim()) return;
     onSave(form);
   };
 
   return (
     <div className="modal-backdrop-cab" onClick={onClose}>
-      <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '650px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-top-rfc-style">
           <div className="rfc-style-icon-wrapper"><FiCheckSquare /></div>
           <div className="rfc-style-header-text">
@@ -142,31 +165,6 @@ const TaskModal = ({ task, onClose, onSave, loading }) => {
         <form onSubmit={handleSubmit}>
           <div className="modal-body-rfc-style">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-              <div className="form-group-cab">
-                <label>Code Tâche *</label>
-                <input
-                  type="text"
-                  value={form.code_tache}
-                  onChange={e => setForm({...form, code_tache: e.target.value})}
-                  className="premium-input-style"
-                  placeholder="Ex: TASK-001"
-                  required
-                />
-              </div>
-              <div className="form-group-cab">
-                <label>Statut</label>
-                <select
-                  value={form.statut}
-                  onChange={e => setForm({...form, statut: e.target.value})}
-                  className="premium-input-style"
-                >
-                  <option value="PLANIFIEE">Planifiée</option>
-                  <option value="EN_COURS">En Cours</option>
-                  <option value="EN_PAUSE">En Pause</option>
-                  <option value="TERMINEE">Terminée</option>
-                  <option value="ANNULEE">Annulée</option>
-                </select>
-              </div>
               <div className="form-group-cab" style={{ gridColumn: 'span 2' }}>
                 <label>Titre de la Tâche *</label>
                 <input
@@ -201,13 +199,20 @@ const TaskModal = ({ task, onClose, onSave, loading }) => {
                 </select>
               </div>
               <div className="form-group-cab">
-                <label>Implémenteur (ID)</label>
-                <input
-                  type="text"
+                <label>Implémenteur</label>
+                <select
                   value={form.id_implementeur}
                   onChange={e => setForm({...form, id_implementeur: e.target.value})}
                   className="premium-input-style"
-                />
+                  required
+                >
+                  <option value="">Choisir un implémenteur</option>
+                  {implementers.map(imp => (
+                    <option key={imp.id_user} value={imp.id_user}>
+                      {imp.prenom_user} {imp.nom_user}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="form-group-cab">
                 <label>Date début prévue</label>
@@ -233,7 +238,7 @@ const TaskModal = ({ task, onClose, onSave, loading }) => {
           <div className="modal-footer-rfc-style">
             <button type="button" className="btn-cancel-rfc-style" onClick={onClose}>Annuler</button>
             <button type="submit" disabled={loading} className="btn-submit-rfc-style">
-              {loading ? 'Sauvegarde...' : (task ? 'Enregistrer' : 'Créer')}
+              {loading ? 'Sauvegarde...' : (task ? 'Modifier' : 'Créer')}
             </button>
           </div>
         </form>
@@ -252,8 +257,25 @@ const TaskManagement = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [implementers, setImplementers] = useState([]);
   const [toast, setToast] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  const fetchImplementers = useCallback(async () => {
+    try {
+      const res = await api.get('/users?nom_role=IMPLEMENTEUR&limit=100');
+      // L'intercepteur axios retourne response.data directement
+      // res = { success, data: { data: [...users], total, page } }
+      const list = res.data?.data || res.data || [];
+      setImplementers(list);
+    } catch (error) {
+      console.error('Erreur chargement implémenteurs', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchImplementers();
+  }, [fetchImplementers]);
 
   // Mock data as before
   const mockTasks = [
@@ -278,7 +300,10 @@ const TaskManagement = () => {
 
   const filteredTasks = tasks.filter(task => {
     const term = search.toLowerCase();
-    return task.code_tache.toLowerCase().includes(term) || task.titre_tache.toLowerCase().includes(term);
+    return (
+      (task.code_tache?.toLowerCase() || '').includes(term) ||
+      (task.titre_tache?.toLowerCase() || '').includes(term)
+    );
   }).filter(t => filter === 'ALL' || t.statut === filter);
 
   const handleAddTask = () => { setEditingTask(null); setShowModal(true); };
@@ -294,24 +319,50 @@ const TaskManagement = () => {
 
   const handleSaveTask = async (formData) => {
     setSaving(true);
-    await new Promise(r => setTimeout(r, 500));
-    if (editingTask) {
-      setTasks(prev => prev.map(t => t.id_tache === editingTask.id_tache ? {...t, ...formData} : t));
-    } else {
-      setTasks(prev => [...prev, { id_tache: Date.now(), ...formData, implementeur: { nom: 'Admin', prenom: 'System' }, changement: { code_changement: 'CHG-NEW' } }]);
+    try {
+      await new Promise(r => setTimeout(r, 300));
+      if (editingTask) {
+        // Mise à jour
+        const imp = implementers.find(i => i.id_user === formData.id_implementeur);
+        setTasks(prev => prev.map(t =>
+          t.id_tache === editingTask.id_tache
+            ? { ...t, ...formData, implementeur: imp || t.implementeur }
+            : t
+        ));
+        setToast({ msg: 'Tâche modifiée avec succès.', type: 'success' });
+      } else {
+        // Nouvelle tâche
+        const imp = implementers.find(i => i.id_user === formData.id_implementeur);
+        const newTask = {
+          id_tache: Date.now(),
+          code_tache: `TASK-${String(Date.now()).slice(-4)}`,
+          statut: 'PLANIFIEE',
+          ...formData,
+          implementeur: imp
+            ? { nom: imp.nom_user, prenom: imp.prenom_user, nom_user: imp.nom_user, prenom_user: imp.prenom_user }
+            : { nom: 'Inconnu', prenom: '' },
+          changement: { code_changement: '—' },
+        };
+        setTasks(prev => [...prev, newTask]);
+        setToast({ msg: 'Tâche créée avec succès.', type: 'success' });
+      }
+      setShowModal(false);
+    } finally {
+      setSaving(false);
     }
-    setShowModal(false);
-    setSaving(false);
   };
 
   return (
     <div className="settings-page">
-      <div className="settings-header">
-        <div className="header-icon-main"><FiCheckSquare /></div>
-        <div>
-          <h1>Gestion des Tâches</h1>
-          <p>Supervisez l'exécution des plans de changement et les interventions techniques.</p>
+      <div className="settings-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="header-icon-main" style={{ margin: 0 }}><FiCheckSquare /></div>
+          <div>
+            <h1 style={{ margin: 0, marginBottom: '0.25rem' }}>Gestion des Tâches</h1>
+            <p style={{ margin: 0 }}>Supervisez l'exécution des plans de changement et les interventions techniques.</p>
+          </div>
         </div>
+        <button className="btn-create-premium" onClick={handleAddTask}><FiPlus /> Nouvelle Tâche</button>
       </div>
 
       <div className="stats-grid">
@@ -349,7 +400,6 @@ const TaskManagement = () => {
             <option value="TERMINEE">Terminées</option>
           </select>
         </div>
-        <button className="btn-add-premium" onClick={handleAddTask}><FiPlus /> Nouvelle Tâche</button>
       </div>
 
       <div className="premium-table-card">
@@ -379,14 +429,13 @@ const TaskManagement = () => {
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <FiUser size={14} color="#64748b" />
-                    {task.implementeur?.prenom} {task.implementeur?.nom}
+                    {task.implementeur?.prenom_user || task.implementeur?.prenom} {task.implementeur?.nom_user || task.implementeur?.nom}
                   </div>
                 </td>
                 <td style={{ textAlign: 'center' }}>
-                  <span className={`ref-badge ${task.statut}`} style={{ 
-                    background: task.statut === 'TERMINEE' ? '#d1fae5' : '#f1f5f9',
-                    color: task.statut === 'TERMINEE' ? '#047857' : '#475569'
-                  }}>{task.statut}</span>
+                  <span className={`status-badge ${getTaskStatusClass(task.statut)}`} style={{ fontSize: '0.65rem' }}>
+                    {task.statut}
+                  </span>
                 </td>
                 <td>
                   <div className="actions-flex">
@@ -400,7 +449,7 @@ const TaskManagement = () => {
         </table>
       </div>
 
-      {showModal && <TaskModal task={editingTask} onClose={() => setShowModal(false)} onSave={handleSaveTask} loading={saving} />}
+      {showModal && <TaskModal task={editingTask} onClose={() => setShowModal(false)} onSave={handleSaveTask} loading={saving} implementers={implementers} />}
       {showDetailModal && <TaskDetailModal task={selectedTask} onClose={() => setShowDetailModal(false)} onEdit={handleEditTask} onDelete={handleDeleteTask} />}
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
     </div>

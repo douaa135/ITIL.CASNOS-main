@@ -6,6 +6,16 @@ import {
 import api from '../../api/axiosClient';
 import './Broadcaster.css';
 
+const ROLE_LABELS = {
+  ADMIN:          'Admin',
+  CHANGE_MANAGER: 'Change Manager',
+  SERVICE_DESK:   'Service Desk',
+  IMPLEMENTEUR:   'Implémenteur',
+  DEMANDEUR:      'Demandeur',
+  MEMBRE_CAB:     'Membre CAB',
+  ADMIN_SYSTEME:  'Admin Système',
+};
+
 const Broadcaster = () => {
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState('');
@@ -43,13 +53,14 @@ const Broadcaster = () => {
       let targetIds;
       if (selectedUser === 'ALL') {
         targetIds = users.map(u => u.id_user);
-        if (targetIds.length === 0) {
-          alert('Aucun utilisateur chargé. Veuillez patienter et réessayer.');
-          setSending(false);
-          return;
-        }
       } else {
         targetIds = [selectedUser];
+      }
+
+      if (targetIds.length === 0) {
+        alert('Aucun utilisateur correspondant trouvé.');
+        setSending(false);
+        return;
       }
 
       const limitedTargets = targetIds.slice(0, 20);
@@ -90,17 +101,44 @@ const Broadcaster = () => {
             
             <form onSubmit={handleBroadcast}>
                <div className="form-group">
-                  <label>Destinataire(s)</label>
-                  <select 
-                    value={selectedUser} 
+                  <label>
+                    <FiUsers style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                    Destinataire
+                  </label>
+                  <select
+                    value={selectedUser}
                     onChange={e => setSelectedUser(e.target.value)}
                     className="sd-input"
+                    style={{ width: '100%', padding: '0.65rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', background: 'white', cursor: 'pointer', fontWeight: '500' }}
                   >
-                     <option value="ALL">Tous les utilisateurs actifs</option>
-                     {users.map(u => (
-                       <option key={u.id_user} value={u.id_user}>{u.nom_user} {u.prenom_user} ({u.roles?.[0]})</option>
-                     ))}
+                    <option value="ALL">📢 Tous les utilisateurs</option>
+                    
+                    {users.map(u => (
+                      <option key={u.id_user} value={u.id_user}>
+                        👤 {u.prenom_user} {u.nom_user} ({ROLE_LABELS[u.roles?.[0]] || 'Utilisateur'})
+                      </option>
+                    ))}
                   </select>
+                  {/* Compteur dynamique */}
+                  <div style={{
+                    marginTop: '0.5rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    background: selectedUser === 'ALL' ? '#eff6ff' : '#f0fdf4',
+                    color: selectedUser === 'ALL' ? '#1d4ed8' : '#15803d',
+                    border: `1px solid ${selectedUser === 'ALL' ? '#bfdbfe' : '#bbf7d0'}`,
+                    borderRadius: '99px',
+                    padding: '0.25rem 0.75rem',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                  }}>
+                    <FiUsers size={12} />
+                    {selectedUser === 'ALL' 
+                      ? `${users.length} utilisateur${users.length !== 1 ? 's' : ''} ciblé${users.length !== 1 ? 's' : ''}`
+                      : '1 utilisateur ciblé'
+                    }
+                  </div>
                </div>
 
                <div className="form-group">

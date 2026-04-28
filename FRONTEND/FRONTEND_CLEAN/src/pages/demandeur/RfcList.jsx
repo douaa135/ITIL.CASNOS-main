@@ -102,7 +102,7 @@ const MY_RFCS = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  BROUILLON:   { badge: 'info',    label: 'Brouillon',      progress: 10 },
+  BROUILLON:   { badge: 'warning', label: 'Soumise',        progress: 30 },
   SOUMIS:      { badge: 'warning', label: 'Soumise',        progress: 30 },
   EVALUEE:     { badge: 'warning', label: 'Évaluée',        progress: 55 },
   APPROUVEE:   { badge: 'success', label: 'Approuvée',     progress: 75 },
@@ -143,6 +143,215 @@ const filterByTab = (rfcs, tab) => {
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+
+// ─── RfcDetailModal ──────────────────────────────────────────────────────────
+const RfcDetailModal = ({ rfcId, onClose }) => {
+  const [rfc, setRfc] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [comment, setComment] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const fetchDetail = async () => {
+    try {
+      const res = await api.get(`/rfc/${rfcId}`);
+      if (res.success) setRfc(res.data.rfc);
+    } catch (err) {
+      console.error('Modal detail fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (rfcId) fetchDetail();
+  }, [rfcId]);
+
+  const handleAddComment = async () => {
+    if (!comment.trim()) return;
+    setSending(true);
+    try {
+      const res = await api.post(`/rfc/${rfc.id_rfc}/comments`, { contenu: comment });
+      if (res.success) {
+        setComment('');
+        fetchDetail(); // Refresh to show new comment
+      }
+    } catch (err) {
+      console.error('Add comment error:', err);
+      alert('Erreur lors de l\'envoi du message.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (!rfcId) return null;
+
+  return (
+    <div className="modal-overlay-premium" onClick={onClose}>
+      <div className="modal-content-premium" onClick={e => e.stopPropagation()}>
+        <div className="modal-header-premium">
+          <h3><FiFileText color="var(--primary-color)" /> Détails de la RFC</h3>
+          <button className="modal-close-btn" onClick={onClose}><FiX /></button>
+        </div>
+        
+        <div className="modal-body-premium">
+          {loading ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+              <span className="spinner" /> Chargement des détails...
+            </div>
+          ) : rfc ? (
+            <>
+              <div className="modal-section">
+                <div className="modal-section-title"><FiInfo /> Informations Générales</div>
+                <div className="info-grid-premium">
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">ID RFC</span>
+                    <span className="info-value-premium" style={{ color: 'var(--primary-color)', fontWeight: 800 }}>{rfc.code_rfc}</span>
+                  </div>
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Statut Actuel</span>
+                    <Badge status={STATUS_CONFIG[rfc.statut?.code_statut]?.badge || 'default'}>
+                      {rfc.statut?.libelle || 'Inconnu'}
+                    </Badge>
+                  </div>
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Urgence</span>
+                    <span className="info-value-premium">{rfc.urgence ? 'HAUTE' : 'NORMALE'}</span>
+                  </div>
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Priorité</span>
+                    <span className="info-value-premium">{rfc.priorite?.libelle || 'Moyenne'}</span>
+                  </div>
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Date de Création</span>
+                    <span className="info-value-premium">{new Date(rfc.date_creation).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Date Souhaitée</span>
+                    <span className="info-value-premium">{rfc.date_souhaitee ? new Date(rfc.date_souhaitee).toLocaleDateString('fr-FR') : '-'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-section">
+                <div className="modal-section-title"><FiTarget /> Contenu de la Demande</div>
+                <div className="description-block-premium">
+                  <span className="info-label-premium">Titre</span>
+                  <p className="info-value-premium" style={{ marginTop: '0.25rem', fontSize: '1.05rem' }}>{rfc.titre_rfc}</p>
+                </div>
+                <div className="description-block-premium">
+                  <span className="info-label-premium">Description</span>
+                  <p className="description-text-premium">{rfc.description}</p>
+                </div>
+                <div className="description-block-premium">
+                  <span className="info-label-premium">Justification</span>
+                  <p className="description-text-premium">{rfc.justification}</p>
+                </div>
+              </div>
+
+              <div className="modal-section">
+                <div className="modal-section-title"><FiLayers /> Configuration & Impact</div>
+                <div className="info-grid-premium">
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Impact Estimé</span>
+                    <span className="info-value-premium">{rfc.impacte_estimee || 'MINEUR'}</span>
+                  </div>
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Type de Changement</span>
+                    <span className="info-value-premium">{rfc.typeRfc?.type || 'NORMAL'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ─── Commentaires & Feedback ─── */}
+              <div className="modal-section">
+                <div className="modal-section-title"><FiMessageSquare /> Échanges & Feedback</div>
+                
+                <div className="comments-list-premium" style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {rfc.commentaires?.length > 0 ? rfc.commentaires.map(c => (
+                    <div key={c.id_commentaire} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
+                        {c.auteur?.prenom_user?.[0]}{c.auteur?.nom_user?.[0]}
+                      </div>
+                      <div style={{ flex: 1, background: '#f1f5f9', padding: '0.75rem', borderRadius: '0 12px 12px 12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>{c.auteur?.prenom_user} {c.auteur?.nom_user}</span>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{new Date(c.date_publication).toLocaleDateString('fr-FR')}</span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#475569' }}>{c.contenu}</p>
+                      </div>
+                    </div>
+                  )) : (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.85rem' }}>Aucun échange pour le moment.</div>
+                  )}
+                </div>
+
+                <div className="comment-input-premium">
+                  <label className="info-label-premium" style={{ marginBottom: '0.5rem', display: 'block' }}>Modèles de Message :</label>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                    {[
+                      { label: 'Mise à jour préventive', text: 'Bonjour, nous procédons à une mise à jour préventive du système pour garantir sa stabilité optimale.' },
+                      { label: 'Interruption de service', text: 'Bonjour, nous vous informons d\'une interruption de service momentanée suite à une anomalie critique.' },
+                      { label: 'Service restauré', text: 'Bonjour, le service a été restauré avec succès. Merci de nous signaler toute instabilité résiduelle.' },
+                      { label: 'Changement d\'urgence', text: 'Bonjour, un changement d\'urgence est actuellement en cours pour résoudre un incident majeur.' },
+                      { label: 'Maintenance – ce soir', text: 'Bonjour, une maintenance planifiée aura lieu ce soir à partir de 18h. Le service sera indisponible pendant 1h.' },
+                      { label: 'Nouvelle RFC – action requise', text: 'Bonjour, une nouvelle RFC a été soumise et nécessite votre attention immédiate.' }
+                    ].map((m, i) => (
+                      <button 
+                        key={i} 
+                        type="button" 
+                        onClick={() => setComment(m.text)}
+                        style={{ 
+                          fontSize: '0.72rem', 
+                          padding: '0.35rem 0.75rem', 
+                          borderRadius: '8px', 
+                          border: '1px solid #e2e8f0', 
+                          background: '#f8fafc', 
+                          cursor: 'pointer', 
+                          color: '#475569',
+                          fontWeight: '700',
+                          transition: 'all 0.2s',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                        onMouseEnter={e => { e.target.style.background = '#eff6ff'; e.target.style.borderColor = '#3b82f6'; e.target.style.color = '#3b82f6'; }}
+                        onMouseLeave={e => { e.target.style.background = '#f8fafc'; e.target.style.borderColor = '#e2e8f0'; e.target.style.color = '#475569'; }}
+                      >
+                        <FiRadio size={11} /> {m.label}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div style={{ position: 'relative' }}>
+                    <textarea 
+                      placeholder="Votre message..." 
+                      value={comment}
+                      onChange={e => setComment(e.target.value)}
+                      style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.85rem', minHeight: '80px' }}
+                    />
+                    <button 
+                      type="button"
+                      disabled={!comment.trim() || sending}
+                      onClick={handleAddComment}
+                      style={{ position: 'absolute', right: '10px', bottom: '10px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', padding: '0.4rem 0.8rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <FiSend size={12} /> {sending ? '...' : 'Envoyer'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={{ padding: '3rem', textAlign: 'center', color: '#ef4444' }}>
+              Erreur lors du chargement des détails.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MesRfcs = () => {
   const navigate  = useNavigate();
   const location  = useLocation();
@@ -154,6 +363,8 @@ const MesRfcs = () => {
   const [statusF, setStatusF] = useState('');
   const [sortBy,  setSortBy]  = useState('date_desc');
   const [toast,   setToast]   = useState(location.state?.success || false);
+  const [showDetail, setShowDetail] = useState(false);
+  const [selectedRfc, setSelectedRfc] = useState(null);
 
   const fetchMyRfcs = async () => {
     if (!user?.id_user) return;
@@ -260,46 +471,44 @@ const MesRfcs = () => {
           <h2 style={{ color: 'white', fontSize: '1.6rem', margin: '0.5rem 0 0.5rem 0', fontWeight: 700 }}>Vue d'ensemble</h2>
           <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0 }}>Consultez l'historique et l'avancement de vos demandes en temps réel.</p>
         </div>
-        <button
-          onClick={() => navigate('/rfcs/new')}
-          style={{ 
-            display: 'flex', alignItems: 'center', gap: '0.6rem', 
-            padding: '0.75rem 1.5rem', background: '#fff', color: '#1e40af', 
-            border: 'none', borderRadius: '0.75rem', cursor: 'pointer', 
-            fontWeight: 700, fontSize: '0.95rem',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-          }}
-        >
-          <FiPlus /> Nouvelle RFC
-        </button>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <button
+            onClick={() => navigate('/rfcs/new', { state: { edit: false, rfcData: null } })}
+            className="btn-create-premium"
+            style={{ background: 'white', color: '#1e40af' }}
+          >
+            <FiPlus /> Nouveau RFC
+          </button>
+        </div>
       </div>
 
-      {/* KPI Cards Row */}
-      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
         {[
-          { key: 'all',      label: 'Toutes',     value: kpis.total,     color: 'blue',   icon: <FiInbox /> },
-          { key: 'active',   label: 'En cours',   value: kpis.encours,   color: 'orange', icon: <FiClock /> },
-          { key: 'approved', label: 'Approuvées', value: kpis.approuvees, color: 'green',  icon: <FiCheckCircle /> },
-          { key: 'rejected', label: 'Rejetées',   value: kpis.rejetees,   color: 'red',    icon: <FiXCircle /> },
+          { key: 'all',      label: 'Toutes',     value: kpis.total,     color: '#3b82f6', bg: '#eff6ff', icon: <FiInbox /> },
+          { key: 'active',   label: 'En cours',   value: kpis.encours,   color: '#f59e0b', bg: '#fff7ed', icon: <FiClock /> },
+          { key: 'approved', label: 'Approuvées', value: kpis.approuvees, color: '#10b981', bg: '#f0fdf4', icon: <FiCheckCircle /> },
+          { key: 'rejected', label: 'Rejetées',   value: kpis.rejetees,   color: '#ef4444', bg: '#fef2f2', icon: <FiXCircle /> },
         ].map(k => (
           <div 
             key={k.key}
-            className={`kpi-card ${tab === k.key ? 'active' : ''}`}
             onClick={() => setTab(k.key)}
             style={{ 
-              flex: 1, padding: '0.85rem 1.25rem', cursor: 'pointer',
-              border: tab === k.key ? `2px solid var(--status-${k.color})` : '1px solid var(--border-color)',
-              backgroundColor: tab === k.key ? `var(--status-${k.color}-bg)` : 'white',
-              transform: tab === k.key ? 'translateY(-2px)' : 'none',
-              boxShadow: tab === k.key ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-              borderRadius: 'var(--radius-lg)'
+              background: 'white', padding: '1.25rem', borderRadius: '1rem', 
+              border: tab === k.key ? `2px solid ${k.color}` : '1px solid #e2e8f0',
+              boxShadow: tab === k.key ? '0 10px 15px -3px rgba(0,0,0,0.1)' : '0 1px 3px 0 rgba(0,0,0,0.1)',
+              textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
+              transform: tab === k.key ? 'translateY(-3px)' : 'none'
             }}
           >
-            <div className={`kpi-icon ${k.color}`} style={{ width: '40px', height: '40px', fontSize: '1.2rem' }}>{k.icon}</div>
-            <div style={{ marginLeft: '1rem' }}>
-              <div className="kpi-value" style={{ fontSize: '1.25rem' }}>{k.value}</div>
-              <div className="kpi-label" style={{ fontSize: '0.85rem' }}>{k.label}</div>
+            <div style={{ 
+              width: '40px', height: '40px', background: k.bg, borderRadius: '10px', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              margin: '0 auto 0.75rem', color: k.color, fontSize: '1.2rem' 
+            }}>
+              {k.icon}
             </div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', lineHeight: 1 }}>{k.value}</div>
+            <div style={{ margin: '0.35rem 0 0', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{k.label}</div>
           </div>
         ))}
       </div>
@@ -320,11 +529,27 @@ const MesRfcs = () => {
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.25rem 0.75rem', borderRadius: '10px' }}>
+            <FiFilter size={14} color="#64748b" />
+            <select 
+              className="filter-select" 
+              value={statusF} 
+              onChange={e => setStatusF(e.target.value)}
+              style={{ border: 'none', background: 'transparent', padding: '0.4rem 0.2rem', fontSize: '0.85rem', fontWeight: '600', outline: 'none', color: '#475569' }}
+            >
+              <option value="">Tous les statuts</option>
+              {Object.keys(STATUS_CONFIG).map(k => (
+                <option key={k} value={k}>{STATUS_CONFIG[k].label}</option>
+              ))}
+            </select>
+          </div>
+
           <select 
             className="filter-select" 
             value={sortBy} 
             onChange={e => setSortBy(e.target.value)}
+            style={{ background: '#f1f5f9', border: 'none', padding: '0.65rem 1rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '600', color: '#475569' }}
           >
             <option value="date_desc">Plus récentes</option>
             <option value="date_asc">Plus anciennes</option>
@@ -366,7 +591,7 @@ const MesRfcs = () => {
               {rfcs.map(rfc => {
                 const sc = STATUS_CONFIG[rfc.statut.code] || { badge: 'default', label: rfc.statut.libelle, progress: 0 };
                 return (
-                  <tr key={rfc.id_rfc} onClick={() => navigate(`/rfcs/${rfc.id_rfc}`)}>
+                  <tr key={rfc.id_rfc} onClick={() => { setSelectedRfc(rfc.db_id); setShowDetail(true); }}>
                     <td>
                       <span className="rfc-id">{rfc.id_rfc}</span>
                     </td>
@@ -396,13 +621,6 @@ const MesRfcs = () => {
                     </td>
                     <td onClick={e => e.stopPropagation()}>
                       <div className="table-actions">
-                        <button
-                          className="action-icon-btn"
-                          title="Voir le détail"
-                          onClick={() => navigate(`/rfcs/${rfc.id_rfc}`)}
-                        >
-                          <FiEye />
-                        </button>
                         {rfc.statut.code === 'BROUILLON' && (
                           <button
                             className="action-icon-btn"
@@ -433,6 +651,19 @@ const MesRfcs = () => {
           </table>
         )}
       </div>
+
+      {toast && (
+        <div className="toast-success">
+          <FiCheckCircle /> Votre demande a été enregistrée avec succès !
+        </div>
+      )}
+
+      {showDetail && (
+        <RfcDetailModal 
+          rfcId={selectedRfc} 
+          onClose={() => { setShowDetail(false); setSelectedRfc(null); }} 
+        />
+      )}
     </div>
   );
 };

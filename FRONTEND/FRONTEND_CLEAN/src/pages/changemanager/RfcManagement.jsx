@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FiFileText, FiClock, FiSearch, FiRefreshCw, FiEye, FiCheckCircle, 
@@ -9,17 +9,24 @@ import rfcService from '../../services/rfcService';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axiosClient';
 import Card from '../../components/common/Card';
+import RfcCreate from '../demandeur/RfcCreate';
 import './RfcManagement.css';
 
 // ── Helpers ──────────────────────────────────────────────────
 const getStatusClass = (code) => {
   switch(code) {
-    case 'SOUMIS':    return 'status-blue';
-    case 'EVALUEE':   return 'status-orange';
-    case 'APPROUVEE': return 'status-green';
-    case 'REJETEE':   return 'status-red';
-    case 'CLOTUREE':  return 'status-slate';
-    default:          return 'status-default';
+    case 'BROUILLON':    return 'status-orange';
+    case 'SOUMIS':       return 'status-blue';
+    case 'EN_EVALUATION': return 'status-purple';
+    case 'EVALUEE':      return 'status-indigo';
+    case 'PRE_APPROUVEE': return 'status-yellow';
+    case 'APPROUVEE':    return 'status-green';
+    case 'PLANIFIEE':    return 'status-teal';
+    case 'EN_COURS':     return 'status-pink';
+    case 'REJETEE':      return 'status-red';
+    case 'CLOTUREE':     return 'status-slate';
+    case 'ANNULEE':      return 'status-red';
+    default:             return 'status-default';
   }
 };
 
@@ -55,10 +62,12 @@ const RfcManagement = () => {
   const [rfcs, setRfcs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rfcTypes, setRfcTypes] = useState([]);
+  const [statuses, setStatuses] = useState([]);
   const [environments, setEnvironments] = useState([]);
   const [changeManagers, setChangeManagers] = useState([]);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [priorities, setPriorities] = useState([]);
   
   // État UI
   const [search, setSearch] = useState('');
@@ -102,7 +111,8 @@ const RfcManagement = () => {
     justification: '',
     date_souhaitee: '',
     impacte_estimee: '',
-    ci_ids: []
+    ci_ids: [],
+    id_statut: ''
   });
 
   // État Risque & Histoire
@@ -123,16 +133,20 @@ const RfcManagement = () => {
 
   const fetchMetadata = useCallback(async () => {
     try {
-      const [t, e, cm, ciList] = await Promise.all([
+      const [t, s, e, cm, ciList, p] = await Promise.all([
         rfcService.getTypesRfc(),
+        rfcService.getStatuts('RFC'),
         rfcService.getEnvironnements(),
         rfcService.getChangeManagers(),
-        rfcService.getConfigurationItems()
+        rfcService.getConfigurationItems(),
+        rfcService.getPriorites()
       ]);
       setRfcTypes(t);
+      setStatuses(s);
       setEnvironments(e);
       setChangeManagers(cm);
       setCis(ciList);
+      setPriorities(p);
     } catch (e) {
       console.error('Metadata error', e);
     }
@@ -174,7 +188,10 @@ const RfcManagement = () => {
         justification: rfc.justification || '',
         date_souhaitee: rfc.date_souhaitee ? rfc.date_souhaitee.split('T')[0] : '',
         impacte_estimee: rfc.impacte_estimee || '',
-        ci_ids: rfc.impactedCIs?.map(ci => ci.id_ci) || []
+        ci_ids: rfc.impactedCIs?.map(ci => ci.id_ci) || [],
+        id_statut: rfc.id_statut || rfc.statut?.id_statut || '',
+        id_priorite: rfc.id_priorite || '',
+        id_type: rfc.id_type || ''
     });
     
     if (rfc.id_rfc) {
@@ -211,7 +228,7 @@ const RfcManagement = () => {
         closeModals();
         fetchData();
     } catch (err) {
-        alert(err.response?.data?.message || 'Erreur lors de la création');
+        alert(err?.error?.message || err?.message || 'Erreur lors de la création');
     } finally {
         setCreateLoading(false);
     }
@@ -219,15 +236,27 @@ const RfcManagement = () => {
 
   const handleUpdateDetail = async () => {
     try {
+        // Mettre à jour les champs texte
         await rfcService.updateRfc(selectedRfc.id_rfc, detailForm);
-        // Sauvegarder aussi le risque
-        await rfcService.upsertEvaluationRisque(selectedRfc.id_rfc, risk);
+
+        // Changer le statut si modifié
+        const currentStatutId = selectedRfc.id_statut || selectedRfc.statut?.id_statut;
+        if (detailForm.id_statut && detailForm.id_statut !== currentStatutId) {
+            await rfcService.updateRfcStatus(selectedRfc.id_rfc, detailForm.id_statut, {
+                id_change_manager: selectedRfc.id_change_manager || user?.id_user,
+                id_env: selectedEnv || selectedRfc.id_env || selectedRfc.environnement?.id_env
+            });
+        }
+
+        // Sauvegarder aussi le risque (silencieux si erreur)
+        try { await rfcService.upsertEvaluationRisque(selectedRfc.id_rfc, risk); } catch(_) {}
+
         alert('RFC mise à jour avec succès.');
         setEditDetail(false);
         fetchData();
-        setSelectedRfc(prev => ({ ...prev, ...detailForm }));
     } catch (err) {
-        alert('Erreur lors de la mise à jour.');
+        const msg = err?.error?.message || err?.message || 'Erreur lors de la mise à jour.';
+        alert(msg);
     }
   };
 
@@ -244,14 +273,21 @@ const RfcManagement = () => {
   };
 
   const handleDeleteRfc = async () => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette RFC ?')) return;
+    // Le backend (via TRANSITIONS_RFC) n'autorise l'annulation (passage à CLOTUREE) que depuis ces statuts :
+    const statutsAutorises = ['SOUMIS', 'PRE_APPROUVEE', 'EVALUEE', 'REJETEE'];
+    if (!statutsAutorises.includes(selectedRfc?.statut?.code_statut)) {
+        alert(`⚠️ Action refusée par les règles métier :\n\nImpossible d'annuler une RFC au statut "${selectedRfc?.statut?.libelle}".\n\nSeules les RFC en attente ou rejetées peuvent être annulées.`);
+        return;
+    }
+
+    if (!window.confirm('Êtes-vous sûr de vouloir annuler cette RFC ?')) return;
     try {
         await rfcService.cancelRfc(selectedRfc.id_rfc);
-        alert('RFC supprimée.');
+        alert('RFC annulée avec succès.');
         closeModals();
         fetchData();
     } catch (err) {
-        alert('Erreur lors de la suppression.');
+        alert("Erreur du serveur lors de l'annulation. La RFC est peut-être bloquée.\n\nDétails: " + (err?.error?.message || err?.message || ''));
     }
   };
 
@@ -271,7 +307,7 @@ const RfcManagement = () => {
       closeModals();
       fetchData();
     } catch (e) {
-      alert(e.response?.data?.message || 'Erreur lors du traitement.');
+      alert(e?.error?.message || e?.message || 'Erreur lors du traitement.');
     }
   };
 
@@ -284,14 +320,24 @@ const RfcManagement = () => {
     } catch (e) { alert('Erreur lors du commentaire'); }
   };
 
+  const sortedStatuses = useMemo(() => {
+    const order = ['BROUILLON', 'SOUMIS', 'EN_EVALUATION', 'EVALUEE', 'PRE_APPROUVEE', 'APPROUVEE', 'PLANIFIEE', 'EN_COURS', 'REUSSI', 'TERMINEE', 'CLOTUREE', 'REJETEE', 'ANNULEE'];
+    return [...statuses].sort((a, b) => order.indexOf(a.code_statut) - order.indexOf(b.code_statut));
+  }, [statuses]);
+
   const filtered = rfcs.filter(r => {
     const q = search.toLowerCase();
     const matchSearch = !search || 
       r.titre_rfc?.toLowerCase().includes(q) || 
       r.code_rfc?.toLowerCase().includes(q) ||
       `${r.demandeur?.prenom_user} ${r.demandeur?.nom_user}`.toLowerCase().includes(q);
-    const matchStatus = !filterStatus || r.statut?.code_statut === filterStatus;
-    const matchType = !filterType || r.typeRfc?.id_type === parseInt(filterType);
+      
+    // Si aucun statut n'est sélectionné, on cache par défaut les clôturées/annulées pour alléger la vue
+    const matchStatus = filterStatus 
+        ? r.statut?.code_statut === filterStatus 
+        : !['CLOTUREE', 'ANNULEE'].includes(r.statut?.code_statut);
+        
+    const matchType = !filterType || r.typeRfc?.type === filterType;
     return matchSearch && matchStatus && matchType;
   });
 
@@ -306,7 +352,7 @@ const RfcManagement = () => {
           <p>Centre administratif pour l'évaluation et l'approbation des demandes de changement.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button onClick={() => setShowCreate(true)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.75rem 1.25rem', borderRadius: '12px', background: '#3b82f6', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer' }}>
+          <button onClick={() => setShowCreate(true)} className="btn-create-premium">
             <FiPlus /> Nouvelle RFC
           </button>
           <div className="header-date-badge">
@@ -317,7 +363,7 @@ const RfcManagement = () => {
 
       {/* KPI ROW */}
       <div className="kpi-row">
-        <KpiCard label="Total Backlog" value={rfcs.length} icon={<FiFileText />} color="blue" />
+        <KpiCard label="Total Backlog" value={rfcs.filter(r => !['CLOTUREE', 'ANNULEE'].includes(r.statut?.code_statut)).length} icon={<FiFileText />} color="blue" />
         <KpiCard label="En attente" value={rfcs.filter(r => r.statut?.code_statut === 'SOUMIS').length} icon={<FiClock />} color="orange" />
         <KpiCard label="En Retard" value={rfcs.filter(r => isLate(r)).length} icon={<FiAlertTriangle />} color="danger" />
         <KpiCard label="Approuvées" value={rfcs.filter(r => r.statut?.code_statut === 'APPROUVEE').length} icon={<FiCheckCircle />} color="green" />
@@ -332,13 +378,11 @@ const RfcManagement = () => {
         <div className="toolbar-filters">
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="">Tous les statuts</option>
-            <option value="SOUMIS">Soumises</option>
-            <option value="EVALUEE">Évaluées</option>
-            <option value="APPROUVEE">Approuvées</option>
+            {sortedStatuses.map(s => <option key={s.code_statut} value={s.code_statut}>{s.libelle}</option>)}
           </select>
           <select value={filterType} onChange={e => setFilterType(e.target.value)}>
             <option value="">Tous les types</option>
-            {rfcTypes.map(t => <option key={t.id_type} value={t.id_type}>{t.type}</option>)}
+            {rfcTypes.map(t => <option key={t.id_type} value={t.type}>{t.type}</option>)}
           </select>
           <button className="refresh-btn" onClick={fetchData}><FiRefreshCw /></button>
         </div>
@@ -382,7 +426,7 @@ const RfcManagement = () => {
                   </td>
                   <td style={{ padding: '0.2rem 0.3rem' }}>
                     <span className={`status-badge ${getStatusClass(rfc.statut?.code_statut)}`} style={{ fontSize: '0.65rem' }}>
-                      {rfc.statut?.libelle}
+                      {rfc.statut?.code_statut === 'BROUILLON' ? 'Soumises' : rfc.statut?.libelle}
                     </span>
                   </td>
                   <td style={{ padding: '0.2rem 0.3rem' }}>
@@ -397,8 +441,27 @@ const RfcManagement = () => {
                   </td>
                   <td style={{ padding: '0.2rem 0.3rem', textAlign: 'right' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                      <button onClick={(e) => { e.stopPropagation(); handleOpenProcess(rfc); }} style={{ background: '#f1f5f9', color: '#10b981', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Détails">
-                        <FiInfo size={16} />
+                      <button onClick={(e) => { e.stopPropagation(); setEditDetail(true); handleOpenProcess(rfc); }} style={{ background: '#f1f5f9', color: '#3b82f6', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier">
+                        <FiEdit3 size={16} />
+                      </button>
+                      <button onClick={async (e) => { 
+                        e.stopPropagation(); 
+                        const statutsAutorises = ['SOUMIS', 'PRE_APPROUVEE', 'EVALUEE', 'REJETEE'];
+                        if (!statutsAutorises.includes(rfc.statut?.code_statut)) {
+                            alert(`⚠️ Action refusée :\nImpossible d'annuler une RFC au statut "${rfc.statut?.libelle}".`);
+                            return;
+                        }
+                        if (window.confirm('Êtes-vous sûr de vouloir annuler cette RFC ?')) { 
+                            try { 
+                                await rfcService.cancelRfc(rfc.id_rfc); 
+                                alert('RFC annulée avec succès.'); 
+                                fetchData(); 
+                            } catch (err) { 
+                                alert("Erreur du serveur lors de l'annulation.\nDétails: " + (err?.error?.message || err?.message || '')); 
+                            } 
+                        } 
+                      }} style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Annuler/Supprimer">
+                        <FiTrash2 size={16} />
                       </button>
                     </div>
                   </td>
@@ -411,8 +474,8 @@ const RfcManagement = () => {
 
       {/* MODAL TRAITEMENT */}
       {showProcess && selectedRfc && (
-        <div className="modal-backdrop" onClick={closeModals} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div className="modal-box glass-card" style={{ maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', background: 'rgba(255, 255, 255, 0.72)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.4)', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={closeModals}>
+          <div className="modal-box glass-card" style={{ maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <button onClick={closeModals} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', zIndex: 10 }}>
               <FiX size={24} />
             </button>
@@ -544,6 +607,22 @@ const RfcManagement = () => {
                                     style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                                 />
                             </div>
+                            <div>
+                                <label style={{ fontSize: '0.7rem', color: '#7c3aed', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    <FiShield size={12} /> Statut RFC
+                                </label>
+                                <select
+                                    value={detailForm.id_statut}
+                                    onChange={e => setDetailForm({...detailForm, id_statut: e.target.value})}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '2px solid #a78bfa', outline: 'none', fontWeight: '700', background: '#faf5ff', color: '#6d28d9', cursor: 'pointer' }}
+                                >
+                                    <option value="">— Statut actuel —</option>
+                                    {statuses.map(s => (
+                                        <option key={s.id_statut} value={s.id_statut}>{s.libelle}</option>
+                                    ))}
+                                </select>
+                                <p style={{ margin: '0.25rem 0 0', fontSize: '0.65rem', color: '#94a3b8' }}>⚠ Modifier le statut peut déclencher des transitions de workflow.</p>
+                            </div>
                             <button onClick={handleUpdateDetail} className="btn-primary" style={{ alignSelf: 'flex-end', background: '#10b981', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer' }}>Enregistrer les modifications</button>
                         </div>
                     ) : (
@@ -552,41 +631,46 @@ const RfcManagement = () => {
                             <p style={{ fontSize: '0.95rem', color: '#0f172a', fontWeight: '600', margin: '0.25rem 0 1rem' }}>{selectedRfc.description}</p>
                             <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Justification Business</label>
                             <p style={{ fontSize: '0.95rem', color: '#0f172a', fontWeight: '600', margin: '0.25rem 0' }}>{selectedRfc.justification || 'Aucune justification fournie.'}</p>
+                            <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Statut Actuel</label>
+                            <p style={{ margin: '0.25rem 0' }}>
+                                <span className={`status-badge ${getStatusClass(selectedRfc.statut?.code_statut)}`}>
+                                    {selectedRfc.statut?.libelle || 'Inconnu'}
+                                </span>
+                            </p>
                         </>
                     )}
                   </div>
 
-                  <h3 style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '1rem' }}><FiShield /> Paramètres ITIL</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                      <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Type de Workflow</label>
-                      <select value={selectedType} onChange={e => setSelectedType(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
-                        <option value="">Sélectionner...</option>
-                        {rfcTypes.map(t => <option key={t.id_type} value={t.id_type}>{t.type}</option>)}
-                      </select>
+                  <div style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                    <h3 style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span><FiShield /> Paramètres ITIL</span>
+                        <button onClick={handleUpdateDetail} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', fontSize: '0.65rem', fontWeight: '700', cursor: 'pointer' }}>Enregistrer</button>
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Type de Workflow</label>
+                        <select value={detailForm.id_type} onChange={e => setDetailForm({...detailForm, id_type: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
+                            <option value="">Sélectionner...</option>
+                            {rfcTypes.map(t => <option key={t.id_type} value={t.id_type}>{t.type}</option>)}
+                        </select>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Environnement Cible</label>
+                        <select value={selectedEnv} onChange={e => setSelectedEnv(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
+                            <option value="">Sélectionner...</option>
+                            {environments.map(env => <option key={env.id_env} value={env.id_env}>{env.nom_env}</option>)}
+                        </select>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                        <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Priorité</label>
+                        <select value={detailForm.id_priorite} onChange={e => setDetailForm({...detailForm, id_priorite: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
+                            <option value="">Sélectionner...</option>
+                            {priorities.map(p => <option key={p.id_priorite} value={p.id_priorite}>{p.libelle}</option>)}
+                        </select>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                      <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Environnement Cible</label>
-                      <select value={selectedEnv} onChange={e => setSelectedEnv(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
-                        <option value="">Sélectionner...</option>
-                        {environments.map(env => <option key={env.id_env} value={env.id_env}>{env.nom_env}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                      <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Priorité</label>
-                      <select value={selectedRfc.id_priorite} onChange={e => setSelectedRfc({...selectedRfc, id_priorite: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
-                        <option value="1">P1 - Critique</option>
-                        <option value="2">P2 - Haute</option>
-                        <option value="3">P3 - Moyenne</option>
-                        <option value="4">P4 - Basse</option>
-                      </select>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                      <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Change Manager</label>
-                      <select value={selectedRfc.id_change_manager || ''} onChange={e => setSelectedRfc({...selectedRfc, id_change_manager: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
-                        <option value="">Non assigné</option>
-                        {changeManagers.map(cm => <option key={cm.id_user} value={cm.id_user}>{cm.prenom_user} {cm.nom_user}</option>)}
-                      </select>
+                    <div style={{ marginTop: '1rem', textAlign: 'right' }}>
+                        <button onClick={handleUpdateDetail} className="btn-primary" style={{ background: '#4f46e5', color: 'white', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)' }}>Enregistrer les modifications ITIL</button>
                     </div>
                   </div>
                 </div>
@@ -703,108 +787,25 @@ const RfcManagement = () => {
       {/* MODAL CRÉATION */}
       {showCreate && (
         <div className="modal-backdrop" onClick={closeModals}>
-          <div className="modal-box" style={{ maxWidth: '800px', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-top" style={{ background: 'linear-gradient(135deg, #0f172a, #334155)', color: 'white' }}>
-              <FiPlus className="modal-ico" style={{ color: '#3b82f6' }} />
-              <div>
-                <h2 style={{ color: 'white' }}>Nouvelle Demande de Changement (RFC)</h2>
-                <p style={{ color: 'rgba(255,255,255,0.7)' }}>Formulaire standard ITIL v4</p>
+          <div className="modal-box" style={{ maxWidth: '900px', width: '95%', display: 'flex', flexDirection: 'column', maxHeight: '95vh', padding: 0 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-top" style={{ background: 'linear-gradient(135deg, #2563eb, #1e40af)', color: 'white', padding: '1rem 1.5rem', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <FiPlus className="modal-ico" style={{ color: '#93c5fd', fontSize: '1.5rem' }} />
+                <h2 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>Créer une Nouvelle Demande de Changement (RFC)</h2>
               </div>
-              <button onClick={closeModals} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><FiX size={24} /></button>
+              <button onClick={closeModals} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><FiX size={24} /></button>
             </div>
-
-            <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                <div className="modal-body" style={{ overflowY: 'auto', padding: '2rem' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                        <div style={{ gridColumn: 'span 2' }}>
-                            <label>Titre de la RFC <span style={{ color: '#ef4444' }}>*</span></label>
-                            <input 
-                                type="text"
-                                value={createForm.titre_rfc}
-                                onChange={e => setCreateForm({...createForm, titre_rfc: e.target.value})}
-                                placeholder="ex: Mise à jour du noyau SAP v2.4"
-                                style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', marginTop: '0.5rem' }}
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label>Date souhaitée d'implémentation</label>
-                            <input 
-                                type="date"
-                                value={createForm.date_souhaitee}
-                                onChange={e => setCreateForm({...createForm, date_souhaitee: e.target.value})}
-                                style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', marginTop: '0.5rem' }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                             <input 
-                                type="checkbox" 
-                                id="is_urgent"
-                                checked={createForm.urgence}
-                                onChange={e => setCreateForm({...createForm, urgence: e.target.checked})}
-                             />
-                             <label htmlFor="is_urgent" style={{ marginBottom: 0 }}>Changement Urgent (Emergency RFC)</label>
-                        </div>
-
-                        <div style={{ gridColumn: 'span 2' }}>
-                            <label>Description détaillée</label>
-                            <textarea 
-                                value={createForm.description}
-                                onChange={e => setCreateForm({...createForm, description: e.target.value})}
-                                placeholder="Décrivez les changements techniques prévus..."
-                                style={{ width: '100%', minHeight: '100px', padding: '0.8rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', marginTop: '0.5rem' }}
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label>Justification Business</label>
-                            <textarea 
-                                value={createForm.justification}
-                                onChange={e => setCreateForm({...createForm, justification: e.target.value})}
-                                placeholder="Pourquoi ce changement est-il nécessaire ?"
-                                style={{ width: '100%', minHeight: '80px', padding: '0.8rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', marginTop: '0.5rem' }}
-                            />
-                        </div>
-
-                        <div>
-                            <label>Impact estimé</label>
-                            <textarea 
-                                value={createForm.impacte_estimee}
-                                onChange={e => setCreateForm({...createForm, impacte_estimee: e.target.value})}
-                                placeholder="Utilisateurs impactés, durée d'indisponibilité..."
-                                style={{ width: '100%', minHeight: '80px', padding: '0.8rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', marginTop: '0.5rem' }}
-                            />
-                        </div>
-
-                        <div style={{ gridColumn: 'span 2' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FiGlobe /> Éléments de Configuration (CIs) impactés</label>
-                            <select 
-                                multiple
-                                value={createForm.ci_ids}
-                                onChange={e => setCreateForm({...createForm, ci_ids: Array.from(e.target.selectedOptions, option => option.value)})}
-                                style={{ width: '100%', height: '120px', padding: '0.5rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', marginTop: '0.5rem' }}
-                            >
-                                {cis.map(ci => (
-                                    <option key={ci.id_ci} value={ci.id_ci}>
-                                        [{ci.typeCi?.nom_type || 'CI'}] {ci.nom_ci} - {ci.code_ci}
-                                    </option>
-                                ))}
-                            </select>
-                            <small style={{ color: '#64748b', marginTop: '5px', display: 'block' }}>Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs éléments.</small>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="modal-footer">
-                    <button type="button" className="modal-btn modal-btn-cancel" onClick={closeModals}>Annuler</button>
-                    <button type="submit" className="modal-btn modal-btn-approve" disabled={createLoading}>
-                        {createLoading ? 'Création...' : 'Soumettre la demande'}
-                    </button>
-                </div>
-            </form>
+            <div className="modal-body" style={{ overflowY: 'auto', padding: '0', background: '#f8fafc', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+                <RfcCreate 
+                  isModal={true} 
+                  onSuccess={() => { 
+                    closeModals(); 
+                    fetchData(); 
+                    alert('RFC créée avec succès.'); 
+                  }} 
+                  onCancel={closeModals} 
+                />
+            </div>
           </div>
         </div>
       )}

@@ -271,6 +271,7 @@
 .itil-content-inner {
   padding: 1.75rem 2rem;
   flex: 1;
+  margin-top: var(--itil-header-height);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -285,8 +286,10 @@
   justify-content: space-between;
   padding: 0 2rem;
   box-shadow: 0 4px 20px rgba(0, 51, 102, 0.2);
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  width: calc(100% - var(--itil-sidebar-width));
   z-index: 90;
 }
 
@@ -579,9 +582,11 @@
 
   .itil-content-inner {
     padding: 1rem;
+    margin-top: var(--itil-header-height);
   }
 
   .itil-header {
     padding: 0 1rem;
+    width: 100%;
   }
 }

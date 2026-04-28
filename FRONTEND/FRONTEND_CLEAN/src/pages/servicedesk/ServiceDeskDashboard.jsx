@@ -36,7 +36,7 @@ const ServiceDeskDashboard = () => {
                const today = new Date().toISOString().split('T')[0];
                return c.date_debut.startsWith(today);
             }).length,
-            pendingVerification: resRfc.data.rfcs.filter(r => r.statut?.code_statut === 'SOUMIS').length,
+            pendingVerification: resRfc.data.rfcs.filter(r => ['SOUMIS', 'BROUILLON'].includes(r.statut?.code_statut)).length,
             totalRfcs: resRfc.data.rfcs.length
           });
         }
@@ -76,7 +76,7 @@ const ServiceDeskDashboard = () => {
         <div className="premium-glass-card stat-card purple">
           <div className="stat-icon-wrapper"><FiSearch /></div>
           <div className="stat-info">
-            <span className="stat-label">À vérifier</span>
+            <span className="stat-label">Soumises</span>
             <span className="stat-value">{stats.pendingVerification}</span>
           </div>
         </div>

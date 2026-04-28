@@ -41,7 +41,7 @@ const ImplementationTracker = () => {
                 // Fetch changes and implementers in parallel
                 const [changesRes, impsRes] = await Promise.all([
                     api.get('/changements'),
-                    api.get('/users/by-role/IMPLEMENTEUR')
+                    api.get('/users?nom_role=IMPLEMENTEUR&limit=100')
                 ]);
 
                 if (changesRes.data) {
@@ -49,7 +49,7 @@ const ImplementationTracker = () => {
                     setChangements((changesData.changements || []).filter(c => c.statut?.code_statut !== 'EN_PLANIFICATION'));
                 }
                 
-                const implementersList = impsRes.data?.users || impsRes.users || [];
+                const implementersList = impsRes.data?.data || impsRes.data?.users || [];
                 if (implementersList && implementersList.length > 0) {
                     setImplementers(implementersList);
                     // Calculate stats for each implementer

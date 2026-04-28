@@ -89,7 +89,7 @@ const RfcMonitoring = () => {
     try {
       const results = await Promise.allSettled([
         api.get('/admin/statuts?contexte=RFC'),
-        api.get('/users/by-role/CHANGE_MANAGER'),
+        api.get('/users?nom_role=CHANGE_MANAGER&limit=100'),
         api.get('/admin/environnements'),
         api.get('/admin/types-rfc')
       ]);
@@ -100,7 +100,7 @@ const RfcMonitoring = () => {
       const typeRes = results[3].status === 'fulfilled' ? results[3].value : null;
 
       if (stRes?.success) setStatuses(stRes.data.statuts || []);
-      if (cmRes?.success) setChangeManagers(cmRes.data.users || cmRes.data.data || []);
+      if (cmRes?.success) setChangeManagers(cmRes.data?.data || cmRes.data?.users || []);
       if (envRes?.success) setEnvironnements(envRes.data.environnements || []);
       if (typeRes?.success) setRfcTypes(typeRes.data.types || []);
     } catch (e) { console.error('Reference data error:', e); }

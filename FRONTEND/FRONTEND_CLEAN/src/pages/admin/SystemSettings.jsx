@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FiSettings, FiServer, FiList, FiPlus, FiEdit3, FiTrash2, 
-  FiX, FiDatabase, FiRefreshCw, FiAlertCircle, FiLayers, FiInfo
+  FiX, FiDatabase, FiRefreshCw, FiAlertCircle, FiLayers, FiInfo, FiSearch
 } from 'react-icons/fi';
 import systemService from '../../services/systemService';
 import './SystemSettings.css';
@@ -11,6 +11,8 @@ const EnvironmentManagement = () => {
   
   // States Environnements
   const [environnements, setEnvironnements] = useState([]);
+  const [searchEnv, setSearchEnv] = useState('');
+  const [filterEnv, setFilterEnv] = useState('');
   const [envLoading, setEnvLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -128,12 +130,19 @@ const EnvironmentManagement = () => {
 
   return (
     <div className="settings-page">
-      <div className="settings-header">
-        <div className="header-icon-main"><FiServer /></div>
-        <div>
-          <h1>Gestion des Environnements</h1>
-          <p>Supervisez les plateformes techniques et consultez les référentiels ITIL du système.</p>
+      <div className="settings-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          <div className="header-icon-main" style={{ width: '56px', height: '56px', background: '#eff6ff', color: '#3b82f6', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', border: '1px solid #bfdbfe' }}>
+            <FiServer />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Gestion des Environnements</h1>
+            <p style={{ color: '#64748b', fontSize: '1rem', margin: '0.25rem 0 0', fontWeight: 500 }}>Supervisez les plateformes techniques et consultez les référentiels ITIL du système.</p>
+          </div>
         </div>
+        <button className="btn-create-premium" onClick={() => handleOpenModal()}>
+          <FiPlus /> Nouvel environnement
+        </button>
       </div>
 
       <div className="settings-tabs-premium">
@@ -144,12 +153,32 @@ const EnvironmentManagement = () => {
       <div className="settings-main-content">
         {activeTab === 'ENVIRONNEMENTS' && (
           <div className="env-section">
+            <div className="rfc-mgr-toolbar" style={{ marginBottom: '1.5rem', background: 'white', padding: '0.75rem', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <FiSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input 
+                  type="text" 
+                  placeholder="Rechercher (Filtre général)..." 
+                  value={searchEnv}
+                  onChange={(e) => setSearchEnv(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', outline: 'none' }}
+                />
+              </div>
+              <select 
+                value={filterEnv}
+                onChange={(e) => setFilterEnv(e.target.value)}
+                style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', color: '#334155', outline: 'none', minWidth: '200px' }}
+              >
+                <option value="">Tous les environnements</option>
+                {environnements.map(env => <option key={env.id_env} value={env.nom_env}>{env.nom_env}</option>)}
+              </select>
+            </div>
+
             <div className="section-header-premium">
               <div className="title-group">
                 <h3><FiLayers /> Plateformes Configurées</h3>
                 <span className="count-badge">{environnements.length}</span>
               </div>
-              <button className="btn-add-premium" onClick={() => handleOpenModal()}><FiPlus /> Nouvel environnement</button>
             </div>
 
             {envLoading ? (
@@ -165,7 +194,13 @@ const EnvironmentManagement = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {environnements.map(env => (
+                    {environnements
+                      .filter(env => {
+                        const matchesSearch = !searchEnv || env.nom_env?.toLowerCase().includes(searchEnv.toLowerCase()) || env.description?.toLowerCase().includes(searchEnv.toLowerCase());
+                        const matchesFilter = !filterEnv || env.nom_env === filterEnv;
+                        return matchesSearch && matchesFilter;
+                      })
+                      .map(env => (
                       <tr key={env.id_env} onClick={() => handleOpenDetail(env)} style={{ cursor: 'pointer' }}>
                         <td className="env-name-cell">
                           <div className="env-dot"></div>

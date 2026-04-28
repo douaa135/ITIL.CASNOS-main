@@ -119,25 +119,6 @@
   font-weight: 800;
 }
 
-.btn-add-premium {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0.75rem 1.25rem;
-  background: #0f172a;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-add-premium:hover {
-  background: #1e293b;
-  transform: translateY(-2px);
-}
 
 /* ── Premium Table ────────────────────────────────────────── */
 .premium-table-card {
@@ -310,3 +291,25 @@
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Detail Value Boxes ───────────────────────────────────── */
+.detail-value-box {
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 1.2rem;
+  font-size: 0.95rem;
+  color: #0f172a;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.01);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.detail-value-box.multi-line {
+  align-items: flex-start;
+  padding: 1rem 1.2rem;
+  min-height: 80px;
+}

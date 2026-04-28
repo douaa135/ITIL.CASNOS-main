@@ -215,6 +215,7 @@ function App() {
           <Route element={<ProtectedRoute><ChangeManagerLayout /></ProtectedRoute>}>
             <Route path="/manager"                    element={<ChangeManagerDashboard />} />
             <Route path="/manager/rfcs"               element={<RfcManagement />} />
+            <Route path="/manager/rfcs/:id/evaluation"  element={<RfcEvaluation />} />
             <Route path="/manager/cab"                element={<CabManagement />} />
             <Route path="/manager/changements"        element={<ChangeManagement />} />
             <Route path="/manager/calendar"           element={<ChangeCalendar />} />

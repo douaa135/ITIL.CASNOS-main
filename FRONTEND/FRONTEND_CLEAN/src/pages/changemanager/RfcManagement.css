@@ -478,12 +478,18 @@
   white-space: nowrap;
 }
 
-.status-blue   { background: #eff6ff; color: #1d4ed8; }
-.status-orange { background: #fff7ed; color: #c2410c; }
-.status-green  { background: #f0fdf4; color: #15803d; }
-.status-red    { background: #fef2f2; color: #dc2626; }
-.status-slate  { background: #f1f5f9; color: #475569; }
-.status-default{ background: #f8fafc; color: #94a3b8; }
+.status-blue   { background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; }
+.status-orange { background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; }
+.status-green  { background: #f0fdf4; color: #15803d; border: 1px solid #dcfce7; }
+.status-red    { background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }
+.status-slate  { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.status-yellow { background: #fefce8; color: #a16207; border: 1px solid #fef9c3; }
+.status-purple { background: #faf5ff; color: #7e22ce; border: 1px solid #f3e8ff; }
+.status-indigo { background: #eef2ff; color: #4338ca; border: 1px solid #e0e7ff; }
+.status-teal   { background: #f0fdfa; color: #0f766e; border: 1px solid #ccfbf1; }
+.status-pink   { background: #fdf2f8; color: #be185d; border: 1px solid #fce7f3; }
+.status-amber  { background: #fffbeb; color: #b45309; border: 1px solid #fef3c7; }
+.status-default{ background: #f8fafc; color: #94a3b8; border: 1px solid #f1f5f9; }
 
 /* ── Actions ────────────────────────────────────────────────── */
 .td-actions { white-space: nowrap; }

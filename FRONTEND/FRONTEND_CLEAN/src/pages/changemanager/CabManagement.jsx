@@ -178,13 +178,13 @@ const CabManagement = () => {
       const [resCabs, resRfcs, resProfiles] = await Promise.all([
         api.get('/cab'),
         api.get('/rfc'),
-        api.get('/users/by-role/MEMBRE_CAB'),
+        api.get('/users?nom_role=MEMBRE_CAB&limit=100'),
       ]);
 
       console.log('API Responses Debug:', {
         cabs: resCabs.success,
         rfcs: resRfcs.success,
-        profilesCount: resProfiles.users?.length || 0
+        profilesCount: resProfiles.data?.data?.length || 0
       });
 
       if (resCabs.success && resCabs.cabs?.length > 0) {
@@ -198,26 +198,12 @@ const CabManagement = () => {
         setRfcsApprouvees((resRfcs.rfcs || []).filter(r => r.statut?.code_statut === 'APPROUVEE'));
       }
 
-      if (resProfiles.success && resProfiles.users?.length > 0) {
-        console.log('Profiles CAB chargés via API dédiée:', resProfiles.users);
-        setAllCabProfiles(resProfiles.users);
+      const cabProfiles = resProfiles.data?.data || [];
+      if (cabProfiles.length > 0) {
+        console.log('Profiles CAB chargés:', cabProfiles);
+        setAllCabProfiles(cabProfiles);
       } else {
-        // FALLBACK: Si l'API dédiée ne renvoie rien, on tente de récupérer tous les utilisateurs
-        // et on filtre sur le rôle coté client pour être sûr à 100%.
-        console.warn('API dédiée CAB vide, tentative de fallback sur la liste globale...');
-        try {
-          const resAll = await api.get('/users?limit=200');
-          if (resAll.success) {
-            const fallbackCabs = (resAll.data || []).filter(u => 
-                u.roles?.includes('MEMBRE_CAB') || 
-                (u.userRoles && u.userRoles.some(ur => ur.role?.nom_role === 'MEMBRE_CAB'))
-            );
-            console.log('Profiles CAB chargés via Fallback:', fallbackCabs);
-            setAllCabProfiles(fallbackCabs);
-          }
-        } catch (fallbackErr) {
-          console.error('Fallback failed:', fallbackErr);
-        }
+        console.warn('Aucun profil MEMBRE_CAB trouvé.');
       }
     } catch (err) {
       console.error('CRITICAL: CabManagement Init Error:', err);

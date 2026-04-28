@@ -38,9 +38,10 @@ const getCurrentUser = () => {
 const refreshProfile = async () => {
   try {
     const result = await api.get('/auth/me');
-    if (result.success && result.data?.user) {
-      localStorage.setItem('user', JSON.stringify(result.data.user));
-      return result.data.user;
+    // Le backend renvoie { success, user } et non { success, data: { user } }
+    if (result.success && result.user) {
+      localStorage.setItem('user', JSON.stringify(result.user));
+      return result.user;
     }
   } catch {
     // Silencieux — retourne l'utilisateur en cache

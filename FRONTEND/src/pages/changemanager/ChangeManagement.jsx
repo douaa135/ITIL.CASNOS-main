@@ -171,7 +171,7 @@ const ChangeManagement = () => {
       };
       const res = await updateChangement(selectedChange.id_changement, payload);
       if (res.success) {
-        const updated = {
+        const updated = res.data?.changement || {
           ...selectedChange,
           titre_changement: payload.titre_changement,
           description: payload.description,
@@ -438,13 +438,13 @@ const ChangeManagement = () => {
                     <td>{formatDate(change.date_debut)}</td>
                     <td>{formatDate(change.date_fin)}</td>
                     <td className="actions-cell">
-                      <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); handleSelectChange(change); }}>
+                      <button type="button" className="btn-secondary" onClick={(e) => { e.stopPropagation(); handleSelectChange(change); }}>
                         <FiInfo /> Détails
                       </button>
-                      <button className="btn-primary" onClick={(e) => { e.stopPropagation(); handleSelectChange(change, true); }}>
+                      <button type="button" className="btn-primary" onClick={(e) => { e.stopPropagation(); handleSelectChange(change, true); }}>
                         <FiEdit3 /> Modifier
                       </button>
-                      <button className="btn-danger" onClick={(e) => { e.stopPropagation(); handleDelete(change); }}>
+                      <button type="button" className="btn-danger" onClick={(e) => { e.stopPropagation(); handleDelete(change); }}>
                         <FiTrash2 />
                       </button>
                     </td>
@@ -733,10 +733,10 @@ const ChangeManagement = () => {
                 <div className="sidebar-widget">
                   <div className="sidebar-widget-header"><FiInfo size={14} /> Actions rapides</div>
                   <div className="sidebar-widget-body">
-                    <button className="btn-primary" type="button" onClick={() => setEditMode(true)} style={{ width: '100%', marginBottom: '0.75rem' }}>
+                    <button type="button" className="btn-primary" onClick={() => setEditMode(true)} style={{ width: '100%', marginBottom: '0.75rem' }}>
                       <FiEdit3 /> Modifier
                     </button>
-                    <button className="btn-secondary" type="button" onClick={handleAssign} style={{ width: '100%', marginBottom: '0.75rem' }} disabled={!assignId || saving}>
+                    <button type="button" className="btn-secondary" onClick={handleAssign} style={{ width: '100%', marginBottom: '0.75rem' }} disabled={!assignId || saving}>
                       <FiArrowRight /> Assigner
                     </button>
                     <div className="status-action-block">
@@ -747,16 +747,16 @@ const ChangeManagement = () => {
                         placeholder="Motif de validation/rejet"
                       />
                       <button
-                        className="btn-primary"
                         type="button"
+                        className="btn-primary"
                         onClick={() => handleChangeStatus('TERMINE')}
                         disabled={saving}
                       >
                         Valider
                       </button>
                       <button
-                        className="btn-danger"
                         type="button"
+                        className="btn-danger"
                         onClick={() => handleChangeStatus('EN_ECHEC')}
                         disabled={saving}
                       >

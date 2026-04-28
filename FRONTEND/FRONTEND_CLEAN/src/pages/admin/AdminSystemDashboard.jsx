@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dashboardService from '../../services/dashboardService';
 import userService from '../../services/userService';
+import systemService from '../../services/systemService';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
 import { 
     FiUsers, FiClipboard, FiRefreshCw, FiCheckSquare, 
     FiActivity, FiArrowRight, FiPieChart, FiTrendingUp,
-    FiPlus, FiLayers, FiAlertCircle
+    FiPlus, FiLayers, FiAlertCircle, FiUserPlus, FiShield, FiServer
 } from 'react-icons/fi';
 
 const AdminSystemDashboard = () => {
@@ -19,6 +20,9 @@ const AdminSystemDashboard = () => {
         totalUsers: 0,
         activeUsers: 0
     });
+
+    // Env Stats
+    const [envCount, setEnvCount] = useState(0);
 
     // KPI Stats from Backend
     const [kpi, setKpi] = useState({
@@ -41,10 +45,18 @@ const AdminSystemDashboard = () => {
                 // Fetch Users
                 const userRes = await userService.getAllUsers();
                 if (userRes.success && userRes.users) {
+                    const allUsers = userRes.users;
                     setUserStats({
-                        totalUsers: userRes.users.length,
-                        activeUsers: userRes.users.filter(u => u.actif).length
+                        totalUsers: allUsers.length,
+                        activeUsers: allUsers.filter(u => u.actif).length
                     });
+                }
+
+                // Fetch Environments
+                const envRes = await systemService.getEnvironnements();
+                if (envRes.success) {
+                    const envs = envRes.data?.data || envRes.data?.environnements || envRes.data || [];
+                    setEnvCount(envs.length);
                 }
 
                 // Fetch real KPIs
@@ -124,72 +136,82 @@ const AdminSystemDashboard = () => {
                         onClick={() => navigate('/admin-system/users', { state: { openCreate: true } })}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '0.6rem',
-                            padding: '0.75rem 1.5rem', borderRadius: '12px', border: 'none',
-                            background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
-                            color: 'white', cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem',
-                            boxShadow: '0 4px 14px rgba(124,58,237,0.4)',
+                            padding: '0.75rem 1.5rem', borderRadius: '12px', border: '1px solid #7c3aed',
+                            background: '#f5f3ff', color: '#7c3aed', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem',
                             transition: 'all 0.2s',
                         }}
+                        className="hover-card"
                     >
-                        <FiPlus /> Créer compte
+                        <FiUserPlus /> Nouveau compte
                     </button>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <div style={{ background: 'white', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-                        <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>Système Nominal</span>
+            </div>
+
+            {/* Top Cards - Global Totals (Standardized Style) */}
+            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', overflowX: 'auto', marginBottom: '2rem' }}>
+                <div className="stat-card blue">
+                    <div className="stat-icon-wrapper">
+                        <FiUsers size={24} />
+                    </div>
+                    <div className="stat-info">
+                        <div className="stat-value">{userStats.totalUsers}</div>
+                        <div className="stat-label">Utilisateurs</div>
+                        <div style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '700', marginTop: '2px' }}>
+                            {userStats.activeUsers} Actifs ({calcPercent(userStats.activeUsers, userStats.totalUsers)})
+                        </div>
+                    </div>
+                </div>
+
+                <div className="stat-card amber">
+                    <div className="stat-icon-wrapper">
+                        <FiClipboard size={24} />
+                    </div>
+                    <div className="stat-info">
+                        <div className="stat-value">{kpi.rfc.total}</div>
+                        <div className="stat-label">Total RFC</div>
+                        <div style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: '700', marginTop: '2px' }}>
+                            {detailedKpi.rfc.urgentes} Urgentes
+                        </div>
+                    </div>
+                </div>
+
+                <div className="stat-card green">
+                    <div className="stat-icon-wrapper">
+                        <FiRefreshCw size={24} />
+                    </div>
+                    <div className="stat-info">
+                        <div className="stat-value">{kpi.changements.total}</div>
+                        <div className="stat-label">Changements</div>
+                        <div style={{ fontSize: '0.7rem', color: '#3b82f6', fontWeight: '700', marginTop: '2px' }}>
+                            {detailedKpi.changements.en_cours} En cours
+                        </div>
+                    </div>
+                </div>
+
+                <div className="stat-card purple">
+                    <div className="stat-icon-wrapper">
+                        <FiServer size={24} />
+                    </div>
+                    <div className="stat-info">
+                        <div className="stat-value">{envCount}</div>
+                        <div className="stat-label">Environnements</div>
+                    </div>
+                </div>
+
+                <div className="stat-card purple" style={{ borderLeftColor: '#d946ef' }}>
+                    <div className="stat-icon-wrapper" style={{ background: '#fdf4ff', color: '#d946ef' }}>
+                        <FiCheckSquare size={24} />
+                    </div>
+                    <div className="stat-info">
+                        <div className="stat-value">{kpi.taches.total}</div>
+                        <div className="stat-label">Tâches</div>
+                        <div style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '700', marginTop: '2px' }}>
+                            {detailedKpi.taches.taux_completion} Complétées
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Top Cards - Global Totals */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
-                <Card style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#e0f2fe', color: '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}><FiUsers /></div>
-                        <span style={{ fontWeight: '600', color: '#64748b', fontSize: '0.85rem' }}>Utilisateurs</span>
-                    </div>
-                    <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem', fontWeight: '800' }}>{userStats.activeUsers} <span style={{fontSize: '0.9rem', color: '#94a3b8', fontWeight: '500'}}>/ {userStats.totalUsers}</span></h3>
-                    <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '600', marginTop: '0.2rem' }}>{calcPercent(userStats.activeUsers, userStats.totalUsers)} d&apos;actifs</div>
-                </Card>
-
-                <Card style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}><FiClipboard /></div>
-                        <span style={{ fontWeight: '600', color: '#64748b', fontSize: '0.85rem' }}>RFCs</span>
-                    </div>
-                    <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem', fontWeight: '800' }}>{kpi.rfc.total}</h3>
-                    <div style={{ fontSize: '0.8rem', color: '#ef4444', fontWeight: '600', marginTop: '0.2rem' }}>{detailedKpi.rfc.urgentes} Urgentes ({calcPercent(detailedKpi.rfc.urgentes, kpi.rfc.total)})</div>
-                </Card>
-
-                <Card style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}><FiRefreshCw /></div>
-                        <span style={{ fontWeight: '600', color: '#64748b', fontSize: '0.85rem' }}>Changements</span>
-                    </div>
-                    <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem', fontWeight: '800' }}>{kpi.changements.total}</h3>
-                    <div style={{ fontSize: '0.8rem', color: '#3b82f6', fontWeight: '600', marginTop: '0.2rem' }}>{detailedKpi.changements.en_cours} En cours ({calcPercent(detailedKpi.changements.en_cours, kpi.changements.total)})</div>
-                </Card>
-
-                <Card style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#f3e8ff', color: '#7e22ce', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}><FiTrendingUp /></div>
-                        <span style={{ fontWeight: '600', color: '#64748b', fontSize: '0.85rem' }}>Succès Changements</span>
-                    </div>
-                    <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem', fontWeight: '800', color: '#10b981' }}>{kpi.changements.taux_reussite}</h3>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>{detailedKpi.changements.reussis} Réussis / {detailedKpi.changements.echecs} Échecs</div>
-                </Card>
-
-                <Card style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#fdf4ff', color: '#d946ef', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}><FiCheckSquare /></div>
-                        <span style={{ fontWeight: '600', color: '#64748b', fontSize: '0.85rem' }}>Tâches</span>
-                    </div>
-                    <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem', fontWeight: '800' }}>{kpi.taches.total}</h3>
-                    <div style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '600', marginTop: '0.2rem' }}>{detailedKpi.taches.taux_completion} Complétées</div>
-                    <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: '600', marginTop: '0.1rem' }}>{detailedKpi.taches.en_cours} En cours ({calcPercent(detailedKpi.taches.en_cours, kpi.taches.total)})</div>
-                </Card>
-            </div>
 
             {/* Main Content - Distributions */}
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>

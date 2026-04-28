@@ -14,18 +14,24 @@ const CabMeetings = () => {
     const [selectedMeeting, setSelectedMeeting] = useState(null);
     const [rfcs, setRfcs] = useState([]);
     const [votes, setVotes] = useState([]);
-    const [pvContent, setPvContent] = useState('');
+    const [participants, setParticipants] = useState([]);
+    const [decisions, setDecisions] = useState([]);
+    const [ordreJourContent, setOrdreJourContent] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [activeTab, setActiveTab] = useState('pv'); // 'pv' or 'agenda'
+    const [activeTab, setActiveTab] = useState('agenda_editor'); // 'agenda_editor', 'rfcs_votes', 'participants'
 
     const fetchMeetingDetails = useCallback(async (meetingId) => {
         try {
-            const [rfcsRes, votesRes] = await Promise.all([
-                api.get(`/cab/reunions/${meetingId}/rfcs`),
-                api.get(`/cab/reunions/${meetingId}/votes`)
+            const [rfcsRes, votesRes, partsRes, decsRes] = await Promise.all([
+                api.get(`/reunions/${meetingId}/rfcs`),
+                api.get(`/reunions/${meetingId}/votes`),
+                api.get(`/reunions/${meetingId}/participants`),
+                api.get(`/reunions/${meetingId}/decisions`)
             ]);
             setRfcs(rfcsRes.data?.rfcs || rfcsRes.rfcs || []);
             setVotes(votesRes.data?.votes || votesRes.votes || []);
+            setParticipants(partsRes.data?.participants || partsRes.participants || []);
+            setDecisions(decsRes.data?.decisions || decsRes.decisions || []);
         } catch (error) {
             console.error('Erreur détails réunion:', error);
         }
@@ -57,24 +63,23 @@ const CabMeetings = () => {
 
     const handleSelectMeeting = (meeting) => {
         setSelectedMeeting(meeting);
-        setPvContent(meeting.proces_verbal || '');
+        setOrdreJourContent(meeting.ordre_jour || '');
         fetchMeetingDetails(meeting.id_reunion);
     };
 
-    const handlePvSubmit = async (e) => {
+    const handleOrdreJourSubmit = async (e) => {
         e.preventDefault();
-        if (!pvContent.trim()) return alert('Le PV ne peut pas être vide.');
 
         try {
             setSubmitting(true);
-            await api.post(`/cab/reunions/${selectedMeeting.id_reunion}/pv`, {
-                proces_verbal: pvContent
+            await api.put(`/reunions/${selectedMeeting.id_reunion}`, {
+                ordre_jour: ordreJourContent
             });
-            alert('Procès-verbal enregistré !');
+            alert('Ordre du jour enregistré !');
             fetchMeetings();
-            setSelectedMeeting(null);
+            setSelectedMeeting(prev => ({...prev, ordre_jour: ordreJourContent}));
         } catch (error) {
-            console.error('Erreur PV:', error);
+            console.error('Erreur Ordre du jour:', error);
             alert('Erreur lors de l\'enregistrement.');
         } finally {
             setSubmitting(false);
@@ -83,7 +88,8 @@ const CabMeetings = () => {
 
     const handleVote = async (rfcId, voteValue) => {
         try {
-            await api.post(`/cab/reunions/${selectedMeeting.id_reunion}/rfcs/${rfcId}/votes`, {
+            await api.post(`/reunions/${selectedMeeting.id_reunion}/rfcs/${rfcId}/votes`, {
+                id_user: currentUser.id_user,
                 valeur_vote: voteValue
             });
             alert('Vote enregistré !');
@@ -151,7 +157,7 @@ const CabMeetings = () => {
                                             </div>
                                         </div>
                                         <div className="meeting-status-icon">
-                                            {meeting.proces_verbal ? <FiCheckCircle className="done" /> : <FiEdit className="pending" />}
+                                            {meeting.ordre_jour ? <FiCheckCircle className="done" /> : <FiEdit className="pending" />}
                                         </div>
                                     </div>
                                 );
@@ -177,36 +183,39 @@ const CabMeetings = () => {
                             </div>
 
                             <div className="workspace-tabs">
-                                <button className={`tab-btn ${activeTab === 'pv' ? 'active' : ''}`} onClick={() => setActiveTab('pv')}>
-                                    <FiFileText /> Procès-Verbal
+                                <button className={`tab-btn ${activeTab === 'agenda_editor' ? 'active' : ''}`} onClick={() => setActiveTab('agenda_editor')}>
+                                    <FiFileText /> Ordre du Jour
                                 </button>
-                                <button className={`tab-btn ${activeTab === 'agenda' ? 'active' : ''}`} onClick={() => setActiveTab('agenda')}>
-                                    <FiTrendingUp /> Ordre du Jour & Votes
+                                <button className={`tab-btn ${activeTab === 'rfcs_votes' ? 'active' : ''}`} onClick={() => setActiveTab('rfcs_votes')}>
+                                    <FiTrendingUp /> RFCs & Votes
+                                </button>
+                                <button className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`} onClick={() => setActiveTab('participants')}>
+                                    <FiUsers /> Participants
                                 </button>
                             </div>
 
                             <div className="workspace-content">
-                                {activeTab === 'pv' ? (
+                                {activeTab === 'agenda_editor' ? (
                                     <div className="pv-editor-section">
                                         <div className="section-instruction">
-                                            <h3><FiEdit /> Rédaction du compte rendu</h3>
-                                            <p>Consignez ici les points clés, les discussions et les décisions globales prises lors de cette séance.</p>
+                                            <h3><FiEdit /> Rédaction de l'ordre du jour</h3>
+                                            <p>Consignez ici les points clés et les discussions prévues pour cette séance.</p>
                                         </div>
-                                        <form onSubmit={handlePvSubmit}>
+                                        <form onSubmit={handleOrdreJourSubmit}>
                                             <textarea 
-                                                value={pvContent}
-                                                onChange={e => setPvContent(e.target.value)}
-                                                placeholder="Saisissez le procès-verbal de la réunion..."
+                                                value={ordreJourContent}
+                                                onChange={e => setOrdreJourContent(e.target.value)}
+                                                placeholder="Saisissez l'ordre du jour de la réunion..."
                                                 className="premium-textarea"
                                             />
                                             <div className="form-actions">
                                                 <button type="submit" className="btn-save-pv" disabled={submitting}>
-                                                    <FiSave /> {submitting ? 'Enregistrement...' : 'Enregistrer le PV'}
+                                                    <FiSave /> {submitting ? 'Enregistrement...' : 'Enregistrer l\'ordre du jour'}
                                                 </button>
                                             </div>
                                         </form>
                                     </div>
-                                ) : (
+                                ) : activeTab === 'rfcs_votes' ? (
                                     <div className="agenda-section">
                                         <div className="agenda-grid">
                                             {rfcs.length === 0 ? (
@@ -214,6 +223,7 @@ const CabMeetings = () => {
                                             ) : (
                                                 rfcs.map(rfc => {
                                                     const userVote = votes.find(v => v.id_rfc === rfc.id_rfc && v.id_user === currentUser?.id_user);
+                                                    const rfcDecision = decisions.find(d => d.id_rfc === rfc.id_rfc);
                                                     return (
                                                         <div key={rfc.id_rfc} className="agenda-rfc-card">
                                                             <div className="rfc-card-header">
@@ -229,7 +239,11 @@ const CabMeetings = () => {
                                                             </div>
 
                                                             <div className="rfc-actions-footer">
-                                                                {userVote ? (
+                                                                {rfcDecision ? (
+                                                                    <div className={`decision-badge ${rfcDecision.decision.toLowerCase()}`}>
+                                                                        Décision: {rfcDecision.decision}
+                                                                    </div>
+                                                                ) : userVote ? (
                                                                     <div className={`vote-badge ${userVote.valeur_vote.toLowerCase()}`}>
                                                                         Votre vote : {userVote.valeur_vote}
                                                                     </div>
@@ -246,6 +260,25 @@ const CabMeetings = () => {
                                                 })
                                             )}
                                         </div>
+                                    </div>
+                                ) : (
+                                    <div className="participants-section">
+                                        <h3><FiUsers /> Liste des participants ({participants.length})</h3>
+                                        {participants.length === 0 ? (
+                                            <div className="empty-state">Aucun participant inscrit.</div>
+                                        ) : (
+                                            <div className="participants-list">
+                                                {participants.map(p => (
+                                                    <div key={p.id_user} className="participant-card glass-card">
+                                                        <div className="p-avatar"><FiUsers /></div>
+                                                        <div className="p-info">
+                                                            <div className="p-name">{p.utilisateur?.nom_user} {p.utilisateur?.prenom_user}</div>
+                                                            <div className="p-email">{p.utilisateur?.email_user}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

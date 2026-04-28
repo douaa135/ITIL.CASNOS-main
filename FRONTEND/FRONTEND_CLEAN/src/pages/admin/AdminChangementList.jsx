@@ -3,7 +3,7 @@ import changeService from '../../services/changeService';
 import dashboardService from '../../services/dashboardService';
 import { 
     FiRefreshCw, FiTrendingUp, FiActivity, FiXCircle, 
-    FiSearch, FiFilter, FiEye, FiClock, FiCheckCircle, FiFileText, FiX, FiInfo, FiEdit3
+    FiSearch, FiFilter, FiEye, FiClock, FiCheckCircle, FiFileText, FiX, FiInfo, FiEdit3, FiShield, FiPlus, FiTrash2, FiEdit
 } from 'react-icons/fi';
 import Badge from '../../components/common/Badge';
 import api from '../../api/axiosClient';
@@ -17,12 +17,25 @@ const AdminChangementList = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatut, setFilterStatut] = useState('');
     const [filterEnv, setFilterEnv] = useState('');
+    const [environments, setEnvironments] = useState([]);
+
+    const [showCreateChange, setShowCreateChange] = useState(false);
+    const [createForm, setCreateForm] = useState({
+        titre: '',
+        description: '',
+        priorite: 'BASSE',
+        date_debut_prevue: '',
+        date_fin_prevue: '',
+        id_env: ''
+    });
 
     const [selectedChangement, setSelectedChangement] = useState(null);
     const [showProcess, setShowProcess] = useState(false);
     const [showReportForm, setShowReportForm] = useState(false);
     const [reportForm, setReportForm] = useState({ titre_rapport: '', type_rapport: 'Audit', contenu_rapport: '' });
     const [editMode, setEditMode] = useState(false);
+    const [changeStatuses, setChangeStatuses] = useState([]);
+    const [newStatutId, setNewStatutId] = useState('');
     const [editForm, setEditForm] = useState({
         titre: '',
         description: '',
@@ -34,6 +47,7 @@ const AdminChangementList = () => {
 
     const handleOpenProcess = (c) => {
         setSelectedChangement(c);
+        setNewStatutId(c.statut?.id_statut || '');
         setShowProcess(true);
     };
 
@@ -42,32 +56,128 @@ const AdminChangementList = () => {
         setSelectedChangement(null);
         setShowReportForm(false);
         setEditMode(false);
+        setShowCreateChange(false);
+    };
+
+    const handleDeleteChangement = async (id) => {
+        if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce changement ?')) return;
+        try {
+            await changeService.deleteChangement(id);
+            alert('Changement supprimé avec succès !');
+            setChangements(prev => prev.filter(c => c.id_changement !== id));
+        } catch (err) {
+            console.error("Erreur suppression:", err);
+            alert('Erreur lors de la suppression du changement.');
+        }
+    };
+
+    const handleOpenEditDirectly = (c) => {
+        console.log("Ouverture du mode édition pour:", c?.code_changement);
+        setSelectedChangement(c);
+        setNewStatutId(c.statut?.id_statut || '');
+        
+        const formatDateTimeLocal = (isoString) => {
+            if (!isoString) return '';
+            const d = new Date(isoString);
+            return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        };
+
+        setEditForm({
+            titre: c.rfc?.titre_rfc || c.planChangement?.titre_plan || '',
+            description: c.planChangement?.etapes_plan || c.rfc?.description || '',
+            priorite: c.rfc?.urgence ? 'HAUTE' : (c.priorite || 'BASSE'),
+            date_debut: formatDateTimeLocal(c.date_debut),
+            date_fin: formatDateTimeLocal(c.date_fin_prevu),
+            environnement: c.environnement?.id_env || c.id_env || ''
+        });
+        
+        setEditMode(true);
+        setShowProcess(true);
     };
 
     const handleEditChangement = () => {
         if (!selectedChangement) return;
-        setEditForm({
-            titre: selectedChangement.titre || '',
-            description: selectedChangement.description || '',
-            priorite: selectedChangement.priorite || '',
-            date_debut: selectedChangement.date_debut || '',
-            date_fin: selectedChangement.date_fin || '',
-            environnement: selectedChangement.environnement?.id_env || ''
-        });
-        setEditMode(true);
+        handleOpenEditDirectly(selectedChangement);
     };
 
     const handleSaveEdit = async () => {
+        console.log("Tentative de sauvegarde...");
         if (!selectedChangement) return;
         try {
-            await changeService.updateChangement(selectedChangement.id_changement, editForm);
+            // Mise à jour des champs principaux
+            await changeService.updateChangement(selectedChangement.id_changement, {
+                date_debut: editForm.date_debut || null,
+                date_fin_prevu: editForm.date_fin || null,
+                id_env: editForm.environnement || undefined,
+                plan_changement: {
+                    titre_plan: editForm.titre || 'Changement Standard',
+                    etapes_plan: editForm.description || ''
+                }
+            });
+
+            // Mise à jour du statut si modifié
+            if (newStatutId && newStatutId !== selectedChangement.statut?.id_statut) {
+                await changeService.updateChangementStatus(selectedChangement.id_changement, newStatutId);
+            }
+
             alert('Changement modifié avec succès !');
             setEditMode(false);
-            // Recharger la liste
+            
+            const updatedChangements = await changeService.getAllChangements();
+            setChangements(updatedChangements);
+            
+            // Mettre à jour l'objet sélectionné pour rafraîchir l'affichage du modal
+            const updatedOne = updatedChangements.find(c => c.id_changement === selectedChangement.id_changement);
+            if (updatedOne) {
+                setSelectedChangement(updatedOne);
+                setNewStatutId(updatedOne.statut?.id_statut || '');
+            }
+        } catch (error) {
+            console.error("Erreur handleSaveEdit:", error);
+            const msg = error.response?.data?.message || 'Erreur lors de la modification du changement.';
+            alert(msg);
+        }
+    };
+
+    const handleCreateChangement = async (e) => {
+        e.preventDefault();
+        try {
+            const newChg = await changeService.createChangement({
+                id_env: createForm.id_env,
+                date_debut: createForm.date_debut_prevue || null,
+                date_fin_prevu: createForm.date_fin_prevue || null,
+            });
+            
+            if (newChg && newChg.id_changement) {
+                await changeService.updateChangement(newChg.id_changement, {
+                    plan_changement: {
+                        titre_plan: createForm.titre || 'Nouveau Changement',
+                        etapes_plan: createForm.description || ''
+                    }
+                });
+            }
+
+            alert('Nouveau changement créé avec succès !');
+            setShowCreateChange(false);
+            setCreateForm({ titre: '', description: '', priorite: 'BASSE', date_debut_prevue: '', date_fin_prevue: '', id_env: '' });
             const updatedChangements = await changeService.getAllChangements();
             setChangements(updatedChangements);
         } catch (error) {
-            alert('Erreur lors de la modification du changement.');
+            alert(error?.response?.data?.message || 'Erreur lors de la création du changement.');
+        }
+    };
+
+    const handleChangeStatut = async () => {
+        if (!newStatutId || newStatutId === selectedChangement?.statut?.id_statut) return;
+        try {
+            await changeService.updateChangementStatus(selectedChangement.id_changement, newStatutId);
+            alert('Statut mis à jour avec succès !');
+            const updatedChangements = await changeService.getAllChangements();
+            setChangements(updatedChangements);
+            const updated = updatedChangements.find(c => c.id_changement === selectedChangement.id_changement);
+            if (updated) setSelectedChangement(updated);
+        } catch (err) {
+            alert(err?.response?.data?.message || 'Erreur lors du changement de statut.');
         }
     };
 
@@ -88,15 +198,22 @@ const AdminChangementList = () => {
         const loadData = async () => {
             setLoading(true);
             try {
-                const [kpiRes, changesRes] = await Promise.all([
+                const [kpiRes, changesRes, statusesRes, envsRes] = await Promise.all([
                     dashboardService.getKpiChangements(),
-                    changeService.getAllChangements()
+                    changeService.getAllChangements(),
+                    changeService.getChangeStatuses(),
+                    api.get('/environnements').catch(() => null)
                 ]);
                 
                 if (kpiRes && (kpiRes.data?.data || kpiRes.data)) {
                     setKpi(kpiRes.data?.data || kpiRes.data);
                 }
                 setChangements(changesRes || []);
+                setChangeStatuses(statusesRes || []);
+                
+                if (envsRes && (envsRes.data?.data || envsRes.data)) {
+                    setEnvironments(envsRes.data?.data || envsRes.data);
+                }
             } catch (err) {
                 console.error("Erreur chargement changements:", err);
             } finally {
@@ -108,10 +225,15 @@ const AdminChangementList = () => {
 
     const getStatusColor = (statut) => {
         const s = (statut || '').toUpperCase();
-        if (s.includes('APPROUV') || s.includes('REUSSI') || s.includes('TERMINE')) return 'success';
-        if (s.includes('REJET') || s.includes('ECHEC') || s.includes('ANNULE')) return 'danger';
-        if (s.includes('EVALU') || s.includes('PLANIFI') || s.includes('COURS')) return 'info';
-        if (s.includes('ATTENTE') || s.includes('URGENCE')) return 'warning';
+        if (s.includes('REUSSI') || s.includes('TERMINE') || s.includes('APPROUV')) return 'green';
+        if (s.includes('REJET') || s.includes('ECHEC') || s.includes('ANNULE')) return 'red';
+        if (s.includes('EVALU')) return 'purple';
+        if (s.includes('PLANIF')) return 'teal';
+        if (s.includes('COURS')) return 'pink';
+        if (s.includes('ATTENTE') || s.includes('SOUMIS')) return 'blue';
+        if (s.includes('URGENCE')) return 'amber';
+        if (s.includes('BROUILLON')) return 'orange';
+        if (s.includes('PRE-APPROUV') || s.includes('PRE_APPROUV')) return 'yellow';
         return 'default';
     };
 
@@ -124,25 +246,39 @@ const AdminChangementList = () => {
     };
 
     // Extract unique values for filters
-    const uniqueStatuts = [...new Set(changements.map(c => c.statut?.libelle).filter(Boolean))];
-    const uniqueEnvs = [...new Set(changements.map(c => c.environnement?.nom_env).filter(Boolean))];
+    const uniqueStatuts = [...changeStatuses].sort((a, b) => {
+        const order = ['SOUMIS', 'PLANIFIE', 'EN_COURS', 'REUSSI', 'ECHEC', 'ANNULE'];
+        return order.indexOf(a.code_statut) - order.indexOf(b.code_statut);
+    });
+    const uniqueTypes = ['STANDARD', 'NORMAL', 'URGENCE'];
+
+    const [filterType, setFilterType] = useState('');
 
     const filteredChangements = changements.filter(c => {
         const matchesSearch = (c.code_changement?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                               (c.titre?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                               (c.environnement?.nom_env?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-        const matchesStatut = filterStatut ? c.statut?.libelle === filterStatut : true;
+        const matchesStatut = filterStatut ? c.statut?.code_statut === filterStatut : true;
         const matchesEnv = filterEnv ? c.environnement?.nom_env === filterEnv : true;
+        const matchesType = filterType ? (c.rfc?.typeRfc?.type || 'STANDARD').toUpperCase() === filterType : true;
         
-        return matchesSearch && matchesStatut && matchesEnv;
+        return matchesSearch && matchesStatut && matchesEnv && matchesType;
     });
 
     return (
         <div className="rfc-mgr-page">
-            <div className="rfc-mgr-header">
+            <div className="rfc-mgr-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h1><FiRefreshCw /> Gestion des Changements</h1>
                     <p>Supervision globale de tous les changements du système ITIL.</p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <button 
+                        onClick={() => setShowCreateChange(true)} 
+                        className="btn-create-premium" 
+                    >
+                        <FiPlus /> Nouveau Changement
+                    </button>
                 </div>
             </div>
 
@@ -180,6 +316,52 @@ const AdminChangementList = () => {
                 </div>
             )}
 
+            {/* TOOLBAR FILTERS */}
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <div style={{ flex: 1, minWidth: '250px', position: 'relative' }}>
+                    <FiSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input 
+                        type="text" 
+                        placeholder="Rechercher par code, titre..." 
+                        value={searchTerm} 
+                        onChange={e => setSearchTerm(e.target.value)} 
+                        style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', outline: 'none' }}
+                    />
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <select 
+                        value={filterStatut} 
+                        onChange={e => setFilterStatut(e.target.value)}
+                        style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: 'white', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}
+                    >
+                        <option value="">Tous les statuts</option>
+                        {uniqueStatuts.map(s => (
+                            <option key={s.id_statut} value={s.code_statut}>{s.libelle}</option>
+                        ))}
+                    </select>
+                    <select 
+                        value={filterType} 
+                        onChange={e => setFilterType(e.target.value)}
+                        style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: 'white', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}
+                    >
+                        <option value="">Tous les types</option>
+                        {uniqueTypes.map(t => (
+                            <option key={t} value={t}>{t}</option>
+                        ))}
+                    </select>
+                    <select 
+                        value={filterEnv} 
+                        onChange={e => setFilterEnv(e.target.value)}
+                        style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: 'white', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}
+                    >
+                        <option value="">Environnements</option>
+                        {environments.map(env => (
+                            <option key={env.id_env} value={env.nom_env}>{env.nom_env}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
             {/* Table Section (Mirroring CI Management) */}
             <Card style={{ padding: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
                 <div style={{ overflowX: 'auto' }}>
@@ -187,6 +369,7 @@ const AdminChangementList = () => {
                         <thead>
                             <tr style={{ background: 'linear-gradient(to right, #f8fafc, #f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
                                 <th style={{ padding: '0.2rem 0.3rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Changement & Code</th>
+                                <th style={{ padding: '0.2rem 0.3rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Priorité</th>
                                 <th style={{ padding: '0.2rem 0.3rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Environnement</th>
                                 <th style={{ padding: '0.2rem 0.3rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
                                 <th style={{ padding: '0.2rem 0.3rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date Planifiée</th>
@@ -196,11 +379,11 @@ const AdminChangementList = () => {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Chargement...</td>
+                                    <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Chargement...</td>
                                 </tr>
                             ) : filteredChangements.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                                    <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
                                         <FiFileText size={40} style={{ display: 'block', margin: '0 auto 1rem', opacity: 0.3 }} />
                                         Aucun changement trouvé.
                                     </td>
@@ -208,8 +391,15 @@ const AdminChangementList = () => {
                             ) : filteredChangements.map((c, index) => (
                                 <tr key={c.id_changement} onClick={() => handleOpenProcess(c)} style={{ cursor: 'pointer', borderBottom: '1px solid #f1f5f9', background: index % 2 === 0 ? 'white' : '#fafbfc', transition: 'background 0.2s' }} className="hover-row">
                                     <td style={{ padding: '0.2rem 0.3rem' }}>
-                                        <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.8rem' }}>{c.titre}</div>
+                                        <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.8rem' }}>{c.rfc?.titre_rfc || c.planChangement?.titre_plan || 'Changement Standard'}</div>
                                         <div style={{ fontSize: '0.65rem', color: '#3b82f6', fontWeight: '600' }}>#{c.code_changement}</div>
+                                    </td>
+                                    <td style={{ padding: '0.2rem 0.3rem' }}>
+                                        <Badge 
+                                            variant={c.rfc?.urgence ? 'danger' : 'warning'} 
+                                        >
+                                            {c.rfc?.urgence ? 'HAUTE' : 'BASSE'}
+                                        </Badge>
                                     </td>
                                     <td style={{ padding: '0.2rem 0.3rem' }}>
                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f1f5f9', padding: '0.25rem 0.6rem', borderRadius: '99px', fontSize: '0.65rem', color: '#475569', fontWeight: '600' }}>
@@ -222,12 +412,15 @@ const AdminChangementList = () => {
                                         </span>
                                     </td>
                                     <td style={{ padding: '0.2rem 0.3rem', color: '#334155', fontSize: '0.75rem' }}>
-                                        {c.date_debut_prevue ? new Date(c.date_debut_prevue).toLocaleDateString() : '—'}
+                                        {c.date_debut ? new Date(c.date_debut).toLocaleDateString() : '—'}
                                     </td>
                                     <td style={{ padding: '0.2rem 0.3rem', textAlign: 'right' }}>
                                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                            <button onClick={(e) => { e.stopPropagation(); handleOpenProcess(c); }} style={{ background: '#f1f5f9', color: '#10b981', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Détails">
-                                                <FiEye size={16} />
+                                            <button onClick={(e) => { e.stopPropagation(); handleOpenEditDirectly(c); }} style={{ background: '#eff6ff', color: '#2563eb', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier">
+                                                <FiEdit size={16} />
+                                            </button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteChangement(c.id_changement); }} style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Supprimer">
+                                                <FiTrash2 size={16} />
                                             </button>
                                         </div>
                                     </td>
@@ -240,8 +433,8 @@ const AdminChangementList = () => {
 
             {/* MODAL TRAITEMENT */}
             {showProcess && selectedChangement && (
-                <div className="modal-backdrop" onClick={closeModals} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-                    <div className="modal-box glass-card" style={{ maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', background: 'rgba(255, 255, 255, 0.72)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255, 255, 255, 0.4)', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                <div className="modal-backdrop" onClick={closeModals}>
+                    <div className="modal-box glass-card" style={{ maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
                         <button onClick={closeModals} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', zIndex: 10 }}>
                             <FiX size={24} />
                         </button>
@@ -252,7 +445,7 @@ const AdminChangementList = () => {
                             </div>
                             <div style={{ flex: 1 }}>
                                 <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: '#0f172a' }}>Détails du Changement</h2>
-                                <div style={{ marginTop: '0.4rem', fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>#{selectedChangement.code_changement} — {selectedChangement.titre}</div>
+                                <div style={{ marginTop: '0.4rem', fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>#{selectedChangement.code_changement} — {selectedChangement.rfc?.titre_rfc || selectedChangement.planChangement?.titre_plan || 'Changement Standard'}</div>
                             </div>
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                 <button 
@@ -365,6 +558,33 @@ const AdminChangementList = () => {
                                                         />
                                                     </div>
                                                 </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                                    <div>
+                                                        <label style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: '600' }}>Environnement</label>
+                                                        <select 
+                                                            value={editForm.environnement} 
+                                                            onChange={e => setEditForm({...editForm, environnement: e.target.value})}
+                                                            style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #7dd3fc', outline: 'none', background: 'white' }}
+                                                        >
+                                                            <option value="">Sélectionner...</option>
+                                                            {environments.map(env => (
+                                                                <option key={env.id_env} value={env.id_env}>{env.nom_env}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: '600' }}>Statut</label>
+                                                        <select 
+                                                            value={newStatutId} 
+                                                            onChange={e => setNewStatutId(e.target.value)}
+                                                            style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #7dd3fc', outline: 'none', background: 'white' }}
+                                                        >
+                                                            {changeStatuses.map(s => (
+                                                                <option key={s.id_statut} value={s.id_statut}>{s.libelle}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
                                                     <button onClick={() => setEditMode(false)} style={{ background: 'transparent', border: 'none', color: '#0369a1', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>Annuler</button>
                                                     <button onClick={handleSaveEdit} style={{ background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }}>Enregistrer</button>
@@ -379,8 +599,8 @@ const AdminChangementList = () => {
                                             <p style={{ fontSize: '0.95rem', color: '#0f172a', fontWeight: '600', margin: '0.25rem 0' }}>{selectedChangement.environnement?.nom_env || 'N/A'}</p>
                                         </div>
                                         <div>
-                                            <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Statut Actuel</label>
-                                            <p style={{ margin: '0.25rem 0' }}>
+                                            <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Statut</label>
+                                            <p style={{ margin: '0.25rem 0 0.5rem' }}>
                                                 <span className={`status-badge status-${getStatusColor(selectedChangement.statut?.code_statut)}`}>
                                                     {selectedChangement.statut?.libelle || 'Inconnu'}
                                                 </span>
@@ -389,6 +609,15 @@ const AdminChangementList = () => {
                                         <div>
                                             <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Date de création</label>
                                             <p style={{ fontSize: '0.95rem', color: '#0f172a', fontWeight: '600', margin: '0.25rem 0' }}>{new Date(selectedChangement.date_creation).toLocaleDateString()}</p>
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Change Manager</label>
+                                            <p style={{ fontSize: '0.9rem', color: '#0f172a', fontWeight: '700', margin: '0.25rem 0' }}>
+                                                {selectedChangement.changeManager
+                                                    ? `${selectedChangement.changeManager.prenom_user || ''} ${selectedChangement.changeManager.nom_user || ''}`.trim()
+                                                    : <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: '400' }}>Non assigné</span>
+                                                }
+                                            </p>
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Lié à la RFC</label>
@@ -411,6 +640,100 @@ const AdminChangementList = () => {
                         <div className="modal-footer" style={{ padding: '1.5rem 2rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
                             <button className="modal-btn modal-btn-cancel" style={{ padding: '0.75rem 1.25rem', borderRadius: '10px', background: 'white', border: '1px solid #e2e8f0', color: '#64748b', cursor: 'pointer', fontWeight: '700' }} onClick={closeModals}>Fermer</button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL CRÉATION CHANGEMENT */}
+            {showCreateChange && (
+                <div className="modal-backdrop" onClick={closeModals}>
+                    <div className="modal-box glass-card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-top" style={{ background: 'linear-gradient(135deg, #2563eb, #1e40af)', color: 'white', padding: '1.5rem', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <FiPlus className="modal-ico" style={{ color: '#93c5fd', fontSize: '1.5rem' }} />
+                                <h2 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>Nouveau Changement</h2>
+                            </div>
+                            <button onClick={closeModals} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><FiX size={24} /></button>
+                        </div>
+
+                        <form onSubmit={handleCreateChangement} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                            <div className="modal-body" style={{ overflowY: 'auto', padding: '2rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Titre du changement <span style={{ color: '#ef4444' }}>*</span></label>
+                                        <input 
+                                            type="text" 
+                                            value={createForm.titre} 
+                                            onChange={e => setCreateForm({...createForm, titre: e.target.value})}
+                                            style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }} 
+                                            placeholder="Ex: Déploiement de la mise à jour..." 
+                                            required
+                                        />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Priorité</label>
+                                            <select 
+                                                value={createForm.priorite} 
+                                                onChange={e => setCreateForm({...createForm, priorite: e.target.value})}
+                                                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', background: 'white' }}
+                                            >
+                                                <option value="BASSE">Basse</option>
+                                                <option value="MOYENNE">Moyenne</option>
+                                                <option value="HAUTE">Haute</option>
+                                                <option value="CRITIQUE">Critique</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Environnement</label>
+                                            <select 
+                                                value={createForm.id_env} 
+                                                onChange={e => setCreateForm({...createForm, id_env: e.target.value})}
+                                                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', background: 'white' }}
+                                            >
+                                                <option value="">Sélectionner un environnement...</option>
+                                                {environments.map(env => (
+                                                    <option key={env.id_env} value={env.id_env}>{env.nom_env}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Date de début prévue</label>
+                                            <input 
+                                                type="datetime-local" 
+                                                value={createForm.date_debut_prevue} 
+                                                onChange={e => setCreateForm({...createForm, date_debut_prevue: e.target.value})}
+                                                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }} 
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Date de fin prévue</label>
+                                            <input 
+                                                type="datetime-local" 
+                                                value={createForm.date_fin_prevue} 
+                                                onChange={e => setCreateForm({...createForm, date_fin_prevue: e.target.value})}
+                                                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }} 
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Description détaillée</label>
+                                        <textarea 
+                                            value={createForm.description} 
+                                            onChange={e => setCreateForm({...createForm, description: e.target.value})}
+                                            style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', minHeight: '100px' }} 
+                                            placeholder="Description complète du changement à réaliser..." 
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="modal-footer" style={{ padding: '1.5rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '1rem', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+                                <button type="button" onClick={closeModals} style={{ padding: '0.75rem 1.5rem', borderRadius: '10px', background: 'white', border: '1px solid #cbd5e1', color: '#64748b', cursor: 'pointer', fontWeight: '700' }}>Annuler</button>
+                                <button type="submit" style={{ padding: '0.75rem 1.5rem', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', color: 'white', cursor: 'pointer', fontWeight: '700' }}>Créer le changement</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

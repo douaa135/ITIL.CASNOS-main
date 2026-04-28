@@ -5,7 +5,7 @@ import Card from '../../components/common/Card';
 import {
   FiLayers, FiPlus, FiTrash2, FiEdit3, FiCheck,
   FiX, FiSearch, FiAlertTriangle, FiCheckCircle, FiLoader,
-  FiBriefcase, FiMapPin, FiUsers, FiRefreshCw
+  FiBriefcase, FiMapPin, FiUsers, FiRefreshCw, FiUserPlus, FiUserMinus
 } from 'react-icons/fi';
 
 // ── Toast notifications ───────────────────────────────────────
@@ -82,8 +82,9 @@ const DirectionModal = ({ direction, onClose, onSave, loading }) => {
 };
 
 // ── Modal pour afficher les membres ─────────────────────────────────────
-const MembersModal = ({ direction, users, onClose }) => {
-  const directionUsers = users.filter(u => u.id_direction === direction.id_direction);
+const MembersModal = ({ direction, users, onClose, onAddUser, onRemoveUser }) => {
+  const directionUsers = users.filter(u => (u.direction?.id_direction || u.id_direction) === direction.id_direction);
+  const otherUsers = users.filter(u => (u.direction?.id_direction || u.id_direction) !== direction.id_direction);
 
   return (
     <div className="modal-backdrop-cab" onClick={onClose}>
@@ -98,22 +99,59 @@ const MembersModal = ({ direction, users, onClose }) => {
         </div>
 
         <div className="modal-body-rfc-style" style={{ overflowY: 'auto' }}>
+          {/* Section Ajout */}
+          <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f1f5f9', borderRadius: '12px' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: '800', color: '#475569', marginBottom: '0.5rem', display: 'block', textTransform: 'uppercase' }}>
+              Ajouter un collaborateur à cette direction
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <div style={{ background: '#3b82f6', color: 'white', padding: '0.6rem', borderRadius: '8px', display: 'flex' }}>
+                <FiUserPlus size={18} />
+              </div>
+              <select 
+                className="premium-input-style"
+                style={{ flex: 1, padding: '0.5rem', margin: 0 }}
+                onChange={(e) => onAddUser(e.target.value)}
+                value=""
+              >
+                <option value="">Sélectionner un utilisateur à rattacher...</option>
+                {otherUsers.map(u => (
+                  <option key={u.id_user} value={u.id_user}>
+                    {u.prenom_user} {u.nom_user} ({u.nom_direction || 'Sans direction'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {directionUsers.length === 0 ? (
             <div className="rfc-empty">Aucun utilisateur dans cette direction.</div>
           ) : (
             <div className="rfc-members-grid" style={{ gridTemplateColumns: '1fr' }}>
               {directionUsers.map(user => (
-                <div key={user.id_user} className="rfc-member-card">
+                <div key={user.id_user} className="rfc-member-card" style={{ background: 'white', border: '1px solid #e2e8f0' }}>
                   <div className="rfc-avatar" style={{ background: user.actif ? '#3b82f6' : '#94a3b8' }}>
                     {user.prenom_user?.[0]}{user.nom_user?.[0]}
                   </div>
-                  <div className="rfc-member-info">
+                  <div className="rfc-member-info" style={{ flex: 1 }}>
                     <span className="rfc-m-name">{user.prenom_user} {user.nom_user}</span>
-                    <span className="rfc-m-role">{user.email_user}</span>
+                    <span className="rfc-m-role" style={{ fontSize: '0.7rem' }}>{user.email_user}</span>
                   </div>
-                  <div className={`ref-badge ${user.actif ? 'active' : 'inactive'}`} style={{ marginLeft: 'auto', background: user.actif ? '#d1fae5' : '#fee2e2', color: user.actif ? '#047857' : '#dc2626' }}>
+                  <div className={`ref-badge ${user.actif ? 'active' : 'inactive'}`} style={{ marginRight: '1rem', background: user.actif ? '#d1fae5' : '#fee2e2', color: user.actif ? '#047857' : '#dc2626' }}>
                     {user.actif ? 'Actif' : 'Inactif'}
                   </div>
+                  <button 
+                    onClick={() => onRemoveUser(user)}
+                    style={{ 
+                      background: '#fee2e2', color: '#ef4444', border: 'none', 
+                      width: '32px', height: '32px', borderRadius: '8px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', transition: 'all 0.2s'
+                    }}
+                    title="Retirer de la direction"
+                  >
+                    <FiUserMinus size={16} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -175,7 +213,7 @@ const DirectionManagement = () => {
         // Update directions with accurate user counts
         directionsData = directionsData.map(dir => ({
           ...dir,
-          nb_utilisateurs: userRes.data.data.filter(u => u.id_direction === dir.id_direction).length
+          nb_utilisateurs: userRes.data.data.filter(u => (u.direction?.id_direction || u.id_direction) === dir.id_direction).length
         }));
       }
 
@@ -249,6 +287,28 @@ const DirectionManagement = () => {
     }
   };
 
+  const handleAddUserToDirection = async (userId) => {
+    if (!userId || !selectedDirection) return;
+    try {
+      await api.put(`/users/${userId}`, { id_direction: selectedDirection.id_direction });
+      setToast({ msg: 'Collaborateur rattaché avec succès', type: 'success' });
+      fetchDirections();
+    } catch (error) {
+      setToast({ msg: 'Erreur lors du rattachement', type: 'error' });
+    }
+  };
+
+  const handleRemoveUserFromDirection = async (user) => {
+    if (!window.confirm(`Retirer ${user.prenom_user} de la direction "${selectedDirection.nom_direction}" ?`)) return;
+    try {
+      await api.put(`/users/${user.id_user}`, { id_direction: null });
+      setToast({ msg: 'Collaborateur retiré avec succès', type: 'success' });
+      fetchDirections();
+    } catch (error) {
+      setToast({ msg: 'Erreur lors du retrait', type: 'error' });
+    }
+  };
+
   const handleShowMembers = (direction) => {
     setSelectedDirection(direction);
     setShowMembersModal(true);
@@ -266,48 +326,66 @@ const DirectionManagement = () => {
 
   return (
     <div className="settings-page">
-      {/* Header */}
-      <div className="settings-header">
-        <div className="header-icon-main"><FiBriefcase /></div>
-        <div>
-          <h1>Gestion des Directions</h1>
-          <p>Configurez les entités organisationnelles et supervisez les effectifs par département.</p>
-        </div>
-      </div>
-
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="stat-card" style={{ '--card-color': '#3b82f6', '--card-color-rgb': '59, 130, 246' }}>
-          <div className="stat-icon"><FiLayers /></div>
-          <div className="stat-content">
-            <div className="stat-value">{directions.length}</div>
-            <div className="stat-title">Directions</div>
+      {/* Header Row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          <div className="header-icon-main" style={{ width: '56px', height: '56px', background: '#eff6ff', color: '#3b82f6', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', border: '1px solid #bfdbfe' }}>
+            <FiBriefcase />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Gestion des Directions</h1>
+            <p style={{ color: '#64748b', fontSize: '1rem', margin: '0.25rem 0 0', fontWeight: 500 }}>Configurez les entités organisationnelles et supervisez les effectifs par département.</p>
           </div>
         </div>
-
-        <div className="stat-card" style={{ '--card-color': '#10b981', '--card-color-rgb': '16, 185, 129' }}>
-          <div className="stat-icon"><FiUsers /></div>
-          <div className="stat-content">
-            <div className="stat-value">{totalUsers}</div>
-            <div className="stat-title">Utilisateurs</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="section-header-premium" style={{ background: 'white', padding: '1.5rem', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', marginBottom: '1.5rem' }}>
-        <div className="title-group" style={{ flex: 1 }}>
-          <FiSearch style={{ color: '#94a3b8' }} />
-          <input
-            type="text"
-            placeholder="Rechercher une direction..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="premium-input-style"
-            style={{ border: 'none', background: 'transparent', boxShadow: 'none', padding: '0.5rem' }}
-          />
-        </div>
-        <button className="btn-add-premium" onClick={handleAddDirection}>
+        <button className="btn-create-premium" onClick={handleAddDirection}>
           <FiPlus /> Nouvelle Direction
         </button>
+      </div>
+
+      {/* KPI Row - Task KPI CSS Style */}
+      <div className="stats-grid" style={{ marginBottom: '2.5rem' }}>
+        <div className="stat-card blue">
+          <div className="stat-icon-wrapper">
+            <FiLayers size={24} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{directions.length}</div>
+            <div className="stat-label">Directions</div>
+          </div>
+        </div>
+
+        <div className="stat-card green">
+          <div className="stat-icon-wrapper">
+            <FiUsers size={24} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{totalUsers}</div>
+            <div className="stat-label">Utilisateurs</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rfc-mgr-toolbar" style={{ marginBottom: '2rem', background: 'white', padding: '0.75rem', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+        <div className="search-wrapper" style={{ flex: 1 }}>
+          <FiSearch className="search-ico" />
+          <input
+            type="text"
+            placeholder="Rechercher par nom (Filtre général)..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="toolbar-filters">
+          <select 
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ minWidth: '220px' }}
+          >
+            <option value="">Toutes les directions</option>
+            {directions.map(d => <option key={d.id_direction} value={d.nom_direction}>{d.nom_direction}</option>)}
+          </select>
+          <button className="refresh-btn" onClick={fetchDirections}><FiRefreshCw /></button>
+        </div>
       </div>
 
 
@@ -383,6 +461,8 @@ const DirectionManagement = () => {
           direction={selectedDirection}
           users={users}
           onClose={closeMembersModal}
+          onAddUser={handleAddUserToDirection}
+          onRemoveUser={handleRemoveUserFromDirection}
         />
       )}
 

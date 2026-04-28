@@ -25,10 +25,11 @@ const ProfileField = ({ label, value, icon }) => (
 
 const Profile = () => {
   const { user, refreshUser } = useAuth();
-  const [passwordData, setPasswordData] = useState({
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: '',
+  const [profileData, setProfileData] = useState({
+    nom_user: '',
+    prenom_user: '',
+    email_user: '',
+    phone: '',
   });
   const [status, setStatus] = useState({ type: '', message: '' });
   const [loading, setLoading] = useState(false);
@@ -36,43 +37,37 @@ const Profile = () => {
   // Rafraîchit les données utilisateur depuis le backend au montage
   useEffect(() => {
     refreshUser().catch(() => {/* silencieux */});
+    if (user) {
+      setProfileData({
+        nom_user: user.nom_user || '',
+        prenom_user: user.prenom_user || '',
+        email_user: user.email_user || '',
+        phone: user.phone || '',
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
-  const handleInputChange = (e) => {
+  const handleProfileChange = (e) => {
     const { name, value } = e.target;
-    setPasswordData((prev) => ({ ...prev, [name]: value }));
+    setProfileData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePasswordUpdate = async (e) => {
+  const handleProfileUpdate = async (e) => {
     e.preventDefault();
     setStatus({ type: '', message: '' });
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      return setStatus({ type: 'error', message: 'Les nouveaux mots de passe ne correspondent pas.' });
-    }
-
-    if (passwordData.newPassword.length < 6) {
-      return setStatus({ type: 'error', message: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' });
-    }
-
     setLoading(true);
     try {
-      const response = await api.patch('/users/profile/password', {
-        oldPassword: passwordData.oldPassword,
-        newPassword: passwordData.newPassword,
-      });
-
+      // Note: On utilise l'endpoint /profile s'il existe, sinon on pourrait rediriger vers l'endpoint admin si l'user est admin.
+      const response = await api.patch('/users/profile', profileData);
       if (response.success) {
-        setStatus({ type: 'success', message: 'Mot de passe mis à jour avec succès.' });
-        setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+        setStatus({ type: 'success', message: 'Profil mis à jour avec succès.' });
+        await refreshUser();
       } else {
         setStatus({ type: 'error', message: response.message || 'Échec de la mise à jour.' });
       }
     } catch (err) {
-      const msg =
-        err?.error?.message || err?.message || 'Erreur lors de la mise à jour du mot de passe.';
-      setStatus({ type: 'error', message: msg });
+      setStatus({ type: 'error', message: err?.message || 'Erreur lors de la mise à jour du profil.' });
     } finally {
       setLoading(false);
     }
@@ -95,79 +90,61 @@ const Profile = () => {
       </div>
 
       <div className="profile-grid-premium">
-        {/* Informations Personnelles (Lecture seule) */}
+        {/* Informations Personnelles (Éditable) */}
         <div className="premium-card">
           <div className="card-title-premium">
             <FiUser /> Informations personnelles
           </div>
 
-          <ProfileField label="Nom de famille"    value={user?.nom_user}        icon={<FiUser size={16} />} />
-          <ProfileField label="Prénom"            value={user?.prenom_user}     icon={<FiUser size={16} />} />
-          <ProfileField label="Adresse Email"     value={user?.email_user}      icon={<FiMail size={16} />} />
-          <ProfileField label="Téléphone"         value={user?.phone}           icon={<FiPhone size={16} />} />
-          <ProfileField
-            label="Direction / Département"
-            value={user?.nom_direction || 'Direction non assignée'}
-            icon={<FiBriefcase size={16} />}
-          />
-
-          <div style={{
-            marginTop: '20px', padding: '15px', background: '#f0f9ff',
-            borderRadius: '10px', border: '1px solid #bae6fd',
-            fontSize: '0.85rem', color: '#0369a1',
-          }}>
-            <FiAlertCircle style={{ marginRight: '8px' }} />
-            Pour modifier vos informations personnelles, veuillez contacter l'administrateur système.
-          </div>
-        </div>
-
-        {/* Sécurité / Mot de passe */}
-        <div className="premium-card">
-          <div className="card-title-premium">
-            <FiLock /> Sécurité du compte
-          </div>
-
-          <form className="password-form-premium" onSubmit={handlePasswordUpdate}>
+          <form className="profile-form-premium" onSubmit={handleProfileUpdate}>
             {[
-              { name: 'oldPassword',     label: 'Ancien mot de passe' },
-              { name: 'newPassword',     label: 'Nouveau mot de passe' },
-              { name: 'confirmPassword', label: 'Confirmer le nouveau mot de passe' },
+              { name: 'nom_user', label: 'Nom de famille', icon: <FiUser size={16} />, type: 'text' },
+              { name: 'prenom_user', label: 'Prénom', icon: <FiUser size={16} />, type: 'text' },
+              { name: 'email_user', label: 'Adresse Email', icon: <FiMail size={16} />, type: 'email' },
+              { name: 'phone', label: 'Téléphone', icon: <FiPhone size={16} />, type: 'text' },
             ].map((f) => (
               <div className="input-group-premium" key={f.name}>
                 <label>{f.label}</label>
-                <input
-                  type="password"
-                  name={f.name}
-                  value={passwordData[f.name]}
-                  onChange={handleInputChange}
-                  placeholder="••••••••"
-                  required
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {f.icon}
+                  <input
+                    type={f.type}
+                    name={f.name}
+                    value={profileData[f.name]}
+                    onChange={handleProfileChange}
+                    placeholder={`Entrez votre ${f.label.toLowerCase()}`}
+                    required
+                  />
+                </div>
               </div>
             ))}
 
+            <ProfileField
+              label="Direction / Département"
+              value={user?.nom_direction || 'Direction non assignée'}
+              icon={<FiBriefcase size={16} />}
+            />
+
+            <button type="submit" className="save-btn-premium" disabled={loading}>
+              <FiSave size={16} style={{ marginRight: '8px' }} />
+              {loading ? 'Mise à jour...' : 'Mettre à jour le profil'}
+            </button>
+
             {status.message && (
               <div style={{
-                padding: '12px', borderRadius: '8px',
-                background: status.type === 'success' ? '#f0fdf4' : '#fef2f2',
-                border: `1px solid ${status.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
-                color: status.type === 'success' ? '#166534' : '#991b1b',
-                display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem',
+                marginTop: '15px', padding: '10px', borderRadius: '8px',
+                background: status.type === 'success' ? '#d1fae5' : '#fee2e2',
+                color: status.type === 'success' ? '#065f46' : '#991b1b',
+                border: `1px solid ${status.type === 'success' ? '#a7f3d0' : '#fecaca'}`,
+                fontSize: '0.85rem',
               }}>
-                {status.type === 'success' ? <FiCheckCircle /> : <FiAlertCircle />}
+                {status.type === 'success' ? <FiCheckCircle style={{ marginRight: '8px' }} /> : <FiAlertCircle style={{ marginRight: '8px' }} />}
                 {status.message}
               </div>
             )}
-
-            <button
-              type="submit"
-              className="btn-update-premium"
-              disabled={loading || !passwordData.oldPassword || !passwordData.newPassword}
-            >
-              <FiSave /> {loading ? 'Mise à jour...' : 'Enregistrer le nouveau mot de passe'}
-            </button>
           </form>
         </div>
+
       </div>
     </div>
   );

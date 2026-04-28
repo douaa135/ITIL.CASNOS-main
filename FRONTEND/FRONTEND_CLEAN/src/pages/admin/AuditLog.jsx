@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FiActivity, FiSearch, FiFilter, FiRefreshCw, FiUser, 
-  FiClock, FiDatabase, FiLayers, FiEye, FiArrowRight 
+  FiClock, FiDatabase, FiLayers, FiEye, FiArrowRight, FiX 
 } from 'react-icons/fi';
 import auditService from '../../services/auditService';
 import userService from '../../services/userService';
@@ -19,6 +19,8 @@ const AuditLog = () => {
     id_user: '',
     action: ''
   });
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -105,6 +107,16 @@ const AuditLog = () => {
     setPage(1); // Reset to first page on filter change
   };
 
+  const handleRowClick = (log) => {
+    setSelectedLog(log);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedLog(null);
+  };
+
   const getActionColor = (action) => {
     switch (action?.toUpperCase()) {
       case 'CREATE': return '#10b981';
@@ -117,16 +129,31 @@ const AuditLog = () => {
   };
 
   const formatValue = (val) => {
-    if (!val) return '—';
-    if (typeof val === 'object') {
-      return <pre style={{ fontSize: '0.7rem', margin: 0 }}>{JSON.stringify(val, null, 2)}</pre>;
+    if (!val) return <span style={{ opacity: 0.5, fontStyle: 'italic' }}>— Aucune donnée —</span>;
+    let data = val;
+    if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
+      try {
+        data = JSON.parse(val);
+      } catch {
+        return val;
+      }
     }
-    try {
-      const obj = JSON.parse(val);
-      return <pre style={{ fontSize: '0.7rem', margin: 0 }}>{JSON.stringify(obj, null, 2)}</pre>;
-    } catch {
-      return val;
+    
+    if (typeof data === 'object' && data !== null) {
+      return (
+        <div className="audit-data-list">
+          {Object.entries(data).map(([key, value]) => (
+            <div key={key} className="audit-data-row">
+              <span className="audit-data-key">{key.replace(/_/g, ' ')}</span>
+              <span className="audit-data-val">
+                {typeof value === 'boolean' ? (value ? 'Oui' : 'Non') : String(value)}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
     }
+    return String(data);
   };
 
   return (
@@ -137,7 +164,7 @@ const AuditLog = () => {
           <p>Suivi détaillé des actions et modifications système</p>
         </div>
         <div className="header-stats">
-          <div className="stat-item">
+          <div className="stat-item premium-stat">
             <FiDatabase />
             <span>{total} entrées totales</span>
           </div>
@@ -206,13 +233,13 @@ const AuditLog = () => {
                 <th>Utilisateur</th>
                 <th>Action</th>
                 <th>Entité</th>
-                <th>ID Entité</th>
-                <th>Détails (Ancien/Nouveau)</th>
+                <th>Ancienne Valeur</th>
+                <th className="th-new-val">Nouvelle Valeur</th>
               </tr>
             </thead>
             <tbody>
               {logs.map((log) => (
-                <tr key={log.id_log}>
+                <tr key={log.id_log} onClick={() => handleRowClick(log)} className="clickable-row">
                   <td className="td-date">
                     <FiClock />
                     {new Date(log.date_action).toLocaleString()}
@@ -228,20 +255,16 @@ const AuditLog = () => {
                       {log.action}
                     </span>
                   </td>
-                  <td className="td-entite">{log.entite_type}</td>
-                  <td className="td-id">#{log.entite_id?.slice(0, 8)}</td>
-                  <td className="td-diff">
-                    <div className="diff-view">
-                      <div className="diff-old">
-                        <label>Ancien</label>
-                        <div className="diff-content">{formatValue(log.ancienne_val)}</div>
-                      </div>
-                      <FiArrowRight className="diff-arrow" />
-                      <div className="diff-new">
-                        <label>Nouveau</label>
-                        <div className="diff-content">{formatValue(log.nouvelle_val)}</div>
-                      </div>
-                    </div>
+                  <td className="td-entite">
+                    <span className={`entite-badge ${log.entite_type?.toLowerCase()}`}>
+                      {log.entite_type}
+                    </span>
+                  </td>
+                  <td className="td-old-val">
+                    <div className="audit-val-container ancient-val-box">{formatValue(log.ancienne_val)}</div>
+                  </td>
+                  <td className="td-new-val">
+                    <div className="audit-val-container premium-new-box">{formatValue(log.nouvelle_val)}</div>
                   </td>
                 </tr>
               ))}
@@ -263,6 +286,78 @@ const AuditLog = () => {
           </div>
         </div>
       </div>
+
+      {isModalOpen && selectedLog && (
+        <div className="modal-backdrop-cab" onClick={closeModal}>
+          <div className="modal-box-cab glass-card-cab audit-detail-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-top-rfc-style">
+              <div className="modal-header-content">
+                <FiActivity />
+                <h3>Détails du Journal d'Audit</h3>
+              </div>
+              <button className="modal-close-btn" onClick={closeModal}><FiX /></button>
+            </div>
+
+            <div className="modal-body-rfc-style">
+              <div className="audit-detail-grid">
+                <div className="detail-item full-width">
+                  <label><FiClock /> Date & Heure</label>
+                  <p>{new Date(selectedLog.date_action).toLocaleString()}</p>
+                </div>
+
+                <div className="detail-item">
+                  <label><FiUser /> Utilisateur</label>
+                  <div className="user-info-detail">
+                    <div className="user-avatar">
+                      {selectedLog.utilisateur?.prenom_user?.[0]}{selectedLog.utilisateur?.nom_user?.[0]}
+                    </div>
+                    <div>
+                      <p className="user-name">{selectedLog.utilisateur?.prenom_user} {selectedLog.utilisateur?.nom_user}</p>
+                      <p className="user-email">{selectedLog.utilisateur?.email_user}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="detail-item">
+                  <label><FiActivity /> Action & Entité</label>
+                  <div className="action-entite-info">
+                    <span className="action-badge" style={{ backgroundColor: getActionColor(selectedLog.action) }}>
+                      {selectedLog.action}
+                    </span>
+                    <span className={`entite-badge ${selectedLog.entite_type?.toLowerCase()}`}>
+                      {selectedLog.entite_type}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="detail-item full-width">
+                  <label><FiLayers /> ID de l'Entité</label>
+                  <p className="td-id">{selectedLog.entite_id}</p>
+                </div>
+
+                <div className="detail-values-comparison">
+                  <div className="value-box old">
+                    <label>Ancienne Valeur</label>
+                    <div className="value-content">
+                      {formatValue(selectedLog.ancienne_val)}
+                    </div>
+                  </div>
+                  <div className="value-box new">
+                    <label>Nouvelle Valeur</label>
+                    <div className="value-content premium-new-box">
+                      {formatValue(selectedLog.nouvelle_val)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer-rfc-style">
+              <button className="btn-close-audit" onClick={closeModal}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

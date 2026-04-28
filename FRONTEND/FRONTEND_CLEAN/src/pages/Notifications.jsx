@@ -12,7 +12,24 @@ import './Notifications.css';
 const Notifications = () => {
   const [activeTab, setActiveTab] = useState('received'); // received, sent, send
   const [notifications, setNotifications] = useState([]);
-  const [sentNotifications, setSentNotifications] = useState([]);
+  const [sentNotifications, setSentNotifications] = useState([
+    {
+      id_notif: 1,
+      objet: 'Demande de validation RFC',
+      message: 'Votre RFC #RFC-001 a été soumise pour validation.',
+      destinataire: 'Manager Changement',
+      date_envoi: new Date().toISOString(),
+      statut: 'Envoyée'
+    },
+    {
+      id_notif: 2,
+      objet: 'Tâche assignée',
+      message: 'Une nouvelle tâche vous a été assignée.',
+      destinataire: 'Jean Dupont',
+      date_envoi: new Date(Date.now() - 86400000).toISOString(),
+      statut: 'Envoyée'
+    }
+  ]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -23,9 +40,11 @@ const Notifications = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [sendForm, setSendForm] = useState({
     destinataireId: '',
+    selectedUsers: [], // Array of IDs
     objet: '',
     message: ''
   });
+  const [userSearchTerm, setUserSearchTerm] = useState('');
   const navigate = useNavigate();
 
   const fetchNotifications = useCallback(async () => {
@@ -46,24 +65,7 @@ const Notifications = () => {
       // Dans un vrai backend, il faudrait une API pour récupérer les notifications envoyées
       setLoading(true);
       setTimeout(() => {
-        setSentNotifications([
-          {
-            id_notif: 1,
-            objet: 'Demande de validation RFC',
-            message: 'Votre RFC #RFC-001 a été soumise pour validation.',
-            destinataire: 'Manager Changement',
-            date_envoi: new Date().toISOString(),
-            statut: 'Envoyée'
-          },
-          {
-            id_notif: 2,
-            objet: 'Tâche assignée',
-            message: 'Une nouvelle tâche vous a été assignée.',
-            destinataire: 'Jean Dupont',
-            date_envoi: new Date(Date.now() - 86400000).toISOString(),
-            statut: 'Envoyée'
-          }
-        ]);
+        // On ne réinitialise plus sentNotifications ici pour conserver les messages envoyés pendant la session
         setLoading(false);
       }, 500);
     }
@@ -92,23 +94,80 @@ const Notifications = () => {
 
   const handleSendNotification = async (e) => {
     e.preventDefault();
-    if (!sendForm.destinataireId || !sendForm.objet.trim() || !sendForm.message.trim()) {
-      alert('Veuillez remplir tous les champs');
+    const targetIds = sendForm.selectedUsers;
+    if (targetIds.length === 0 || !sendForm.objet.trim() || !sendForm.message.trim()) {
+      alert('Veuillez sélectionner au moins un destinataire et remplir tous les champs');
       return;
     }
 
     try {
-      // Simulation d'envoi - dans un vrai backend, il faudrait une API pour envoyer des notifications
-      alert('Notification envoyée avec succès !');
-      setSendForm({ destinataireId: '', objet: '', message: '' });
+      // Simulation d'envoi multi-destinataires
+      const newSentNotifs = targetIds.map(id => {
+        const destUser = users.find(u => u.id_user === id);
+        return {
+          id_notif: Date.now() + Math.random(),
+          objet: sendForm.objet,
+          message: sendForm.message,
+          destinataire: destUser ? `${destUser.nom} ${destUser.prenom}` : 'Inconnu',
+          date_envoi: new Date().toISOString(),
+          statut: 'Envoyée'
+        };
+      });
+
+      setSentNotifications(prev => [...newSentNotifs, ...prev]);
+      
+      alert(`Notification envoyée avec succès à ${targetIds.length} utilisateur(s) !`);
+      setSendForm({ destinataireId: '', selectedUsers: [], objet: '', message: '' });
       setShowSendForm(false);
       setActiveTab('sent');
-      fetchNotifications();
+      // On n'appelle plus fetchNotifications ici pour ne pas relancer le chargement simulé inutilement
     } catch (error) {
       console.error('Error sending notification:', error);
       alert('Erreur lors de l\'envoi de la notification');
     }
   };
+
+  const toggleUserSelection = (userId) => {
+    setSendForm(prev => {
+      const isSelected = prev.selectedUsers.includes(userId);
+      const newSelected = isSelected 
+        ? prev.selectedUsers.filter(id => id !== userId)
+        : [...prev.selectedUsers, userId];
+      return { ...prev, selectedUsers: newSelected };
+    });
+  };
+
+  const selectAllFiltered = () => {
+    const filteredIds = filteredUsers.map(u => u.id_user);
+    setSendForm(prev => ({
+      ...prev,
+      selectedUsers: Array.from(new Set([...prev.selectedUsers, ...filteredIds]))
+    }));
+  };
+
+  const selectByProfile = (role) => {
+    const roleUsersIds = users
+      .filter(u => u.roles?.includes(role) || u.id_role === role)
+      .map(u => u.id_user);
+    
+    setSendForm(prev => ({
+      ...prev,
+      selectedUsers: Array.from(new Set([...prev.selectedUsers, ...roleUsersIds]))
+    }));
+  };
+
+  const deselectByProfile = (role) => {
+    const roleUsersIds = users
+      .filter(u => u.roles?.includes(role) || u.id_role === role)
+      .map(u => u.id_user);
+    
+    setSendForm(prev => ({
+      ...prev,
+      selectedUsers: prev.selectedUsers.filter(id => !roleUsersIds.includes(id))
+    }));
+  };
+
+  const availableRoles = ['ADMIN', 'CHANGE_MANAGER', 'SERVICE_DESK', 'IMPLEMENTER', 'DEMANDEUR', 'MEMBRE_CAB'];
 
   const handleMarkRead = async (id) => {
     try {
@@ -146,6 +205,10 @@ const Notifications = () => {
     else if (notif.id_changement) navigate(`/manager/changements`);
     else if (notif.id_tache) navigate(`/implementer/tasks`);
   };
+
+  const filteredUsers = users.filter(u => 
+    `${u.nom} ${u.prenom} ${u.email} ${u.roles?.[0] || u.id_role || ''}`.toLowerCase().includes(userSearchTerm.toLowerCase())
+  );
 
   return (
     <div className="notif-page">
@@ -323,22 +386,68 @@ const Notifications = () => {
           <h2><FiPlus /> Envoyer une nouvelle notification</h2>
           <form onSubmit={handleSendNotification}>
             <div className="form-group">
-              <label htmlFor="destinataire">Destinataire</label>
-              <select
-                id="destinataire"
-                value={sendForm.destinataireId}
-                onChange={(e) => setSendForm(prev => ({ ...prev, destinataireId: e.target.value }))}
-                required
-                disabled={usersLoading}
-              >
-                <option value="">Sélectionner un destinataire</option>
-                {users.map((user) => (
-                  <option key={user.id_user} value={user.id_user}>
-                    {user.nom} {user.prenom} ({user.email})
-                  </option>
+              <label>Sélection par Profil (Rôles)</label>
+              <div className="profile-selection-badges">
+                {availableRoles.map(role => (
+                  <button 
+                    key={role}
+                    type="button" 
+                    className="profile-badge-btn"
+                    onClick={() => selectByProfile(role)}
+                    onDoubleClick={() => deselectByProfile(role)}
+                    title="Clic simple pour ajouter, double clic pour retirer"
+                  >
+                    {role.replace(/_/g, ' ')}
+                  </button>
                 ))}
-              </select>
-              {usersLoading && <div className="loading-text">Chargement des utilisateurs...</div>}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Destinataire(s) Individuels <span className="selection-count">{sendForm.selectedUsers.length} sélectionné(s)</span></label>
+              
+              <div className="user-selection-premium">
+                <div className="user-selection-toolbar">
+                  <div className="user-selection-search">
+                    <FiSearch />
+                    <input 
+                      type="text" 
+                      placeholder="Rechercher un utilisateur..." 
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <button type="button" className="select-all-btn" onClick={selectAllFiltered}>
+                    Tout sélectionner
+                  </button>
+                </div>
+
+                <div className="user-selection-list">
+                  {usersLoading ? (
+                    <div className="list-loading"><FiRefreshCw className="spinning" /> Chargement...</div>
+                  ) : filteredUsers.length === 0 ? (
+                    <div className="list-empty">Aucun utilisateur trouvé.</div>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <div 
+                        key={user.id_user} 
+                        className={`user-selection-item ${sendForm.selectedUsers.includes(user.id_user) ? 'active' : ''}`}
+                        onClick={() => toggleUserSelection(user.id_user)}
+                      >
+                        <div className="user-selection-check">
+                          <div className={`custom-checkbox ${sendForm.selectedUsers.includes(user.id_user) ? 'checked' : ''}`}>
+                            {sendForm.selectedUsers.includes(user.id_user) && <FiCheckCircle />}
+                          </div>
+                        </div>
+                        <div className="user-selection-info">
+                          <div className="user-selection-name">{user.nom} {user.prenom}</div>
+                          <div className="user-selection-email">{user.email} • {user.roles?.[0] || 'Utilisateur'}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
             <div className="form-group">
               <label htmlFor="objet">Objet</label>

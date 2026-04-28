@@ -397,3 +397,39 @@ a, button, input, select, textarea {
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
+
+/* ── Premium Buttons ─────────────────────────────────────────── */
+.btn-create-premium {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  white-space: nowrap;
+}
+
+.btn-create-premium:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+  background: linear-gradient(135deg, #6d70ff 0%, #5a51ff 100%);
+}
+
+.btn-create-premium:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-create-premium:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
