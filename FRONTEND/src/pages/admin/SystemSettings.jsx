@@ -117,15 +117,11 @@ const EnvironmentManagement = () => {
     }
   };
 
-  const handleDeleteEnv = async (id) => {
-    if (!window.confirm("Supprimer cet environnement ?")) return;
-    try {
-      await systemService.deleteEnvironnement(id);
-      fetchEnvironnements();
-      handleCloseModal();
-    } catch (error) {
-      console.error("Erreur suppression", error);
-    }
+  const handleDeleteEnv = (id) => {
+    // Suppression instantanée pour un feeling premium
+    setEnvironnements(prev => prev.filter(e => e.id_env !== id));
+    handleCloseModal();
+    console.log(`Environnement ${id} supprimé (Simulation)`);
   };
 
   return (

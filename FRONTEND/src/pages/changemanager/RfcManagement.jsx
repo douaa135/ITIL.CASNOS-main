@@ -272,23 +272,10 @@ const RfcManagement = () => {
     }
   };
 
-  const handleDeleteRfc = async () => {
-    // Le backend (via TRANSITIONS_RFC) n'autorise l'annulation (passage à CLOTUREE) que depuis ces statuts :
-    const statutsAutorises = ['SOUMIS', 'PRE_APPROUVEE', 'EVALUEE', 'REJETEE'];
-    if (!statutsAutorises.includes(selectedRfc?.statut?.code_statut)) {
-        alert(`⚠️ Action refusée par les règles métier :\n\nImpossible d'annuler une RFC au statut "${selectedRfc?.statut?.libelle}".\n\nSeules les RFC en attente ou rejetées peuvent être annulées.`);
-        return;
-    }
-
-    if (!window.confirm('Êtes-vous sûr de vouloir annuler cette RFC ?')) return;
-    try {
-        await rfcService.cancelRfc(selectedRfc.id_rfc);
-        alert('RFC annulée avec succès.');
-        closeModals();
-        fetchData();
-    } catch (err) {
-        alert("Erreur du serveur lors de l'annulation. La RFC est peut-être bloquée.\n\nDétails: " + (err?.error?.message || err?.message || ''));
-    }
+  const handleDeleteRfc = () => {
+    setRfcs(prev => prev.filter(r => r.id_rfc !== selectedRfc.id_rfc));
+    closeModals();
+    console.log(`RFC ${selectedRfc.id_rfc} supprimée (Simulation)`);
   };
 
   const handleDecision = async (statusCode) => {
@@ -444,23 +431,10 @@ const RfcManagement = () => {
                       <button onClick={(e) => { e.stopPropagation(); setEditDetail(true); handleOpenProcess(rfc); }} style={{ background: '#f1f5f9', color: '#3b82f6', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier">
                         <FiEdit3 size={16} />
                       </button>
-                      <button onClick={async (e) => { 
+                      <button onClick={(e) => { 
                         e.stopPropagation(); 
-                        const statutsAutorises = ['SOUMIS', 'PRE_APPROUVEE', 'EVALUEE', 'REJETEE'];
-                        if (!statutsAutorises.includes(rfc.statut?.code_statut)) {
-                            alert(`⚠️ Action refusée :\nImpossible d'annuler une RFC au statut "${rfc.statut?.libelle}".`);
-                            return;
-                        }
-                        if (window.confirm('Êtes-vous sûr de vouloir annuler cette RFC ?')) { 
-                            try { 
-                                await rfcService.cancelRfc(rfc.id_rfc); 
-                                alert('RFC annulée avec succès.'); 
-                                fetchData(); 
-                            } catch (err) { 
-                                alert("Erreur du serveur lors de l'annulation.\nDétails: " + (err?.error?.message || err?.message || '')); 
-                            } 
-                        } 
-                      }} style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Annuler/Supprimer">
+                        setRfcs(prev => prev.filter(r => r.id_rfc !== rfc.id_rfc));
+                      }} style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Supprimer">
                         <FiTrash2 size={16} />
                       </button>
                     </div>

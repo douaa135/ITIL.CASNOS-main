@@ -29,6 +29,11 @@ api.interceptors.response.use(
   (response) => response.data, // { success, data, message }
   (error) => {
     if (error.response?.status === 401) {
+      // Si la requête demande explicitement d'ignorer la redirection (ex: pour le mode simulation/offline)
+      if (error.config?.skipRedirect) {
+        return Promise.reject(error.response?.data ?? error);
+      }
+
       localStorage.removeItem('accessToken');
       localStorage.removeItem('user');
       if (!window.location.pathname.includes('/login')) {

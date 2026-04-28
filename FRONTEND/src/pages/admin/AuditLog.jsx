@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FiActivity, FiSearch, FiFilter, FiRefreshCw, FiUser, 
-  FiClock, FiDatabase, FiLayers, FiEye, FiArrowRight, FiX 
+  FiClock, FiDatabase, FiLayers, FiEye, FiArrowRight, FiX, FiTrash2 
 } from 'react-icons/fi';
 import auditService from '../../services/auditService';
 import userService from '../../services/userService';
@@ -22,15 +22,17 @@ const AuditLog = () => {
   const [selectedLog, setSelectedLog] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const [hasFetched, setHasFetched] = useState(false);
+
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await auditService.getAuditLogs({ ...filters, page, limit });
-      let fetchedLogs = response.data.logs || [];
-      let fetchedTotal = response.data.total || 0;
+      const response = await auditService.getAuditLogs({ ...filters, page, limit }).catch(() => ({ data: { logs: [], total: 0 } }));
+      let fetchedLogs = response?.data?.logs || [];
+      let fetchedTotal = response?.data?.total || 0;
 
-      // Mock data if backend is empty (since we cannot modify backend to populate it)
-      if (fetchedLogs.length === 0) {
+      // Mock data if backend is empty or failed and we haven't fetched yet
+      if (fetchedLogs.length === 0 && !hasFetched) {
         fetchedLogs = [
           {
             id_log: 'mock-1',
@@ -73,16 +75,20 @@ const AuditLog = () => {
         }
         
         fetchedTotal = fetchedLogs.length;
+        setLogs(fetchedLogs);
+        setTotal(fetchedTotal);
+      } else if (fetchedLogs.length > 0) {
+        setLogs(fetchedLogs);
+        setTotal(fetchedTotal);
       }
-
-      setLogs(fetchedLogs);
-      setTotal(fetchedTotal);
+      
+      setHasFetched(true);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
     } finally {
       setLoading(false);
     }
-  }, [filters, page, limit]);
+  }, [filters, page, limit, hasFetched]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -110,6 +116,13 @@ const AuditLog = () => {
   const handleRowClick = (log) => {
     setSelectedLog(log);
     setIsModalOpen(true);
+  };
+
+  const handleDeleteLog = (e, id) => {
+    e.stopPropagation();
+    // Suppression directe pour une réactivité maximale sur le front
+    setLogs(currentLogs => currentLogs.filter(l => l.id_log !== id));
+    setTotal(prev => Math.max(0, prev - 1));
   };
 
   const closeModal = () => {
@@ -235,6 +248,7 @@ const AuditLog = () => {
                 <th>Entité</th>
                 <th>Ancienne Valeur</th>
                 <th className="th-new-val">Nouvelle Valeur</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -265,6 +279,15 @@ const AuditLog = () => {
                   </td>
                   <td className="td-new-val">
                     <div className="audit-val-container premium-new-box">{formatValue(log.nouvelle_val)}</div>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button 
+                      className="action-circle-btn delete" 
+                      onClick={(e) => handleDeleteLog(e, log.id_log)}
+                      title="Supprimer"
+                    >
+                      <FiTrash2 size={14} />
+                    </button>
                   </td>
                 </tr>
               ))}

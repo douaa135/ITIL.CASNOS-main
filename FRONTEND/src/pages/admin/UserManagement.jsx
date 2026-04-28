@@ -450,7 +450,7 @@ const EditUserModal = ({ user, roles, directions, onClose, onUpdated }) => {
 };
 
 // ── Modal Détails Compte ──────────────────────────────────
-const DetailUserModal = ({ user, onClose, onEdit, onDelete }) => {
+const DetailUserModal = ({ user, onClose, onEdit, onToggleStatus }) => {
   if (!user) return null;
   const meta = ROLE_META[user.roles?.[0]] || { color: '#64748b', bg: '#f8fafc', label: user.roles?.[0] };
 
@@ -525,8 +525,14 @@ const DetailUserModal = ({ user, onClose, onEdit, onDelete }) => {
         </div>
 
         <div className="modal-footer-rfc-style" style={{ justifyContent: 'flex-end' }}>
-           <button type="button" className="btn-cancel-rfc-style" onClick={() => { onClose(); onDelete(user); }}>
-              <FiTrash2 size={16} /> Supprimer
+           <button 
+             type="button" 
+             className="btn-cancel-rfc-style" 
+             onClick={() => { onClose(); onToggleStatus(user); }}
+             style={{ color: user.actif ? '#dc2626' : '#059669', borderColor: user.actif ? '#fee2e2' : '#d1fae5' }}
+           >
+              {user.actif ? <FiToggleRight size={16} /> : <FiToggleLeft size={16} />}
+              {user.actif ? ' Désactiver' : ' Activer'}
            </button>
            <button type="button" className="btn-submit-rfc-style" onClick={() => { onClose(); onEdit(user); }}>
               <FiEdit2 size={16} /> Modifier
@@ -1015,7 +1021,7 @@ const UserManagement = () => {
           user={detailUser}
           onClose={() => setDetailUser(null)}
           onEdit={(u) => setEditUser(u)}
-          onDelete={(u) => setConfirmDel({ user: u })}
+          onToggleStatus={(u) => setConfirmTog({ user: u })}
         />
       )}
 

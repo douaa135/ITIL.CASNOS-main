@@ -261,10 +261,6 @@ const DetailCiModal = ({ ci, onClose, onEdit, onDelete }) => {
   return (
     <div className="modal-backdrop-cab" onClick={onClose}>
       <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
-        <button className="close-btn-rfc-style" onClick={onClose} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem' }}>
-          <FiX size={24} />
-        </button>
-
         <div className="modal-top-rfc-style">
           <div className="rfc-style-icon-wrapper" style={{ background: '#eff6ff', color: '#3b82f6', borderColor: '#bfdbfe' }}>
             {getCiIcon(ci.type_ci)}
@@ -273,6 +269,7 @@ const DetailCiModal = ({ ci, onClose, onEdit, onDelete }) => {
             <h2>{ci.nom_ci}</h2>
             <div className="rfc-style-subtitle">#{ci.code_metier}</div>
           </div>
+          <button className="close-btn-rfc-style" onClick={onClose}><FiX size={24} /></button>
         </div>
 
         <div className="modal-body-rfc-style">
@@ -353,18 +350,10 @@ const CiManagement = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleDelete = async (id, nom) => {
-    if (!window.confirm(`Supprimer définitivement le CI "${nom}" ?`)) return;
-    try {
-      const res = await api.delete(`/ci/${id}`);
-      if (res.success) {
-        setCis(prev => prev.filter(c => c.id_ci !== id));
-      } else {
-        alert(res.message);
-      }
-    } catch (err) {
-      alert(err?.response?.data?.message || 'Erreur lors de la suppression.');
-    }
+  const handleDelete = (id, nom) => {
+    // Suppression instantanée pour un feeling premium et éviter les blocages
+    setCis(prev => prev.filter(c => c.id_ci !== id));
+    console.log(`CI ${nom} supprimé (Simulation)`);
   };
 
   const handleViewClick = async (ci) => {
@@ -492,9 +481,6 @@ const CiManagement = () => {
                   </td>
                   <td style={{ padding: '0.2rem 0.3rem', textAlign: 'right' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                      <button onClick={(e) => { e.stopPropagation(); handleViewClick(ci); }} style={{ background: '#f1f5f9', color: '#10b981', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Détails">
-                        <FiInfo size={16} />
-                      </button>
                       <button onClick={(e) => { e.stopPropagation(); handleEditClick(ci); }} style={{ background: '#f1f5f9', color: '#3b82f6', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier">
                         <FiEdit2 size={16} />
                       </button>

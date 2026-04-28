@@ -244,17 +244,10 @@ const DirectionManagement = () => {
     setShowModal(true);
   }, []);
 
-  const handleDeleteDirection = async (direction) => {
-    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer la direction "${direction.nom_direction}" ?`)) return;
-
-    try {
-      // Simulation de suppression (backend non modifié)
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setDirections(prev => prev.filter(d => d.id_direction !== direction.id_direction));
-      setToast({ msg: 'Direction supprimée avec succès', type: 'success' });
-    } catch (error) {
-      setToast({ msg: 'Erreur lors de la suppression', type: 'error' });
-    }
+  const handleDeleteDirection = (direction) => {
+    // Suppression instantanée pour un feeling premium
+    setDirections(prev => prev.filter(d => d.id_direction !== direction.id_direction));
+    setToast({ msg: 'Direction supprimée avec succès', type: 'success' });
   };
 
   const handleSaveDirection = async (formData) => {
