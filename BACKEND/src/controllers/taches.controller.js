@@ -41,29 +41,6 @@ const getTachesByChangement = async (req, res) => {
   }
 };
 
-const getMyTasks = async (req, res) => {
-  try {
-    // req.user est injecté par authenticateJWT, propriété id_user issue du token
-    const id_user = req.user.id_user; 
-    const taches = await tacheService.getTachesByImplementeur(id_user);
-    return R.success(res, { taches, total: taches.length }, 'Vos tâches ont été récupérées avec succès.');
-  } catch (err) {
-    console.error('[getMyTasks]', err);
-    return R.serverError(res);
-  }
-};
-
-const getTachesByImplementer = async (req, res) => {
-  try {
-    const id_user = req.params.id_user;
-    const taches = await tacheService.getTachesByImplementeur(id_user);
-    return R.success(res, { taches, total: taches.length }, 'Tâches de l’implémenteur récupérées avec succès.');
-  } catch (err) {
-    console.error('[getTachesByImplementer]', err);
-    return R.serverError(res);
-  }
-};
-
 const getTacheById = async (req, res) => {
   try {
     const tache = await tacheService.getTacheById(req.params.id_tache);
@@ -165,8 +142,6 @@ const deleteJournal = async (req, res) => {
 module.exports = {
   createTache,
   getTachesByChangement,
-  getMyTasks,
-  getTachesByImplementer,
   getTacheById,
   updateTache,
   updateStatutTache,

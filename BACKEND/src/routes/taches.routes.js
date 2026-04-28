@@ -52,20 +52,6 @@ router.post(
 );
 
 router.get(
-  '/me/taches',
-  authenticateJWT,
-  checkPermission('tache:read'),
-  controller.getMyTasks
-);
-
-router.get(
-  '/taches/implementeur/:id_user',
-  authenticateJWT,
-  checkPermission('tache:read'),
-  controller.getTachesByImplementer
-);
-
-router.get(
   '/changements/:id_changement/taches',
   authenticateJWT,
   checkPermission('tache:read'),

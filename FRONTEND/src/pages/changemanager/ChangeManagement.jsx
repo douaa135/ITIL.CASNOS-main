@@ -21,7 +21,7 @@ const formatDate = (value) => {
   return isNaN(date.getTime()) ? value : date.toLocaleDateString('fr-FR');
 };
 
-const getChangeTitle = (change) => change.rfc?.titre_rfc || change.titre_changement || change.code_changement || 'Changement';
+const getChangeTitle = (change) => change.rfc?.titre_rfc || change.planChangement?.titre_plan || 'Changement';
 
 const ChangeManagement = () => {
   const [changements, setChangements] = useState([]);
@@ -65,14 +65,14 @@ const ChangeManagement = () => {
         getImplementers(),
         getChangeStatuses(),
       ]);
-      if (changesRes.success) {
-        setChangements(changesRes.changements || changesRes.data?.changements || []);
+      if (changesRes) {
+        setChangements(changesRes);
       }
-      if (implRes.success) {
-        setImplementers(implRes.users || implRes.data?.users || []);
+      if (implRes) {
+        setImplementers(implRes);
       }
-      if (statusRes.success) {
-        setChangeStatuses(statusRes.statuts || statusRes.data?.statuts || []);
+      if (statusRes) {
+        setChangeStatuses(statusRes);
       }
     } catch (error) {
       console.error('Erreur lors du chargement de la gestion des changements:', error);
@@ -96,8 +96,8 @@ const ChangeManagement = () => {
     setTasksLoading(true);
     try {
       const res = await getTasksByChange(idChangement);
-      if (res.success) {
-        const taches = res.taches || [];
+      if (res) {
+        const taches = res || [];
         setTasks(taches);
         setTaskEdits(taches.reduce((acc, t) => ({ ...acc, [t.id_tache]: t.implementeur?.id_user || '' }), {}));
       }
@@ -114,11 +114,11 @@ const ChangeManagement = () => {
     setShowModal(true);
     setAssignId(change.implementeur?.id_user || '');
     setFormValues({
-      titre: change.titre_changement || change.rfc?.titre_rfc || '',
-      description: change.description || change.rfc?.description || '',
-      priorite: change.priorite || change.statut?.priorite || '',
+      titre: change.planChangement?.titre_plan || change.rfc?.titre_rfc || '',
+      description: change.planChangement?.etapes_plan || change.description || change.rfc?.description || '',
+      priorite: change.rfc?.urgence ? 'HAUTE' : 'BASSE',
       date_debut: change.date_debut ? change.date_debut.slice(0, 10) : '',
-      date_fin: change.date_fin ? change.date_fin.slice(0, 10) : '',
+      date_fin: change.date_fin_prevu ? change.date_fin_prevu.slice(0, 10) : '',
       id_implementeur: change.implementeur?.id_user || '',
     });
     setEditMode(makeEdit);
@@ -137,11 +137,8 @@ const ChangeManagement = () => {
     setSaving(true);
     try {
       const res = await assignImplementer(selectedChange.id_changement, assignId);
-      if (res.success) {
-        const updated = {
-          ...selectedChange,
-          implementeur: implementers.find((imp) => imp.id_user === assignId) || selectedChange.implementeur,
-        };
+      if (res) {
+        const updated = res;
         setSelectedChange(updated);
         setChangements((prev) => prev.map((change) => (change.id_changement === updated.id_changement ? updated : change)));
         alert('Implémenteur assigné avec succès.');
@@ -162,24 +159,17 @@ const ChangeManagement = () => {
     setSaving(true);
     try {
       const payload = {
-        titre_changement: formValues.titre,
-        description: formValues.description,
-        priorite: formValues.priorite,
-        date_debut: formValues.date_debut,
-        date_fin: formValues.date_fin,
-        id_implementeur: formValues.id_implementeur || undefined,
+        date_debut: formValues.date_debut || undefined,
+        date_fin_prevu: formValues.date_fin || undefined,
+        id_user: formValues.id_implementeur || undefined,
+        plan_changement: {
+          titre_plan: formValues.titre,
+          etapes_plan: formValues.description
+        }
       };
       const res = await updateChangement(selectedChange.id_changement, payload);
-      if (res.success) {
-        const updated = res.data?.changement || {
-          ...selectedChange,
-          titre_changement: payload.titre_changement,
-          description: payload.description,
-          priorite: payload.priorite,
-          date_debut: payload.date_debut,
-          date_fin: payload.date_fin,
-          implementeur: implementers.find((imp) => imp.id_user === payload.id_implementeur) || selectedChange.implementeur,
-        };
+      if (res) {
+        const updated = res;
         setSelectedChange(updated);
         setChangements((prev) => prev.map((change) => (change.id_changement === updated.id_changement ? updated : change)));
         setEditMode(false);
@@ -210,11 +200,8 @@ const ChangeManagement = () => {
     setSaving(true);
     try {
       const res = await updateChangementStatus(selectedChange.id_changement, targetStatus.id_statut, statusComment);
-      if (res.success) {
-        const updated = {
-          ...selectedChange,
-          statut: targetStatus,
-        };
+      if (res) {
+        const updated = res;
         setSelectedChange(updated);
         setChangements((prev) => prev.map((change) => (change.id_changement === updated.id_changement ? updated : change)));
         setStatusComment('');
@@ -235,7 +222,7 @@ const ChangeManagement = () => {
     setSaving(true);
     try {
       const res = await deleteChangement(change.id_changement);
-      if (res.success) {
+      if (res) {
         setChangements((prev) => prev.filter((item) => item.id_changement !== change.id_changement));
         if (selectedChange?.id_changement === change.id_changement) {
           setSelectedChange(null);
@@ -261,7 +248,7 @@ const ChangeManagement = () => {
     setTasksLoading(true);
     try {
       const res = await createTache(selectedChange.id_changement, newTask);
-      if (res.success) {
+      if (res) {
         await fetchTasks(selectedChange.id_changement);
         setNewTask((prev) => ({ ...prev, titre_tache: '', description: '', ordre_tache: 1, duree: 2 }));
         alert('Tâche ajoutée au plan de changement.');
@@ -282,7 +269,7 @@ const ChangeManagement = () => {
     setTaskAssigning(taskId);
     try {
       const res = await updateTache(taskId, { id_user: newUserId });
-      if (res.success) {
+      if (res) {
         setTasks((prev) => prev.map((task) => task.id_tache === taskId ? { ...task, implementeur: implementers.find((imp) => imp.id_user === newUserId) || task.implementeur } : task));
         alert('Implémenteur de tâche mis à jour.');
       } else {
@@ -438,13 +425,13 @@ const ChangeManagement = () => {
                     <td>{formatDate(change.date_debut)}</td>
                     <td>{formatDate(change.date_fin)}</td>
                     <td className="actions-cell">
-                      <button type="button" className="btn-secondary" onClick={(e) => { e.stopPropagation(); handleSelectChange(change); }}>
+                      <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); handleSelectChange(change); }}>
                         <FiInfo /> Détails
                       </button>
-                      <button type="button" className="btn-primary" onClick={(e) => { e.stopPropagation(); handleSelectChange(change, true); }}>
+                      <button className="btn-primary" onClick={(e) => { e.stopPropagation(); handleSelectChange(change, true); }}>
                         <FiEdit3 /> Modifier
                       </button>
-                      <button type="button" className="btn-danger" onClick={(e) => { e.stopPropagation(); handleDelete(change); }}>
+                      <button className="btn-danger" onClick={(e) => { e.stopPropagation(); handleDelete(change); }}>
                         <FiTrash2 />
                       </button>
                     </td>
@@ -733,10 +720,10 @@ const ChangeManagement = () => {
                 <div className="sidebar-widget">
                   <div className="sidebar-widget-header"><FiInfo size={14} /> Actions rapides</div>
                   <div className="sidebar-widget-body">
-                    <button type="button" className="btn-primary" onClick={() => setEditMode(true)} style={{ width: '100%', marginBottom: '0.75rem' }}>
+                    <button className="btn-primary" type="button" onClick={() => setEditMode(true)} style={{ width: '100%', marginBottom: '0.75rem' }}>
                       <FiEdit3 /> Modifier
                     </button>
-                    <button type="button" className="btn-secondary" onClick={handleAssign} style={{ width: '100%', marginBottom: '0.75rem' }} disabled={!assignId || saving}>
+                    <button className="btn-secondary" type="button" onClick={handleAssign} style={{ width: '100%', marginBottom: '0.75rem' }} disabled={!assignId || saving}>
                       <FiArrowRight /> Assigner
                     </button>
                     <div className="status-action-block">
@@ -747,16 +734,16 @@ const ChangeManagement = () => {
                         placeholder="Motif de validation/rejet"
                       />
                       <button
-                        type="button"
                         className="btn-primary"
+                        type="button"
                         onClick={() => handleChangeStatus('TERMINE')}
                         disabled={saving}
                       >
                         Valider
                       </button>
                       <button
-                        type="button"
                         className="btn-danger"
+                        type="button"
                         onClick={() => handleChangeStatus('EN_ECHEC')}
                         disabled={saving}
                       >

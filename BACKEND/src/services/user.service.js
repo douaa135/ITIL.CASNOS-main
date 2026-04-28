@@ -78,7 +78,6 @@ function _flatten(user) {
     actif:          user.actif,
     date_creation:  user.date_creation,
     direction:      user.direction ?? null,
-    nom_direction:  user.direction?.nom_direction ?? null,
     roles,
     permissions: [...permissions],
   };
@@ -260,28 +259,12 @@ async function updateUser(id, data) {
   // Vérifier que l'utilisateur existe
   await getUserById(id); // lève 404 si absent
 
-  const allowed = ['nom_user', 'prenom_user', 'email_user', 'phone', 'date_naissance', 'id_direction', 'mot_passe'];
+  const allowed = ['nom_user', 'prenom_user', 'phone', 'date_naissance', 'id_direction', 'mot_passe'];
   const updateData = {};
 
   for (const key of allowed) {
     if (data[key] !== undefined) {
       updateData[key] = data[key];
-    }
-  }
-
-  // Si l'email est modifié, vérifier l'unicité
-  if (updateData.email_user) {
-    const current = await prisma.utilisateur.findUnique({ where: { id_user: id } });
-    if (updateData.email_user !== current.email_user) {
-      const existing = await prisma.utilisateur.findFirst({
-        where: { email_user: updateData.email_user, id_user: { not: id } }
-      });
-      if (existing) {
-        const err = new Error('Cet email est déjà utilisé par un autre compte.');
-        err.statusCode = 409;
-        err.code = 'EMAIL_CONFLICT';
-        throw err;
-      }
     }
   }
 
@@ -295,36 +278,47 @@ async function updateUser(id, data) {
     updateData.date_naissance = new Date(updateData.date_naissance);
   }
 
-  // Update role if provided (manually to avoid nested write issues)
-  let updatedRole = null;
-  if (data.nom_role) {
-    updatedRole = await prisma.role.findUnique({ where: { nom_role: data.nom_role } });
-    if (updatedRole) {
-      await prisma.userRole.deleteMany({ where: { id_user: id } });
-      await prisma.userRole.create({ data: { id_user: id, id_role: updatedRole.id_role } });
-    }
-  }
+  const hasRoleChange = data.nom_role !== undefined;
 
-  if (Object.keys(updateData).length === 0 && !updatedRole) {
+  if (Object.keys(updateData).length === 0 && !hasRoleChange) {
     const err = new Error('Aucun champ valide fourni pour la mise à jour.');
     err.statusCode = 400;
     err.code = 'NO_VALID_FIELDS';
     throw err;
   }
 
-  let updated;
-  if (Object.keys(updateData).length > 0) {
-    updated = await prisma.utilisateur.update({
-      where:  { id_user: id },
-      data:   updateData,
-      select: USER_WITH_ROLES,
-    });
-  } else {
-    updated = await prisma.utilisateur.findUnique({
-      where: { id_user: id },
-      select: USER_WITH_ROLES,
-    });
+  // Résoudre le nouveau rôle si fourni
+  let newRole = null;
+  if (hasRoleChange) {
+    newRole = await prisma.role.findUnique({ where: { nom_role: data.nom_role } });
+    if (!newRole) {
+      const err = new Error(`Rôle introuvable : ${data.nom_role}`);
+      err.statusCode = 400;
+      err.code = 'INVALID_ROLE';
+      throw err;
+    }
   }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    // Mettre à jour les champs de l'utilisateur (si présents)
+    if (Object.keys(updateData).length > 0) {
+      await tx.utilisateur.update({
+        where: { id_user: id },
+        data:  updateData,
+      });
+    }
+
+    // Mettre à jour le rôle : supprimer l'ancien, créer le nouveau
+    if (newRole) {
+      await tx.userRole.deleteMany({ where: { id_user: id } });
+      await tx.userRole.create({ data: { id_user: id, id_role: newRole.id_role } });
+    }
+
+    return tx.utilisateur.findUnique({
+      where:  { id_user: id },
+      select: USER_WITH_ROLES,
+    });
+  });
 
   return _flatten(updated);
 }
@@ -349,33 +343,6 @@ async function toggleActif(id, actif) {
   return _flatten(updated);
 }
 
-// ─── deleteUser ──────────────────────────────────────────────────────────────
-/**
- * Supprime définitivement un compte utilisateur de la base de données.
- *
- * @param {string} id  UUID de l'utilisateur
- * @returns {object}   L'utilisateur supprimé
- */
-async function deleteUser(id) {
-  await getUserById(id); // vérifie existence
-
-  try {
-    const deleted = await prisma.utilisateur.delete({
-      where: { id_user: id },
-      select: USER_WITH_ROLES,
-    });
-    return _flatten(deleted);
-  } catch (err) {
-    if (err.code === 'P2003') {
-      const e = new Error('Impossible de supprimer cet utilisateur car il est lié à d\'autres enregistrements (ex: RFC, Changement).');
-      e.statusCode = 400;
-      e.code = 'HAS_RELATIONS';
-      throw e;
-    }
-    throw err;
-  }
-}
-
 // ─── sanitize ─────────────────────────────────────────────────────────────────
 // Retire mot_passe de l'objet utilisateur avant envoi au client.
 function sanitize(user) {
@@ -384,27 +351,9 @@ function sanitize(user) {
   return safe;
 }
 
-// ─── Référentiels ─────────────────────────────────────────────────────────────
-async function getAllRoles() {
-  return await prisma.role.findMany({
-    select: { id_role: true, nom_role: true, code_metier: true }
-  });
-}
-
-async function getAllDirections() {
-  return await prisma.directionMetier.findMany({
-    select: { id_direction: true, nom_direction: true, code_metier: true }
-  });
-}
-
-async function findByLogin(loginStr) {
+async function findByLogin(email) {
   const user = await prisma.utilisateur.findFirst({
-    where: {
-      OR: [
-        { email_user: loginStr },
-        { code_metier: loginStr }
-      ]
-    },
+    where:  { email_user: email },
     select: USER_WITH_ROLES,
   });
 
@@ -422,17 +371,20 @@ async function findById(id) {
   return _flatten(user);
 }
 
+async function getUserPermissions(id_user) {
+  const user = await findById(id_user);
+  return user ? user.permissions : [];
+}
+
 module.exports = {
   createUser,
   getAllUsers,
   getUserById,
   updateUser,
-  deleteUser,
   toggleActif,
   findByLogin,
   findByIdSafe,
   findById,
   sanitize,
-  getAllRoles,
-  getAllDirections
+  getUserPermissions,
 };

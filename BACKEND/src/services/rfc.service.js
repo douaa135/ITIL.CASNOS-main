@@ -1,44 +1,91 @@
 'use strict';
 
-const prisma = require('./prisma.service');
-const { codeRfc, codeChangement } = require('../utils/entity-code.utils');
+const prisma    = require('./prisma.service');
+const notifSvc  = require('./notification.service');
+const { 
+  codeRfc, 
+  codeChangement,
+  codeCommentaire,
+  codeEvaluationRisque,
+  codePiecesJointe,
+} = require('../utils/entity-code.utils');
 
 const TRANSITIONS_RFC = {
-  BROUILLON: ['SOUMIS',    'CLOTUREE'],
-  SOUMIS:    ['A_COMPLETER', 'ACCEPTEE_SD', 'REFUSEE_SD', 'CLOTUREE'],
-  A_COMPLETER: ['SOUMIS', 'CLOTUREE'],
-  ACCEPTEE_SD: ['EVALUEE', 'APPROUVEE', 'REJETEE', 'CLOTUREE'],
-  REFUSEE_SD:  ['CLOTUREE'],
-  EVALUEE:   ['APPROUVEE', 'REJETEE',  'CLOTUREE'],
-  APPROUVEE: [],
-  REJETEE:   ['BROUILLON',  'CLOTUREE'],
+  // BROUILLON:     ['SOUMIS', 'CLOTUREE'],
+  SOUMIS:        ['PRE_APPROUVEE', 'REJETEE', 'CLOTUREE'],
+  PRE_APPROUVEE: ['EVALUEE', 'APPROUVEE', 'REJETEE', 'CLOTUREE'],
+  EVALUEE:       ['APPROUVEE', 'REJETEE', 'CLOTUREE'],
+  APPROUVEE:     [],
+  REJETEE:       ['BROUILLON', 'CLOTUREE'],
+};
+
+const COMMENTAIRE_SELECT = {
+  id_commentaire:   true,
+  code_metier:      true,
+  contenu:          true,
+  date_publication: true,
+  id_rfc:           true,
+  id_user:          true,
+  auteur: {
+    select: {
+      id_user:     true,
+      nom_user:    true,
+      prenom_user: true,
+      email_user:  true,
+    },
+  },
+};
+ 
+const EVALUATION_SELECT = {
+  id_evaluation:   true,
+  code_metier:     true,
+  impacte:         true,
+  probabilite:     true,
+  score_risque:    true,
+  description:     true,
+  date_evaluation: true,
+  id_rfc:          true,
+};
+ 
+const PIECE_SELECT = {
+  id_piece:     true,
+  code_metier:  true,
+  nom_piece:    true,
+  type_piece:   true,
+  taille_piece: true,
+  date_upload:  true,
+  id_rfc:       true,
 };
 
 // ─────────────────────────────────────────────────────────────
 // 1. Lister toutes les RFC
 // ─────────────────────────────────────────────────────────────
 const getAllRfc = async (filters = {}) => {
-  const { statut, type, priorite, id_user } = filters;
-  
-  const where = {};
-  if (statut)   where.id_statut   = parseInt(statut);
-  if (type)     where.id_type     = parseInt(type);
-  if (priorite) where.id_priorite = parseInt(priorite);
-  // id_user is a UUID string — do NOT parseInt() it (returns NaN and breaks the filter)
-  if (id_user)  where.id_user     = id_user;
+  const { statut, type, priorite, id_user, search } = filters;
+
+  const idStatut = statut ? statut : undefined;
+  const idType = type ? type : undefined;
+  const idPriorite = priorite ? priorite : undefined;
+  const idUser = id_user ? id_user : undefined;
 
   return prisma.rfc.findMany({
-    where,
+    where: {
+      ...(idStatut && { id_statut: idStatut }),
+      ...(idType && { id_type: idType }),
+      ...(idPriorite && { id_priorite: idPriorite }),
+      ...(idUser && { id_user: idUser }),
+      ...(search && {
+        OR: [
+          { code_rfc: { contains: search } },
+          { titre_rfc: { contains: search } },
+        ]
+      })
+    },
     include: {
       statut:    { select: { code_statut: true, libelle: true } },
       priorite:  { select: { code_priorite: true, libelle: true } },
       typeRfc:   { select: { type: true } },
-      demandeur: { 
-        select: { 
-          id_user: true, nom_user: true, prenom_user: true, email_user: true,
-          direction: { select: { nom_direction: true } }
-        } 
-      },
+      demandeur: { select: { id_user: true, nom_user: true, prenom_user: true, email_user: true } },
       ciRfcs:    { include: { ci: { select: { id_ci: true, nom_ci: true, type_ci: true } } } },
     },
     orderBy: { date_creation: 'desc' },
@@ -55,12 +102,7 @@ const getRfcById = async (id) => {
       statut:           true,
       priorite:         true,
       typeRfc:          true,
-      demandeur:        { 
-        select: { 
-          id_user: true, nom_user: true, prenom_user: true, email_user: true,
-          direction: { select: { nom_direction: true } }
-        } 
-      },
+      demandeur:        { select: { id_user: true, nom_user: true, prenom_user: true, email_user: true } },
       ciRfcs:           { include: { ci: true } },
       evaluationRisque: true,
       piecesJointes:    true,
@@ -80,26 +122,21 @@ const createRfc = async (data, id_user) => {
   const code_rfc = codeRfc();
 
   const statutParDefaut = await prisma.statut.findFirst({
-    where: { code_statut: 'BROUILLON', contexte: 'RFC' },
+    where: { code_statut: 'SOUMIS', contexte: 'RFC' },
   });
   if (!statutParDefaut) throw new Error("Statut 'BROUILLON' non trouvé");
 
-  const { 
-    titre_rfc, description, justification, date_souhaitee, 
-    urgence, impacte_estimee, ci_ids = [],
-    type_code = 'TYPE-RFC-NRM',
-    priorite_code = 'P0'
-  } = data;
-
-  const currentType = await prisma.typeRfc.findUnique({
-    where: { code_metier: type_code },
+  const prioriteParDefaut = await prisma.priorite.findFirst({
+    where: { code_priorite: 'P0' },
   });
-  if (!currentType) throw new Error(`Type RFC '${type_code}' non trouvé`);
+  if (!prioriteParDefaut) throw new Error("Priorité 'P0' non trouvée");
 
-  const currentPriorite = await prisma.priorite.findFirst({
-    where: { code_priorite: priorite_code },
+  const typeStandard = await prisma.typeRfc.findUnique({
+    where: { code_metier: 'TYPE-RFC-STD' },
   });
-  if (!currentPriorite) throw new Error(`Priorité '${priorite_code}' non trouvée`);
+  if (!typeStandard) throw new Error("Type RFC 'TYPE-RFC-STD' non trouvé");
+
+  const { titre_rfc, description, justification, date_souhaitee, urgence, impacte_estimee, ci_ids = [], id_statut, id_priorite, id_type } = data;
 
   return prisma.rfc.create({
     data: {
@@ -110,9 +147,9 @@ const createRfc = async (data, id_user) => {
       date_souhaitee:  date_souhaitee ? new Date(date_souhaitee) : null,
       urgence:         urgence ?? false,
       impacte_estimee,
-      id_statut:       statutParDefaut.id_statut,
-      id_priorite:     currentPriorite.id_priorite,
-      id_type:         currentType.id_type,
+      id_statut:       id_statut || statutParDefaut.id_statut,
+      id_priorite:     id_priorite || prioriteParDefaut.id_priorite,
+      id_type:         id_type || typeStandard.id_type,
       id_user,
       ciRfcs: ci_ids.length > 0
         ? { create: ci_ids.map(id_ci => ({ id_ci })) }
@@ -144,6 +181,12 @@ const updateRfc = async (id, data) => {
       ...(impacte_estimee && { impacte_estimee }),
       ...(id_priorite     && { id_priorite }),
       ...(id_type         && { id_type }),
+      ...(data.ci_ids && {
+        ciRfcs: {
+          deleteMany: {},
+          create: data.ci_ids.map(id_ci => ({ id_ci }))
+        }
+      })
     },
     include: {
       statut:   { select: { code_statut: true, libelle: true } },
@@ -155,26 +198,21 @@ const updateRfc = async (id, data) => {
 
 // ─────────────────────────────────────────────────────────────
 // 5. Changer le statut d'une RFC (machine à états)
-//    CORRIGÉ : transaction atomique → si la création du changement
-//    échoue, le statut RFC est rollbacké automatiquement.
+//    + notification automatique post-transition
 // ─────────────────────────────────────────────────────────────
-// PATCH /api/rfc/:id/status — changer le statut (workflow ITIL)
-async function updateRfcStatus(id_rfc, id_statut, id_change_manager, id_env, id_user_action = null, commentaire = null, id_type = null) {
+async function updateRfcStatus(id_rfc, id_statut, id_change_manager, id_env, options = {}) {
   if (!id_statut) throw new Error("id_statut est requis");
 
-  // Charger la RFC + statut actuel
   const rfc = await prisma.rfc.findUnique({
     where:   { id_rfc },
     include: { statut: true },
   });
   if (!rfc) throw new Error("RFC introuvable");
 
-  // Charger le statut cible
   const statutCible = await prisma.statut.findUnique({ where: { id_statut } });
   if (!statutCible)                   throw new Error("Statut cible introuvable");
   if (statutCible.contexte !== 'RFC') throw new Error("Ce statut n'appartient pas au workflow RFC");
 
-  // Vérifier la transition
   const statutActuel  = rfc.statut.code_statut;
   const transitionsOk = TRANSITIONS_RFC[statutActuel] || [];
 
@@ -185,7 +223,6 @@ async function updateRfcStatus(id_rfc, id_statut, id_change_manager, id_env, id_
     );
   }
 
-  // Validation des champs requis pour l'approbation
   if (statutCible.code_statut === 'APPROUVEE') {
     if (!id_change_manager) throw new Error("id_change_manager requis pour approuver une RFC");
     if (!id_env)            throw new Error("id_env requis pour approuver une RFC");
@@ -198,34 +235,26 @@ async function updateRfcStatus(id_rfc, id_statut, id_change_manager, id_env, id_
       where: { id_rfc },
       data: {
         id_statut,
-        ...(id_type && { id_type }),
         ...(statutCible.code_statut === 'CLOTUREE' && { date_cloture: new Date() }),
       },
       include: { statut: { select: { code_statut: true, libelle: true } } },
     });
 
-    // ── Historisation ──
-    await tx.statutHistory.create({
-      data: {
-        code_metier: `SHR-${Date.now()}`,
-        id_statut,
-        id_rfc,
-        id_user: id_user_action,
-        commentaire: commentaire || (statutCible.code_statut === 'APPROUVEE' ? 'RFC Approuvée' : null),
-      }
-    });
-
     let changement = null;
     if (statutCible.code_statut === 'APPROUVEE') {
-      changement = await createChangeFromApprovedRfc(id_rfc, id_change_manager, id_env, tx);
+      changement = await createChangeFromApprovedRfc(id_rfc, id_change_manager, id_env, options, tx);
     }
 
     return { updatedRfc, changement };
   });
 
+  // ── Notification post-transition (non bloquante) ──────────
+  await notifSvc.notifyRfcStatusChange(id_rfc, statutCible.code_statut, {
+    id_change_manager,
+  });
+
   return { rfc: updatedRfc, changement };
 }
-
 
 // ─────────────────────────────────────────────────────────────
 // 6. Annuler une RFC → statut CLOTUREE
@@ -251,18 +280,22 @@ const cancelRfc = async (id) => {
   });
   if (!statutCloture) throw new Error("Statut CLOTUREE introuvable en BDD");
 
-  return prisma.rfc.update({
+  const updated = await prisma.rfc.update({
     where: { id_rfc: id },
     data:  { id_statut: statutCloture.id_statut, date_cloture: new Date() },
     include: { statut: { select: { code_statut: true, libelle: true } } },
   });
+
+  // Notification annulation
+  await notifSvc.notifyRfcStatusChange(id, 'CLOTUREE', {});
+
+  return updated;
 };
 
 // ─────────────────────────────────────────────────────────────
 // 7. Créer un Changement depuis une RFC approuvée (interne)
-//    CORRIGÉ : accepte un client tx (transaction) en paramètre
 // ─────────────────────────────────────────────────────────────
-async function createChangeFromApprovedRfc(id_rfc, id_change_manager, id_env, tx = prisma) {
+async function createChangeFromApprovedRfc(id_rfc, id_change_manager, id_env, options = {}, tx = prisma) {
   const rfc = await tx.rfc.findUnique({
     where:   { id_rfc },
     include: { priorite: true, typeRfc: true },
@@ -272,8 +305,8 @@ async function createChangeFromApprovedRfc(id_rfc, id_change_manager, id_env, tx
   return tx.changement.create({
     data: {
       code_changement: codeChangement(),
-      date_debut:      rfc.date_souhaitee ?? null,
-      date_fin_prevu:  null,
+      date_debut:      options.date_debut ? new Date(options.date_debut) : (rfc.date_souhaitee ?? null),
+      date_fin_prevu:  options.date_fin_prevu ? new Date(options.date_fin_prevu) : null,
       date_fin_reelle: null,
       reussite:        null,
       changeManager:   { connect: { id_user: id_change_manager } },
@@ -288,83 +321,198 @@ async function createChangeFromApprovedRfc(id_rfc, id_change_manager, id_env, tx
   });
 }
 
-// ─────────────────────────────────────────────────────────────
-// 8. Évaluer une RFC (Impact, Risque, Plans)
-// ─────────────────────────────────────────────────────────────
-const evaluateRfc = async (id_rfc, data) => {
-  const { 
-    impacte, probabilite, score_risque, description_risque,
-    plan_changement, plan_rollback 
+// ============================================================
+// COMMENTAIRES
+// ============================================================
+ 
+/**
+ * Crée un commentaire sur une RFC.
+ * Nécessite le schema fix (id_user + relation auteur).
+ * @param {string} id_rfc
+ * @param {string} id_user   Auteur (req.user.id_user)
+ * @param {string} contenu
+ */
+async function createCommentaire(id_rfc, id_user, contenu) {
+  return prisma.commentaire.create({
+    data: {
+      code_metier: codeCommentaire(),
+      contenu:     contenu.trim(),
+      id_rfc,
+      id_user,
+    },
+    select: COMMENTAIRE_SELECT,
+  });
+}
+ 
+/**
+ * Liste les commentaires d'une RFC, du plus récent au plus ancien.
+ */
+async function getCommentairesByRfc(id_rfc) {
+  return prisma.commentaire.findMany({
+    where:   { id_rfc },
+    orderBy: { date_publication: 'desc' },
+    select:  COMMENTAIRE_SELECT,
+  });
+}
+ 
+/**
+ * Modifie le contenu d'un commentaire.
+ */
+async function updateCommentaire(id_commentaire, contenu) {
+  return prisma.commentaire.update({
+    where:  { id_commentaire },
+    data:   { contenu: contenu.trim() },
+    select: COMMENTAIRE_SELECT,
+  });
+}
+ 
+/**
+ * Supprime un commentaire.
+ */
+async function deleteCommentaire(id_commentaire) {
+  await prisma.commentaire.delete({ where: { id_commentaire } });
+  return { deleted: true, id_commentaire };
+}
+ 
+// ============================================================
+// ÉVALUATION DE RISQUE
+// ============================================================
+ 
+/**
+ * Crée ou met à jour l'évaluation de risque d'une RFC.
+ * 1-to-1 → upsert.
+ * @param {string} id_rfc
+ * @param {object} data  { _impacte, _probabilite, _score, description?, date_evaluation? }
+ */
+async function upsertEvaluationRisque(id_rfc, data) {
+  const {
+    _impacte:     impacte,
+    _probabilite: probabilite,
+    _score:       score_risque,
+    description  = null,
+    date_evaluation = null,
   } = data;
-
-  const statutEvaluee = await prisma.statut.findFirst({
-    where: { code_statut: 'EVALUEE', contexte: 'RFC' }
-  });
-  if (!statutEvaluee) throw new Error("Statut 'EVALUEE' non trouvé");
-
-  return prisma.$transaction(async (tx) => {
-    // 1. Mise à jour de la RFC
-    await tx.rfc.update({
+ 
+  const existing = await prisma.evaluationRisque.findUnique({ where: { id_rfc } });
+ 
+  if (existing) {
+    return prisma.evaluationRisque.update({
       where: { id_rfc },
-      data: { id_statut: statutEvaluee.id_statut }
-    });
-
-    // 2. Évaluation du Risque
-    await tx.evaluationRisque.upsert({
-      where: { id_rfc },
-      update: {
+      data: {
         impacte,
         probabilite,
         score_risque,
-        description: description_risque,
-        date_evaluation: new Date()
+        ...(description     !== null && { description }),
+        ...(date_evaluation !== null && { date_evaluation: new Date(date_evaluation) }),
       },
-      create: {
-        code_metier: `EVR-${id_rfc.substring(0, 8)}`,
-        impacte,
-        probabilite,
-        score_risque,
-        description: description_risque,
-        id_rfc,
-        date_evaluation: new Date()
-      }
+      select: EVALUATION_SELECT,
     });
-
-    // 3. Plan de Changement
-    if (plan_changement) {
-      await tx.planChangement.upsert({
-        where: { id_changement: id_rfc }, // Use common shared key or specific model logic
-        // Note: The schema shows PlanChangement linked to 'Changement', but RFC evaluation
-        // might need to store it early. ITIL says CM prepares the plan.
-        // Let's check schema again. 
-        // @relation(fields: [id_changement], references: [id_changement])
-        // Wait, PlanChangement is linked to Changement, not RFC.
-        // However, EvaluationRisque is linked to RFC.
-      });
-    }
-    
-    // I need to be careful with the schema. 
-    // PlanChangement and PlanRollback are linked to CHANGEMENT.
-    // But a RFC is only turned into a Changement AFTER Approval.
-    // So the CM prepares the evaluation in EvaluationRisque.
-    // For now, I'll only update EvaluationRisque and the RFC status.
-    
-    return tx.rfc.findUnique({
-      where: { id_rfc },
-      include: { evaluationRisque: true, statut: true }
-    });
+  }
+ 
+  return prisma.evaluationRisque.create({
+    data: {
+      code_metier:    codeEvaluationRisque(),
+      impacte,
+      probabilite,
+      score_risque,
+      description,
+      date_evaluation: date_evaluation ? new Date(date_evaluation) : null,
+      id_rfc,
+    },
+    select: EVALUATION_SELECT,
   });
-};
+}
+ 
+/**
+ * Récupère l'évaluation de risque d'une RFC.
+ */
+async function getEvaluationRisqueByRfc(id_rfc) {
+  return prisma.evaluationRisque.findUnique({
+    where:  { id_rfc },
+    select: EVALUATION_SELECT,
+  });
+}
+ 
+/**
+ * Supprime l'évaluation de risque d'une RFC.
+ */
+async function deleteEvaluationRisque(id_rfc) {
+  const existing = await prisma.evaluationRisque.findUnique({ where: { id_rfc } });
+  if (!existing) {
+    const err = new Error("Cette RFC n'a pas encore d'évaluation de risque.");
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  await prisma.evaluationRisque.delete({ where: { id_rfc } });
+  return { deleted: true, id_rfc };
+}
+ 
+// ============================================================
+// PIÈCES JOINTES
+// ============================================================
+ 
+/**
+ * Ajoute une pièce jointe (métadonnées) à une RFC.
+ * @param {string} id_rfc
+ * @param {object} data  { nom_piece, type_piece?, _taille? }
+ */
+async function createPieceJointe(id_rfc, data) {
+  const {
+    nom_piece,
+    type_piece   = null,
+    _taille      = null,
+  } = data;
+ 
+  return prisma.piecesJointe.create({
+    data: {
+      code_metier:  codePiecesJointe(),
+      nom_piece:    nom_piece.trim(),
+      type_piece,
+      taille_piece: _taille,
+      id_rfc,
+    },
+    select: PIECE_SELECT,
+  });
+}
+ 
+/**
+ * Liste les pièces jointes d'une RFC.
+ */
+async function getPiecesJointesByRfc(id_rfc) {
+  return prisma.piecesJointe.findMany({
+    where:   { id_rfc },
+    orderBy: { date_upload: 'desc' },
+    select:  PIECE_SELECT,
+  });
+}
+ 
+/**
+ * Supprime une pièce jointe.
+ */
+async function deletePieceJointe(id_piece) {
+  await prisma.piecesJointe.delete({ where: { id_piece } });
+  return { deleted: true, id_piece };
+}
 
 module.exports = {
-
   getAllRfc,
   getRfcById,
   createRfc,
   updateRfc,
   updateRfcStatus,
-  evaluateRfc,
   cancelRfc,
-
   TRANSITIONS_RFC,
+  // Commentaires
+  createCommentaire,
+  getCommentairesByRfc,
+  updateCommentaire,
+  deleteCommentaire,
+  // Évaluation risque
+  upsertEvaluationRisque,
+  getEvaluationRisqueByRfc,
+  deleteEvaluationRisque,
+  // Pièces jointes
+  createPieceJointe,
+  getPiecesJointesByRfc,
+  deletePieceJointe,
 };

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { ROLE_ROUTES } from '../utils/constants';
 import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
@@ -10,53 +11,44 @@ import './Login.css';
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState(false);
+  const [emailError, setEmailError]     = useState(false);
   const [passwordError, setPasswordError] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [serverError, setServerError] = useState('');
+  const [isLoading, setIsLoading]       = useState(false);
+  const [serverError, setServerError]   = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    // Validation
-    const isEmailEmpty = !email.trim();
+    const isEmailEmpty    = !email.trim();
     const isPasswordEmpty = !password.trim();
-
     setEmailError(isEmailEmpty);
     setPasswordError(isPasswordEmpty);
-
-    if (isEmailEmpty || isPasswordEmpty) {
-      return;
-    }
+    if (isEmailEmpty || isPasswordEmpty) return;
 
     setIsLoading(true);
     setServerError('');
-    
+
     try {
-      // Auto-append domain if user just typed username (like y.benamara)
-      const finalEmail = email.includes('@') ? email : `${email}@casnos.dz`;
+      // Permet de saisir juste "y.benamara" sans le domaine
+      const finalEmail = email.includes('@')
+        ? email.trim()
+        : `${email.trim()}@casnos.dz`;
+
       const result = await login(finalEmail, password);
-      
+
       if (result.success) {
-        if (result.role === 'DEMANDEUR') {
-          navigate('/demandeur');
-        } else if (result.role === 'CHANGE_MANAGER') {
-          navigate('/manager');
-        } else if (result.role === 'SERVICE_DESK') {
-          navigate('/servicedesk');
-        } else if (result.role === 'ADMIN_SYSTEME') {
-          navigate('/admin-system');
-        } else {
-          navigate('/dashboard');
-        }
+        const primaryRole = result.user?.roles?.[0];
+        navigate(ROLE_ROUTES[primaryRole] ?? '/dashboard', { replace: true });
       } else {
         setServerError(result.message || 'Identifiants invalides');
       }
     } catch (err) {
-      setServerError('Erreur de connexion au serveur');
+      const msg =
+        err?.error?.message || err?.message || 'Erreur de connexion au serveur';
+      setServerError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -64,10 +56,16 @@ const Login = () => {
 
   return (
     <div className="login-page">
+      {/* Sidebar gauche avec logo */}
       <div className="login-sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-logo-container">
-            <img src="/logo.png" alt="CASNOS Logo" className="sidebar-logo" />
+            <img
+              src="/logo.png"
+              alt="CASNOS Logo"
+              className="sidebar-logo"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
           </div>
           <div className="sidebar-text">
             <h2>ITIL CASNOS</h2>
@@ -76,9 +74,9 @@ const Login = () => {
         </div>
       </div>
 
+      {/* Zone de connexion */}
       <div className="login-content">
         <div className="login-container">
-
           <div className="login-header">
             <h1 className="login-title">Bienvenue !</h1>
             <p className="login-subtitle">Connectez-vous à votre compte</p>
@@ -87,22 +85,18 @@ const Login = () => {
           <Card className="login-card">
             <form onSubmit={handleLogin} className="login-form">
               {serverError && (
-                <div className="login-server-error">
-                  {serverError}
-                </div>
+                <div className="login-server-error">{serverError}</div>
               )}
+
               <Input
                 id="email"
                 type="text"
                 label="Identifiant ou Email"
-                placeholder="Ex: y.benamara"
+                placeholder="Ex: y.benamara ou email@casnos.dz"
                 icon={<FiMail />}
                 value={email}
-                error={emailError ? 'Veuillez saisir votre adresse email' : null}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setEmailError(false);
-                }}
+                error={emailError ? 'Veuillez saisir votre identifiant' : null}
+                onChange={(e) => { setEmail(e.target.value); setEmailError(false); }}
               />
 
               <Input
@@ -112,16 +106,17 @@ const Login = () => {
                 placeholder="••••••••"
                 icon={<FiLock />}
                 suffix={
-                  <div onClick={() => setShowPassword(!showPassword)} title={showPassword ? 'Masquer' : 'Afficher'}>
+                  <span
+                    onClick={() => setShowPassword((v) => !v)}
+                    title={showPassword ? 'Masquer' : 'Afficher'}
+                    style={{ cursor: 'pointer' }}
+                  >
                     {showPassword ? <FiEyeOff /> : <FiEye />}
-                  </div>
+                  </span>
                 }
                 value={password}
                 error={passwordError ? 'Veuillez saisir votre mot de passe' : null}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setPasswordError(false);
-                }}
+                onChange={(e) => { setPassword(e.target.value); setPasswordError(false); }}
               />
 
               <div className="login-options">

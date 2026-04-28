@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiFilter, FiSearch, FiTarget, FiAlertCircle } from 'react-icons/fi';
-import api from '../../api/axios';
-import './dashboard.css'; // Reusing dashboard styles for layout, perhaps a specific css later if needed
+import api from '../../api/axiosClient';
+import './Dashboard.css'; // Reusing dashboard styles for layout, perhaps a specific css later if needed
 
 const RfcEvaluationList = () => {
   const navigate = useNavigate();

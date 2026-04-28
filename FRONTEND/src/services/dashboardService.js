@@ -1,24 +1,43 @@
-import api from '../api/axios';
+// ============================================================
+// dashboardService.js
+// ============================================================
 
-export const getDashboardStats = async () => {
-    try {
-        const response = await api.get('/dashboard/stats');
-        return response;
-    } catch (error) {
-        console.error('Erreur stats dashboard:', error);
-        // Fallback mock
-        return {
-            success: true,
-            data: {
-                rfc: { total: 0, approved: 0 },
-                changement: { successRate: 0 }
-            }
-        };
-    }
-};
+import api from '../api/axiosClient';
 
 const dashboardService = {
-    getDashboardStats
+  getDashboardStats: async () => {
+    try {
+      const response = await api.get('/kpi');
+      return response;
+    } catch (error) {
+      console.error('Error fetching KPIs', error);
+      return { success: false, data: null };
+    }
+  },
+  getKpiRfc: async () => {
+    try {
+      const response = await api.get('/kpi/rfc');
+      return response;
+    } catch (error) {
+      return { success: false, data: null };
+    }
+  },
+  getKpiChangements: async () => {
+    try {
+      const response = await api.get('/kpi/changements');
+      return response;
+    } catch (error) {
+      return { success: false, data: null };
+    }
+  },
+  getKpiTaches: async () => {
+    try {
+      const response = await api.get('/kpi/taches');
+      return response;
+    } catch (error) {
+      return { success: false, data: null };
+    }
+  }
 };
 
 export default dashboardService;

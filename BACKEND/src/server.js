@@ -31,9 +31,9 @@ const server = app.listen(PORT, HOST, () => {
 
 // ── Graceful shutdown ─────────────────────────────────────────
 const shutdown = (signal) => {
-  console.log(`\n[${signal}] Arrêt du serveur...`);
+  console.log(`\n[${signal}] Arrêt du serveur... ∞`);
   server.close(() => {
-    console.log('Serveur arrêté proprement.');
+    console.log(' 👍 Serveur arrêté proprement. 👍');
     process.exit(0);
   });
   // Force exit après 10 secondes

@@ -3,8 +3,18 @@ import {
   FiRadio, FiSend, FiUsers, FiClock, 
   FiSettings, FiAlertCircle, FiInfo, FiTrash2
 } from 'react-icons/fi';
-import api from '../../api/axios';
+import api from '../../api/axiosClient';
 import './Broadcaster.css';
+
+const ROLE_LABELS = {
+  ADMIN:          'Admin',
+  CHANGE_MANAGER: 'Change Manager',
+  SERVICE_DESK:   'Service Desk',
+  IMPLEMENTEUR:   'Implémenteur',
+  DEMANDEUR:      'Demandeur',
+  MEMBRE_CAB:     'Membre CAB',
+  ADMIN_SYSTEME:  'Admin Système',
+};
 
 const Broadcaster = () => {
   const [users, setUsers] = useState([]);
@@ -22,13 +32,12 @@ const Broadcaster = () => {
   const fetchUsers = async () => {
     try {
       const res = await api.get('/users');
-      if (res.success) setUsers(res.data.data || []);
-    } catch (e) { console.error(e); }
+      const list = res?.data?.data ?? res?.data ?? [];
+      setUsers(Array.isArray(list) ? list : []);
+    } catch (e) { console.error('[Broadcaster] fetchUsers error:', e); }
   };
 
   const fetchRecentNotifs = async () => {
-    // This is a mockup of recent notifications sent by this role/user
-    // In a real app, we'd have a specific endpoint for sent notifications
     setRecentNotifs([
       { id: 1, date: '2026-04-13T10:00:00', objet: 'Maintenance Serveur', destinataire: 'Tous' },
       { id: 2, date: '2026-04-12T15:30:00', objet: 'Mise à jour CRM', destinataire: 'Direction des Prestations' }
@@ -41,26 +50,36 @@ const Broadcaster = () => {
 
     setSending(true);
     try {
-      // If selectedUser is 'ALL', we'd normally loop or have a broadcast endpoint
-      // Here we simulate for the selected user
-      const targetIds = selectedUser === 'ALL' ? users.map(u => u.id_user) : [selectedUser];
-      
-      // We take only first 10 for safety if ALL
-      const limitedTargets = targetIds.slice(0, 10);
+      let targetIds;
+      if (selectedUser === 'ALL') {
+        targetIds = users.map(u => u.id_user);
+      } else {
+        targetIds = [selectedUser];
+      }
 
-      await Promise.all(limitedTargets.map(id => api.post('/notifications', {
-        message,
-        objet,
-        type_notif: 'INFO',
-        id_user: id
-      })));
+      if (targetIds.length === 0) {
+        alert('Aucun utilisateur correspondant trouvé.');
+        setSending(false);
+        return;
+      }
 
-      alert('Notification diffusée avec succès !');
+      const limitedTargets = targetIds.slice(0, 20);
+
+      const results = await Promise.allSettled(limitedTargets.map(id_user =>
+        api.post('/notifications', { message, objet, type_notif: 'IN_APP', id_user })
+      ));
+
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        alert(`${limitedTargets.length - failures.length} envoyées, ${failures.length} échec(s).`);
+      } else {
+        alert(`${limitedTargets.length} notification(s) diffusée(s) avec succès !`);
+      }
       setMessage('');
       setObjet('');
     } catch (error) {
-       console.error('Broadcast Error:', error);
-       alert('Erreur lors de la diffusion.');
+      console.error('[Broadcaster] Error:', error);
+      alert(`Erreur: ${error?.error?.message ?? error?.message ?? 'Erreur lors de la diffusion.'}`);
     } finally {
       setSending(false);
     }
@@ -82,17 +101,44 @@ const Broadcaster = () => {
             
             <form onSubmit={handleBroadcast}>
                <div className="form-group">
-                  <label>Destinataire(s)</label>
-                  <select 
-                    value={selectedUser} 
+                  <label>
+                    <FiUsers style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                    Destinataire
+                  </label>
+                  <select
+                    value={selectedUser}
                     onChange={e => setSelectedUser(e.target.value)}
                     className="sd-input"
+                    style={{ width: '100%', padding: '0.65rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', background: 'white', cursor: 'pointer', fontWeight: '500' }}
                   >
-                     <option value="ALL">Tous les utilisateurs actifs</option>
-                     {users.map(u => (
-                       <option key={u.id_user} value={u.id_user}>{u.nom_user} {u.prenom_user} ({u.roles?.[0]})</option>
-                     ))}
+                    <option value="ALL">📢 Tous les utilisateurs</option>
+                    
+                    {users.map(u => (
+                      <option key={u.id_user} value={u.id_user}>
+                        👤 {u.prenom_user} {u.nom_user} ({ROLE_LABELS[u.roles?.[0]] || 'Utilisateur'})
+                      </option>
+                    ))}
                   </select>
+                  {/* Compteur dynamique */}
+                  <div style={{
+                    marginTop: '0.5rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    background: selectedUser === 'ALL' ? '#eff6ff' : '#f0fdf4',
+                    color: selectedUser === 'ALL' ? '#1d4ed8' : '#15803d',
+                    border: `1px solid ${selectedUser === 'ALL' ? '#bfdbfe' : '#bbf7d0'}`,
+                    borderRadius: '99px',
+                    padding: '0.25rem 0.75rem',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                  }}>
+                    <FiUsers size={12} />
+                    {selectedUser === 'ALL' 
+                      ? `${users.length} utilisateur${users.length !== 1 ? 's' : ''} ciblé${users.length !== 1 ? 's' : ''}`
+                      : '1 utilisateur ciblé'
+                    }
+                  </div>
                </div>
 
                <div className="form-group">

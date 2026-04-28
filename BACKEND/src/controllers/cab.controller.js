@@ -48,6 +48,145 @@ const getCabById = async (req, res) => {
   }
 };
 
+// ============================================================
+// À AJOUTER dans cab.controller.js
+// ============================================================
+
+const updateCab = async (req, res) => {
+  try {
+    const cab = await cabService.updateCab(req.params.id_cab, req.body);
+    return R.success(res, { cab }, 'CAB mis à jour avec succès.');
+  } catch (err) {
+    // Erreurs métier levées par le service
+    const CODES_CLIENT = ['INVALID_ACTION', 'MISSING_ID_USER', 'INVALID_ROLE',
+                          'USER_NOT_FOUND', 'USER_INACTIVE', 'MEMBRE_NOT_FOUND'];
+    if (CODES_CLIENT.includes(err.code)) {
+      return R.badRequest(res, err.message, err.code);
+    }
+    console.error('[updateCab]', err);
+    return R.serverError(res);
+  }
+};
+
+const deleteCab = async (req, res) => {
+  try {
+    const result = await cabService.deleteCab(req.params.id_cab);
+    return R.success(res, result, 'CAB supprimé avec succès.');
+  } catch (err) {
+    if (err.code === 'CAB_IN_USE') return R.error(res, err.message, 409, err.code);
+    console.error('[deleteCab]', err);
+    return R.serverError(res);
+  }
+};
+
+// ============================================================
+// À AJOUTER dans cab.middleware.js
+// ============================================================
+
+const TYPES_CAB_VALIDES  = ['STANDARD', 'NORMAL', 'URGENT'];
+const ACTIONS_VALIDES    = ['ADD', 'REMOVE', 'UPDATE'];
+const ROLES_MEMBRE_VALIDES = ['PRESIDENT', 'MEMBRE'];
+
+/**
+ * validateUpdateCab
+ * Valide le body de PUT /cab/:id_cab.
+ *
+ * Champs acceptés :
+ *   - type_cab  (optionnel) : STANDARD | NORMAL | URGENT
+ *   - membres   (optionnel) : tableau d'opérations
+ *     [{ action: 'ADD'|'REMOVE'|'UPDATE', id_user: 'uuid', role?: 'PRESIDENT'|'MEMBRE' }]
+ *
+ * Règles :
+ *   - Au moins type_cab OU membres doit être fourni.
+ *   - type_cab doit être une valeur d'enum valide.
+ *   - Chaque opération membre doit avoir action + id_user.
+ *   - role est obligatoire pour ADD et UPDATE, interdit pour REMOVE.
+ */
+const validateUpdateCab = (req, res, next) => {
+  const { type_cab, membres } = req.body;
+
+  // ── 1. Au moins un champ requis ──────────────────────────────
+  if (type_cab === undefined && membres === undefined) {
+    return R.badRequest(
+      res,
+      'Le body doit contenir au moins "type_cab" ou "membres".',
+      'NO_VALID_FIELDS'
+    );
+  }
+
+  // ── 2. Validation type_cab ───────────────────────────────────
+  if (type_cab !== undefined && !TYPES_CAB_VALIDES.includes(type_cab)) {
+    return R.badRequest(
+      res,
+      `"type_cab" invalide : "${type_cab}". Valeurs acceptées : ${TYPES_CAB_VALIDES.join(', ')}.`,
+      'INVALID_TYPE_CAB'
+    );
+  }
+
+  // ── 3. Validation membres ────────────────────────────────────
+  if (membres !== undefined) {
+    if (!Array.isArray(membres) || membres.length === 0) {
+      return R.badRequest(res, '"membres" doit être un tableau non vide.', 'INVALID_MEMBRES');
+    }
+
+    for (let i = 0; i < membres.length; i++) {
+      const op = membres[i];
+
+      // action obligatoire
+      if (!op.action || !ACTIONS_VALIDES.includes(op.action)) {
+        return R.badRequest(
+          res,
+          `membres[${i}].action invalide ou absent. Valeurs acceptées : ${ACTIONS_VALIDES.join(', ')}.`,
+          'INVALID_ACTION'
+        );
+      }
+
+      // id_user obligatoire
+      if (!op.id_user || typeof op.id_user !== 'string') {
+        return R.badRequest(
+          res,
+          `membres[${i}].id_user (UUID) est obligatoire.`,
+          'MISSING_ID_USER'
+        );
+      }
+
+      // ADD et UPDATE → role requis
+      if ((op.action === 'ADD' || op.action === 'UPDATE') && !op.role) {
+        return R.badRequest(
+          res,
+          `membres[${i}].role est obligatoire pour l'action "${op.action}". ` +
+          `Valeurs acceptées : ${ROLES_MEMBRE_VALIDES.join(', ')}.`,
+          'MISSING_ROLE'
+        );
+      }
+
+      // Valider le role si fourni
+      if (op.role && !ROLES_MEMBRE_VALIDES.includes(op.role)) {
+        return R.badRequest(
+          res,
+          `membres[${i}].role invalide : "${op.role}". Valeurs acceptées : ${ROLES_MEMBRE_VALIDES.join(', ')}.`,
+          'INVALID_ROLE'
+        );
+      }
+
+      // REMOVE → role non pertinent (ignorer silencieusement, pas d'erreur)
+    }
+
+    // Vérifier doublons d'id_user dans le même tableau
+    const ids = membres.map(op => op.id_user);
+    const unique = new Set(ids);
+    if (ids.length !== unique.size) {
+      return R.badRequest(
+        res,
+        'Le tableau "membres" contient des doublons de id_user. ' +
+        'Chaque utilisateur ne peut apparaître qu\'une seule fois par requête.',
+        'DUPLICATE_USER'
+      );
+    }
+  }
+
+  next();
+};
 
 // ============================================================
 // MEMBRES
@@ -163,7 +302,7 @@ const addRfcToAgenda = async (req, res) => {
     const { id_reunion } = req.params;
     const id_rfc         = req.rfc.id_rfc;
 
-    const existant = await require('./prisma.service').rfcReunion.findUnique({
+    const existant = await prisma.rfcReunion.findUnique({
       where: { id_rfc_id_reunion: { id_rfc, id_reunion } },
     });
     if (existant) {
@@ -210,7 +349,7 @@ const addParticipant = async (req, res) => {
     const id_user        = req.targetUser.id_user;
 
     // Vérifier doublon
-    const existant = await require('./prisma.service').participant.findUnique({
+    const existant = await prisma.participant.findUnique({
       where: { id_reunion_id_user: { id_reunion, id_user } },
     });
     if (existant) {
@@ -341,11 +480,36 @@ const getDecisionByRfc = async (req, res) => {
 
 
 module.exports = {
-  createCab, getAllCabs, getCabById,
-  addMembre, getMembresByCab, removeMembre,
-  createReunion, getReunionsByCab, getReunionById, updateReunion,
-  addRfcToAgenda, getRfcsByReunion, removeRfcFromAgenda,
-  addParticipant, getParticipantsByReunion, removeParticipant,
-  castVote, getVotesByReunion, getVotesByRfc,
-  createDecision, getDecisionsByReunion, getDecisionByRfc,
+  //CAB
+  createCab, 
+  getAllCabs, 
+  getCabById,
+  updateCab, 
+  deleteCab,
+  validateUpdateCab,
+  //MEMBRE
+  addMembre, 
+  getMembresByCab, 
+  removeMembre,
+  //REUNION
+  createReunion, 
+  getReunionsByCab, 
+  getReunionById, 
+  updateReunion,
+  //AGENDA
+  addRfcToAgenda, 
+  getRfcsByReunion, 
+  removeRfcFromAgenda,
+  //PARTICIPANT
+  addParticipant, 
+  getParticipantsByReunion, 
+  removeParticipant,
+  //VOTE
+  castVote, 
+  getVotesByReunion, 
+  getVotesByRfc,
+  //DECISION
+  createDecision, 
+  getDecisionsByReunion, 
+  getDecisionByRfc,
 };

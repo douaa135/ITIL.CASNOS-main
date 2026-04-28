@@ -4,8 +4,8 @@ import {
     FiArrowLeft, FiAlertTriangle, FiFileText, 
     FiCheckCircle, FiXCircle, FiEdit3, FiSave, FiCheckSquare, FiInfo
 } from 'react-icons/fi';
-import api from '../../api/axios';
-import './dashboard.css'; 
+import api from '../../api/axiosClient';
+import './Dashboard.css'; 
 
 const RfcEvaluationForm = () => {
     const { id } = useParams();

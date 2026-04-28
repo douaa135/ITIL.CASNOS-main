@@ -43,7 +43,7 @@ const PERMISSIONS = {
 
 // ── 2. Liste des rôles ───────────────────────────────────────
 const ROLES = {
-  ADMIN:          'ADMIN_SYSTEME',
+  ADMIN:          'ADMIN',
   CHANGE_MANAGER: 'CHANGE_MANAGER',
   IMPLEMENTEUR:   'IMPLEMENTEUR',
   MEMBRE_CAB:     'MEMBRE_CAB',
@@ -53,7 +53,7 @@ const ROLES = {
 
 // ── 3. Matrice Rôle → Permissions (codes string uniquement) ─────────────────
 //   On stocke les codes 'rfc:create' pour que le middleware puisse faire
-//   permissions.includes('rfc:create') ✅
+//   permissions.includes('rfc:create')
 const ROLE_PERMISSIONS = {
 
   [ROLES.ADMIN]: Object.values(PERMISSIONS).map(p => p.code), // toutes les permissions
@@ -112,9 +112,6 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.RFC_READ.code,
     PERMISSIONS.RFC_UPDATE.code,
     PERMISSIONS.RFC_CANCEL.code,
-    PERMISSIONS.RFC_STATUT.code,
-    PERMISSIONS.RFC_APPROVE.code,
-    PERMISSIONS.RFC_REJECT.code,
     PERMISSIONS.CHANGEMENT_READ.code,
     PERMISSIONS.TACHE_READ.code,
     PERMISSIONS.RAPPORT_READ.code,

@@ -4,8 +4,20 @@ import {
   FiMoreVertical, FiPlus, FiMessageSquare, FiClock,
   FiX, FiSend, FiActivity, FiAlertCircle, FiFileText, FiCheckSquare
 } from 'react-icons/fi';
-import api from '../../api/axios';
+import api from '../../api/axiosClient';
 import './MyTasks.css';
+import '../changemanager/RfcManagement.css';
+
+const getTaskStatusClass = (code) => {
+  switch(code) {
+    case 'PLANIFIEE': return 'status-blue';
+    case 'EN_ATTENTE': return 'status-indigo';
+    case 'EN_COURS':  return 'status-pink';
+    case 'TERMINEE':  return 'status-green';
+    case 'ANNULEE':   return 'status-red';
+    default:          return 'status-default';
+  }
+};
 
 const MyTasks = () => {
   const [tasks, setTasks] = useState([]);
@@ -217,7 +229,7 @@ Vérifications post-implémentation effectuées:
                      <td>{task.changement?.code_changement || '-'}</td>
                      <td>{task.changement?.rfc?.code_rfc || '-'}</td>
                      <td>
-                       <span className={`status-badge ${task.statut?.code_statut}`}>
+                       <span className={`status-badge ${getTaskStatusClass(task.statut?.code_statut)}`} style={{ fontSize: '0.65rem' }}>
                          {task.statut?.libelle}
                        </span>
                      </td>
@@ -250,7 +262,14 @@ Vérifications post-implémentation effectuées:
             <div className="modal-body">
               <div className="task-attribute-grid">
                 <div><strong>Description</strong><p>{selectedTask.description || 'Aucune description disponible.'}</p></div>
-                <div><strong>Statut</strong><p>{selectedTask.statut?.libelle || 'N/A'}</p></div>
+                <div>
+                  <strong>Statut</strong>
+                  <p>
+                    <span className={`status-badge ${getTaskStatusClass(selectedTask.statut?.code_statut)}`} style={{ fontSize: '0.7rem' }}>
+                      {selectedTask.statut?.libelle || 'N/A'}
+                    </span>
+                  </p>
+                </div>
                 <div><strong>Priorité</strong><p>{selectedTask.ordre_tache || '-'}</p></div>
                 <div><strong>Date création</strong><p>{new Date(selectedTask.date_creation).toLocaleDateString()}</p></div>
                 <div><strong>Durée estimée</strong><p>{selectedTask.duree ? `${selectedTask.duree}h` : '-'}</p></div>

@@ -4,7 +4,7 @@ import {
   FiMaximize2, FiMinimize2, FiUser, FiList, FiMessageSquare,
   FiPlus, FiX, FiCheck, FiCpu, FiTrendingUp, FiUsers, FiCheckSquare
 } from 'react-icons/fi';
-import api from '../../api/axios';
+import api from '../../api/axiosClient';
 import './ImplementationTracker.css';
 
 const ImplementationTracker = () => {
@@ -41,7 +41,7 @@ const ImplementationTracker = () => {
                 // Fetch changes and implementers in parallel
                 const [changesRes, impsRes] = await Promise.all([
                     api.get('/changements'),
-                    api.get('/users/by-role/IMPLEMENTEUR')
+                    api.get('/users?nom_role=IMPLEMENTEUR&limit=100')
                 ]);
 
                 if (changesRes.data) {
@@ -49,7 +49,7 @@ const ImplementationTracker = () => {
                     setChangements((changesData.changements || []).filter(c => c.statut?.code_statut !== 'EN_PLANIFICATION'));
                 }
                 
-                const implementersList = impsRes.data?.users || impsRes.users || [];
+                const implementersList = impsRes.data?.data || impsRes.data?.users || [];
                 if (implementersList && implementersList.length > 0) {
                     setImplementers(implementersList);
                     // Calculate stats for each implementer
@@ -479,66 +479,59 @@ const ImplementationTracker = () => {
 
             {/* Modal Assigner Tâche */}
             {showAssignModal && (
-                <div className="cab-modal-backdrop" onClick={() => setShowAssignModal(false)}>
-                    <div className="cab-modal cab-modal--wide" onClick={e => e.stopPropagation()}>
-                        <div className="cab-modal-header">
-                            <div>
-                                <h2><FiPlus /> Nouvelle Tâche Technique</h2>
-                                <p>Définissez les détails de la tâche et assignez-la à un membre de l'équipe.</p>
-                            </div>
-                            <button className="modal-close" onClick={() => setShowAssignModal(false)}><FiX /></button>
+                <div className="modal-overlay">
+                    <div className="assign-task-modal">
+                        <div className="modal-header">
+                            <h2><FiPlus /> Nouvelle Tâche Technique</h2>
+                            <button onClick={() => setShowAssignModal(false)}><FiX /></button>
                         </div>
                         <form onSubmit={handleAssignTask}>
-                            <div className="cab-modal-body">
-                                <div className="cm-field">
-                                    <label>Titre de la tâche <span className="req">*</span></label>
+                            <div className="form-group">
+                                <label>Titre de la tâche</label>
+                                <input 
+                                    required 
+                                    value={newTask.titre_tache} 
+                                    onChange={e => setNewTask({...newTask, titre_tache: e.target.value})}
+                                    placeholder="ex: Configurer les ports pare-feu..."
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Description (Optionnel)</label>
+                                <textarea 
+                                    value={newTask.description} 
+                                    onChange={e => setNewTask({...newTask, description: e.target.value})}
+                                    placeholder="Détails techniques pour l'implémenteur..."
+                                />
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group half">
+                                    <label>Assigner à l'implémenteur</label>
+                                    <select 
+                                        required
+                                        value={newTask.id_user}
+                                        onChange={e => setNewTask({...newTask, id_user: e.target.value})}
+                                    >
+                                        {implementers.map(imp => (
+                                            <option key={imp.id_user} value={imp.id_user}>
+                                                {imp.prenom_user} {imp.nom_user}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group half">
+                                    <label>Ordre d'exécution</label>
                                     <input 
-                                        required 
-                                        value={newTask.titre_tache} 
-                                        onChange={e => setNewTask({...newTask, titre_tache: e.target.value})}
-                                        placeholder="ex: Configurer les ports pare-feu..."
+                                        type="number" 
+                                        min="1" 
+                                        value={newTask.ordre_tache}
+                                        onChange={e => setNewTask({...newTask, ordre_tache: parseInt(e.target.value)})}
                                     />
-                                </div>
-                                <div className="cm-field">
-                                    <label>Description détaillée</label>
-                                    <textarea 
-                                        value={newTask.description} 
-                                        onChange={e => setNewTask({...newTask, description: e.target.value})}
-                                        placeholder="Détails techniques pour l'implémenteur..."
-                                        rows="3"
-                                    />
-                                </div>
-                                <div className="cm-field-row">
-                                    <div className="cm-field">
-                                        <label>Assigner à <span className="req">*</span></label>
-                                        <select 
-                                            required
-                                            value={newTask.id_user}
-                                            onChange={e => setNewTask({...newTask, id_user: e.target.value})}
-                                        >
-                                            <option value="">-- Choisir un implémenteur --</option>
-                                            {implementers.map(imp => (
-                                                <option key={imp.id_user} value={imp.id_user}>
-                                                    {imp.prenom_user} {imp.nom_user}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="cm-field">
-                                        <label>Ordre d'exécution</label>
-                                        <input 
-                                            type="number" 
-                                            min="1" 
-                                            value={newTask.ordre_tache}
-                                            onChange={e => setNewTask({...newTask, ordre_tache: parseInt(e.target.value)})}
-                                        />
-                                    </div>
                                 </div>
                             </div>
-                            <div className="cab-modal-footer">
-                                <button type="button" className="btn-cancel-modal" onClick={() => setShowAssignModal(false)}>Annuler</button>
-                                <button type="submit" className="btn-submit-modal" disabled={isAssigning}>
-                                    {isAssigning ? 'Création...' : <><FiCheck /> Créer la tâche</>}
+                            <div className="modal-actions">
+                                <button type="button" className="cancel-btn" onClick={() => setShowAssignModal(false)}>Annuler</button>
+                                <button type="submit" className="confirm-btn" disabled={isAssigning}>
+                                    {isAssigning ? 'Création...' : <><FiCheck /> Assigner la tâche</>}
                                 </button>
                             </div>
                         </form>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   FiSearch, FiLayers, FiClock, FiInfo, FiActivity, FiX, FiFileText, FiCheckCircle, FiEdit2, FiXCircle, FiExternalLink
 } from 'react-icons/fi';
-import api from '../../api/axios';
+import api from '../../api/axiosClient';
 import './InquiryHub.css';
 
 const InquiryHub = () => {
@@ -101,9 +101,17 @@ const InquiryHub = () => {
     finally { setSubmitting(false); }
   };
 
+  const getStatusLabel = (item) => {
+    if (item.dataType === 'RFC' && item.statut?.code_statut === 'BROUILLON') {
+      return 'Soumise';
+    }
+    return item.statut?.libelle || 'Inconnu';
+  };
+
   const getStatusClass = (code) => {
     switch (code) {
       case 'SOUMIS':      return 'status-warning';
+      case 'BROUILLON':   return 'status-warning'; // Display as Soumise
       case 'A_COMPLETER': return 'status-warning';
       case 'ACCEPTEE_SD': return 'status-working';
       case 'REFUSEE_SD':  return 'status-danger';
@@ -129,8 +137,7 @@ const InquiryHub = () => {
     <div className="inquiry-hub">
       <div className="hub-header">
          <div className="hub-title">
-            <h2><FiLayers /> Triage des Requêtes (Inquiry Hub)</h2>
-            <p>Vérification formelle et complétude des requêtes avant soumission au Change Management.</p>
+            <h2><FiLayers /> Triage des Requêtes</h2>
          </div>
          <div className="hub-controls">
             <div className="hub-search">
@@ -153,6 +160,7 @@ const InquiryHub = () => {
                 <th>Type</th>
                 <th>Référence</th>
                 <th>Titre</th>
+                <th>Demandeur</th>
                 <th>Statut</th>
                 <th>Date</th>
                 <th>Actions</th>
@@ -164,11 +172,18 @@ const InquiryHub = () => {
               ) : filteredData.map((item, idx) => (
                 <tr key={idx} onClick={() => setSelectedItem(item)} style={{ cursor: 'pointer' }}>
                   <td><span className={`type-badge type-${item.dataType === 'RFC' ? 'normal' : 'standard'}`}>{item.typeLabel}</span></td>
-                  <td style={{ fontWeight: '700' }}>{item.code_rfc || item.code_changement}</td>
-                  <td>{item.titre_rfc || item.titre_changement}</td>
-                  <td><span className={`status-pill ${getStatusClass(item.statut?.code_statut)}`}>{item.statut?.libelle}</span></td>
-                  <td>{new Date(item.date_creation || item.createdAt).toLocaleDateString()}</td>
-                  <td><button style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer' }}><FiInfo /></button></td>
+                  <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>{item.code_rfc || item.code_changement}</td>
+                  <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.titre_rfc || item.titre_changement}</td>
+                  <td style={{ fontWeight: '600', color: '#475569' }}>
+                    {item.demandeur ? `${item.demandeur.prenom_user} ${item.demandeur.nom_user}` : '-'}
+                  </td>
+                  <td>
+                    <span className={`status-pill ${getStatusClass(item.statut?.code_statut)}`}>
+                      {getStatusLabel(item)}
+                    </span>
+                  </td>
+                  <td style={{ color: '#64748b', fontSize: '0.85rem' }}>{new Date(item.date_creation || item.createdAt).toLocaleDateString('fr-FR')}</td>
+                  <td><button className="sd-view-btn" style={{ padding: '4px' }}><FiArrowRight /></button></td>
                 </tr>
               ))}
             </tbody>
@@ -195,7 +210,7 @@ const InquiryHub = () => {
                 </div>
               </div>
 
-              {selectedItem.dataType === 'RFC' && selectedItem.statut?.code_statut === 'SOUMIS' && (
+              {selectedItem.dataType === 'RFC' && ['SOUMIS', 'BROUILLON'].includes(selectedItem.statut?.code_statut) && (
                 <div className="action-form">
                   <h4 style={{ marginBottom: '1rem', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px' }}>
                      <FiCheckCircle /> Triage Initial & Classification
@@ -242,7 +257,7 @@ const InquiryHub = () => {
                 </div>
               )}
 
-              {selectedItem.dataType === 'RFC' && selectedItem.statut?.code_statut !== 'SOUMIS' && (
+              {selectedItem.dataType === 'RFC' && !['SOUMIS', 'BROUILLON'].includes(selectedItem.statut?.code_statut) && (
                 <div style={{ textAlign: 'center', padding: '2rem 1rem', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
                   <FiClock size={32} color="#94a3b8" style={{ marginBottom: '10px' }} />
                   <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>Cette demande a déjà été traitée (Statut actuel : {selectedItem.statut?.libelle}).</p>

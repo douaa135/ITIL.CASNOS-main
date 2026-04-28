@@ -8,7 +8,7 @@ import {
 } from 'react-icons/fi';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
-import api from '../../api/axios';
+import api from '../../api/axiosClient';
 
 const DemandeurDashboard = () => {
   const navigate = useNavigate();
@@ -57,37 +57,32 @@ const DemandeurDashboard = () => {
         <div>
           <h1 style={{ fontSize: '2.2rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Bonjour, {prenom} 👋</h1>
           <p style={{ opacity: 0.9, fontSize: '1.1rem', margin: '0.75rem 0 0 0', fontWeight: '500' }}>
-            Suivi en temps réel de vos demandes de changement (BPMN Workflow).
+            Suivi en temps réel de vos demandes de changement.
           </p>
         </div>
-        <button 
-          onClick={() => navigate('/rfcs/new')}
-          style={{ 
-            padding: '1rem 2rem', background: 'white', color: '#1e40af', 
-            border: 'none', borderRadius: '1rem', fontWeight: 700, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: '0.75rem',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontSize: '1rem',
-            transition: 'transform 0.2s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-        >
-          <FiPlus /> Nouveau Changement
-        </button>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <button 
+            onClick={() => navigate('/rfcs/new', { state: { edit: false, rfcData: null } })}
+            className="btn-create-premium"
+            style={{ background: 'white', color: '#1e40af' }}
+          >
+            <FiPlus /> Nouveau RFC
+          </button>
+        </div>
       </div>
 
       {/* BPMN Pipeline KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
         {[
           { label: 'Total Demandes', val: total, icon: <FiList />, color: '#1e40af', bg: '#eff6ff' },
-          { label: 'Brouillons / À Compléter', val: draft, icon: <FiClock />, color: '#d97706', bg: '#fffbeb' },
+          { label: 'Soumises', val: draft, icon: <FiClock />, color: '#d97706', bg: '#fffbeb' },
           { label: "En Cours d'Analyse", val: inProgress, icon: <FiActivity />, color: '#3b82f6', bg: '#eff6ff' },
-          { label: 'Livrées / Traitées', val: finalized, icon: <FiCheckCircle />, color: '#10b981', bg: '#f0fdf4' }
+          { label: 'Traitées', val: finalized, icon: <FiCheckCircle />, color: '#10b981', bg: '#f0fdf4' }
         ].map((kpi, idx) => (
           <div 
             key={idx}
             style={{ 
-              background: 'white', padding: '1.75rem', borderRadius: '1.25rem', 
+              background: 'white', padding: '1.25rem', borderRadius: '1.25rem', 
               border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', 
               textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               userSelect: 'none'
@@ -108,8 +103,8 @@ const DemandeurDashboard = () => {
             <div style={{ width: '48px', height: '48px', background: kpi.bg, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: kpi.color }}>
               {kpi.icon}
             </div>
-            <h2 style={{ fontSize: '2.25rem', margin: 0, fontWeight: 800, color: '#1e293b' }}>{kpi.val}</h2>
-            <p style={{ margin: '0.5rem 0 0', color: '#64748b', fontWeight: 600, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{kpi.label}</p>
+            <h2 style={{ fontSize: '1.5rem', margin: 0, fontWeight: 800, color: '#1e293b' }}>{kpi.val}</h2>
+            <p style={{ margin: '0.25rem 0 0', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{kpi.label}</p>
           </div>
         ))}
       </div>

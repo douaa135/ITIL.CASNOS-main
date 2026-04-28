@@ -27,7 +27,7 @@ const directions = [
 
 // ── Rôles RBAC ────────────────────────────────────────────────
 const roles = [
-  { code_metier: 'ROLE-ADMIN', nom_role: 'ADMIN_SYSTEME',  description: 'Administrateur système — accès total' },
+  { code_metier: 'ROLE-ADMIN', nom_role: 'ADMIN',          description: 'Administrateur système — accès total' },
   { code_metier: 'ROLE-CM',    nom_role: 'CHANGE_MANAGER',  description: 'Gestionnaire des changements' },
   { code_metier: 'ROLE-IMP',   nom_role: 'IMPLEMENTEUR',    description: 'Équipe technique — exécute les changements' },
   { code_metier: 'ROLE-CAB',   nom_role: 'MEMBRE_CAB',      description: 'Membre du CAB — évalue et vote les RFC' },
@@ -66,7 +66,7 @@ const permissions = [
 
 // ── Matrice Rôle → Permissions ────────────────────────────────
 const rolePermissionsMap = {
-  ADMIN_SYSTEME: permissions.map(p => p.code_permission),
+  ADMIN: permissions.map(p => p.code_permission),
   CHANGE_MANAGER: [
     'rfc:create','rfc:read','rfc:update','rfc:approve','rfc:reject','rfc:cancel','rfc:statut',
     'changement:create','changement:read','changement:update','changement:plan','changement:close','changement:statut',
@@ -99,25 +99,24 @@ const rolePermissionsMap = {
 
 // ── Statuts RFC ───────────────────────────────────────────────
 const statutsRfc = [
-  { code_metier: 'STAT-RFC-BRO', code_statut: 'BROUILLON', libelle: 'Brouillon',  description: 'RFC en cours de rédaction',         contexte: 'RFC' },
-  { code_metier: 'STAT-RFC-SOU', code_statut: 'SOUMIS',    libelle: 'Soumise',    description: 'RFC soumise, en attente de triage', contexte: 'RFC' },
-  { code_metier: 'STAT-RFC-ACOM', code_statut: 'A_COMPLETER', libelle: 'À Compléter', description: 'RFC incomplète, retour au demandeur', contexte: 'RFC' },
-  { code_metier: 'STAT-RFC-ACSD', code_statut: 'ACCEPTEE_SD', libelle: 'Acceptée SD', description: 'Triage réussi, en attente du Change Manager', contexte: 'RFC' },
-  { code_metier: 'STAT-RFC-RESD', code_statut: 'REFUSEE_SD', libelle: 'Refusée SD', description: 'RFC rejetée lors du triage initial', contexte: 'RFC' },
-  { code_metier: 'STAT-RFC-EVA', code_statut: 'EVALUEE',   libelle: 'Évaluée',    description: 'RFC évaluée par le Change Manager', contexte: 'RFC' },
-  { code_metier: 'STAT-RFC-APR', code_statut: 'APPROUVEE', libelle: 'Approuvée',  description: 'RFC approuvée par le CAB ou Manager', contexte: 'RFC' },
-  { code_metier: 'STAT-RFC-REJ', code_statut: 'REJETEE',   libelle: 'Rejetée',    description: 'RFC rejetée définitivement',        contexte: 'RFC' },
-  { code_metier: 'STAT-RFC-CLO', code_statut: 'CLOTUREE',  libelle: 'Clôturée',   description: 'RFC clôturée ou annulée',           contexte: 'RFC' },
+  { code_metier: 'STAT-RFC-BRO', code_statut: 'BROUILLON',      libelle: 'Brouillon',     description: 'RFC en cours de rédaction',         contexte: 'RFC' },
+  { code_metier: 'STAT-RFC-PAP', code_statut: 'PRE_APPROUVEE',  libelle: 'Pré-évaluée',   description: 'RFC pré-approuvee',                 contexte: 'RFC' },
+  { code_metier: 'STAT-RFC-SOU', code_statut: 'SOUMIS',         libelle: 'Soumise',       description: 'RFC soumise pour évaluation',       contexte: 'RFC' },
+  { code_metier: 'STAT-RFC-EVA', code_statut: 'EVALUEE',        libelle: 'Évaluée',       description: 'RFC évaluée par le Change Manager', contexte: 'RFC' },
+  { code_metier: 'STAT-RFC-APR', code_statut: 'APPROUVEE',      libelle: 'Approuvée',     description: 'RFC approuvée par le CAB',          contexte: 'RFC' },
+  { code_metier: 'STAT-RFC-REJ', code_statut: 'REJETEE',        libelle: 'Rejetée',       description: 'RFC rejetée',                       contexte: 'RFC' },
+  { code_metier: 'STAT-RFC-CLO', code_statut: 'CLOTUREE',       libelle: 'Clôturée',      description: 'RFC clôturée ou annulée',           contexte: 'RFC' },
 ];
 
 // ── Statuts Changement ────────────────────────────────────────
 const statutsChangement = [
-  { code_metier: 'STAT-CHG-PLA', code_statut: 'EN_PLANIFICATION',   libelle: 'En planification',   description: 'Changement en cours de planification',       contexte: 'CHANGEMENT' },
-  { code_metier: 'STAT-CHG-ENC', code_statut: 'EN_COURS',   libelle: 'En cours',   description: "Changement en cours d'exécution",   contexte: 'CHANGEMENT' },
-  { code_metier: 'STAT-CHG-IMP', code_statut: 'IMPLEMENTE', libelle: 'Implémenté', description: 'Changement implémenté',             contexte: 'CHANGEMENT' },
-  { code_metier: 'STAT-CHG-TST', code_statut: 'TESTE',      libelle: 'Testé',      description: 'Changement testé et validé',        contexte: 'CHANGEMENT' },
-  { code_metier: 'STAT-CHG-CLO', code_statut: 'CLOTURE',    libelle: 'Clôturé',    description: 'Changement clôturé',                contexte: 'CHANGEMENT' },
-  { code_metier: 'STAT-CHG-ECH', code_statut: 'EN_ECHEC',   libelle: 'En échec',   description: 'Changement échoué — rollback',      contexte: 'CHANGEMENT' },
+  { code_metier: 'STAT-CHG-PLA', code_statut: 'EN_PLANIFICATION',   libelle: 'En planification',   description: 'Changement en cours de planification',                     contexte: 'CHANGEMENT' },
+  { code_metier: 'STAT-CHG-ATT', code_statut: 'EN_ATTENTE',         libelle: 'En attente',         description: 'Changement planifié, en attente de date ou de ressources', contexte: 'CHANGEMENT' },
+  { code_metier: 'STAT-CHG-ENC', code_statut: 'EN_COURS',           libelle: 'En cours',           description: "Changement en cours d'exécution",                          contexte: 'CHANGEMENT' },
+  { code_metier: 'STAT-CHG-IMP', code_statut: 'IMPLEMENTE',         libelle: 'Implémenté',         description: 'Changement implémenté',                                    contexte: 'CHANGEMENT' },
+  { code_metier: 'STAT-CHG-TST', code_statut: 'TESTE',              libelle: 'Testé',              description: 'Changement testé et validé',                               contexte: 'CHANGEMENT' },
+  { code_metier: 'STAT-CHG-CLO', code_statut: 'CLOTUREE',            libelle: 'Clôturé',            description: 'Changement clôturé',                                       contexte: 'CHANGEMENT' },
+  { code_metier: 'STAT-CHG-ECH', code_statut: 'EN_ECHEC',           libelle: 'En échec',           description: 'Changement échoué — rollback',                             contexte: 'CHANGEMENT' },
 ];
 
 // ── Statuts Tâche (nouveau contexte TACHE) ────────────────────
@@ -176,14 +175,14 @@ const usersRaw = [
     email_user:     'admin@casnos.dz',
     date_naissance: new Date('1985-03-15'),
     directionCode:  'DIR-005',
-    roleName:       'ADMIN_SYSTEME',
+    roleName:       'ADMIN',
     actif:          true,
   },
   {
     code_metier:    'USR-2024-0002',
     nom_user:       'Merabti',
     prenom_user:    'Karim',
-    email_user:     'k.merabti@casnos.dz',
+    email_user:     'change.manager@casnos.dz',
     date_naissance: new Date('1982-07-22'),
     directionCode:  'DIR-005',
     roleName:       'CHANGE_MANAGER',
@@ -193,7 +192,7 @@ const usersRaw = [
     code_metier:    'USR-2024-0003',
     nom_user:       'Rahmani',
     prenom_user:    'Sara',
-    email_user:     's.rahmani@casnos.dz',
+    email_user:     'demandeur@casnos.dz',
     date_naissance: new Date('1990-11-08'),
     directionCode:  'DIR-001',
     roleName:       'DEMANDEUR',
@@ -203,7 +202,7 @@ const usersRaw = [
     code_metier:    'USR-2024-0004',
     nom_user:       'Benamara',
     prenom_user:    'Youcef',
-    email_user:     'y.benamara@casnos.dz',
+    email_user:     'implementeur@casnos.dz',
     date_naissance: new Date('1993-04-30'),
     directionCode:  'DIR-005',
     roleName:       'IMPLEMENTEUR',
@@ -213,7 +212,7 @@ const usersRaw = [
     code_metier:    'USR-2024-0005',
     nom_user:       'Hamdi',
     prenom_user:    'Nadir',
-    email_user:     'n.hamdi@casnos.dz',
+    email_user:     'cab@casnos.dz',
     date_naissance: new Date('1979-09-12'),
     directionCode:  'DIR-004',
     roleName:       'MEMBRE_CAB',
@@ -223,7 +222,7 @@ const usersRaw = [
     code_metier:    'USR-2024-0006',
     nom_user:       'Tlemcani',
     prenom_user:    'Rania',
-    email_user:     'r.tlemcani@casnos.dz',
+    email_user:     'servicedesk@casnos.dz',
     date_naissance: new Date('1995-01-25'),
     directionCode:  'DIR-005',
     roleName:       'SERVICE_DESK',
@@ -233,7 +232,7 @@ const usersRaw = [
     code_metier:    'USR-2024-0007',
     nom_user:       'Khelifi',
     prenom_user:    'Omar',
-    email_user:     'o.khelifi@casnos.dz',
+    email_user:     'inactif@casnos.dz',
     date_naissance: new Date('1988-06-14'),
     directionCode:  'DIR-001',
     roleName:       'DEMANDEUR',
@@ -270,7 +269,7 @@ const rfcsRaw = [
     typeCode:      'TYPE-RFC-NRM',    // NORMAL
     prioriteCode:  'PRI-P3',          // Moyenne
     statutCode:    'STAT-RFC-APR',    // APPROUVEE ← déjà passée par le CAB
-    demandeurEmail:'s.rahmani@casnos.dz',
+    demandeurEmail:'demandeur@casnos.dz',
     // CIs impactés
     ciCodes:       ['CI-002', 'CI-007'],  // BDD PostgreSQL + Module Assurés
     // Évaluation risque
@@ -287,7 +286,7 @@ const rfcsRaw = [
     typeCode:      'TYPE-RFC-URG',    // URGENT
     prioriteCode:  'PRI-P5',          // Critique
     statutCode:    'STAT-RFC-SOU',    // SOUMIS ← en attente d'évaluation ECAB
-    demandeurEmail:'r.tlemcani@casnos.dz',
+    demandeurEmail:'servicedesk@casnos.dz',
     ciCodes:       ['CI-001'],         // Serveur Application
     evaluation:    null,               // pas encore évaluée
   },
@@ -302,7 +301,7 @@ const rfcsRaw = [
     typeCode:      'TYPE-RFC-STD',    // STANDARD
     prioriteCode:  'PRI-P2',          // Basse
     statutCode:    'STAT-RFC-BRO',    // BROUILLON ← en cours de rédaction
-    demandeurEmail:'s.rahmani@casnos.dz',
+    demandeurEmail:'demandeur@casnos.dz',
     ciCodes:       ['CI-004'],         // Serveur de Fichiers
     evaluation:    null,
   },
@@ -317,7 +316,7 @@ const changementsRaw = [
     date_fin_prevu:  new Date('2025-02-01'),
     reussite:        null,              // pas encore clôturé
     rfcCode:         'RFC-SEED-001',
-    changeManagerEmail: 'k.merabti@casnos.dz',
+    changeManagerEmail: 'change.manager@casnos.dz',
     envCode:         'ENV-PRD',         // PRODUCTION
     statutCode:      'STAT-CHG-PLA',    // PLANIFIE
   },
@@ -334,7 +333,7 @@ const tachesRaw = [
     duree:            2,
     statutCode:       'EN_ATTENTE',    // code_statut dans Statut (contexte: TACHE)
     changementCode:   'CHG-SEED-001',
-    implementeurEmail:'y.benamara@casnos.dz',
+    implementeurEmail:'implementeur@casnos.dz',
     journaux: [
       {
         code_metier:   'JRN-SEED-001',
@@ -351,7 +350,7 @@ const tachesRaw = [
     duree:            3,
     statutCode:       'EN_ATTENTE',
     changementCode:   'CHG-SEED-001',
-    implementeurEmail:'y.benamara@casnos.dz',
+    implementeurEmail:'implementeur@casnos.dz',
     journaux: [],
   },
   {
@@ -362,7 +361,7 @@ const tachesRaw = [
     duree:            2,
     statutCode:       'EN_ATTENTE',
     changementCode:   'CHG-SEED-001',
-    implementeurEmail:'y.benamara@casnos.dz',
+    implementeurEmail:'implementeur@casnos.dz',
     journaux: [],
   },
 ];
@@ -373,8 +372,8 @@ const cabsRaw = [
     code_metier: 'CAB-SEED-001',
     type_cab:    'NORMAL',
     membres: [
-      { email: 'k.merabti@casnos.dz', role: 'PRESIDENT' },
-      { email: 'n.hamdi@casnos.dz',            role: 'MEMBRE'    },
+      { email: 'change.manager@casnos.dz', role: 'PRESIDENT' },
+      { email: 'cab@casnos.dz',            role: 'MEMBRE'    },
       { email: 'admin@casnos.dz',          role: 'MEMBRE'    },
     ],
   },
@@ -392,12 +391,12 @@ const reunionsRaw = [
     // RFCs à l'ordre du jour
     rfcCodes:     ['RFC-SEED-001'],
     // Participants
-    participantsEmails: ['k.merabti@casnos.dz', 'n.hamdi@casnos.dz'],
+    participantsEmails: ['change.manager@casnos.dz', 'cab@casnos.dz'],
     // Votes
     votes: [
       {
         code_metier:  'VOT-SEED-001',
-        votantEmail:  'n.hamdi@casnos.dz',
+        votantEmail:  'cab@casnos.dz',
         rfcCode:      'RFC-SEED-001',
         valeur_vote:  'APPROUVER',
       },

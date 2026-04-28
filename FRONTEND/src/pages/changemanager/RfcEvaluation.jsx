@@ -4,7 +4,7 @@ import {
   FiAlertTriangle, FiCheckCircle, FiArrowLeft, FiInfo,
   FiZap, FiShield, FiClipboard
 } from 'react-icons/fi';
-import api from '../../api/axios';
+import api from '../../api/axiosClient';
 import './RfcEvaluation.css';
 
 const RfcEvaluation = () => {
@@ -26,11 +26,11 @@ const RfcEvaluation = () => {
             try {
                 const res = await api.get(`/rfc/${id}`);
                 if (res.success) {
-                    setRfc(res.rfc);
-                    if (res.rfc.evaluationRisque) {
-                        setImpact(res.rfc.evaluationRisque.impacte || 1);
-                        setProbability(res.rfc.evaluationRisque.probabilite || 1);
-                        setDescription(res.rfc.evaluationRisque.description || '');
+                    setRfc(res.data.rfc);
+                    if (res.data.rfc.evaluationRisque) {
+                        setImpact(res.data.rfc.evaluationRisque.impacte || 1);
+                        setProbability(res.data.rfc.evaluationRisque.probabilite || 1);
+                        setDescription(res.data.rfc.evaluationRisque.description || '');
                     }
                 }
             } catch (error) {

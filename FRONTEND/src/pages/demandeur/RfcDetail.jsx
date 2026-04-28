@@ -10,7 +10,7 @@ import Badge from '../../components/common/Badge';
 import Button from '../../components/common/Button';
 import './RfcDetail.css';
 
-import api from '../../api/axios';
+import api from '../../api/axiosClient';
 
 const STATUS_BADGE = {
   BROUILLON: 'info',

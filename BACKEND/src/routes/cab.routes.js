@@ -102,6 +102,24 @@ router.get(
   ctrl.getCabById
 );
 
+// PUT /api/cab/:id_cab  — modifier type_cab + membres
+router.put(
+  '/cab/:id_cab',
+  authenticateJWT,
+  checkPermission('cab:manage'),
+  checkCabExists,
+  ctrl.validateUpdateCab,       // ← nouveau middleware (voir ci-dessous)
+  ctrl.updateCab
+);
+
+// DELETE /api/cab/:id_cab
+router.delete(
+  '/cab/:id_cab',
+  authenticateJWT,
+  checkPermission('cab:manage'),
+  checkCabExists,
+  ctrl.deleteCab
+);
 
 // ============================================================
 // MEMBRES

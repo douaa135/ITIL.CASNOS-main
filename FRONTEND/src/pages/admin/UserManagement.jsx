@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import api from '../../api/axios';
+import api from '../../api/axiosClient';
 import Card from '../../components/common/Card';
 import {
   FiUsers, FiUserPlus, FiTrash2, FiEdit2, FiCheck,
   FiX, FiSearch, FiShield, FiToggleLeft, FiToggleRight,
-  FiAlertTriangle, FiCheckCircle, FiLoader, FiEye, FiEyeOff
+  FiAlertTriangle, FiCheckCircle, FiLoader, FiEye, FiEyeOff, FiBell
 } from 'react-icons/fi';
+import './AdminCabManagement.css';
 
 // ── Couleurs par rôle ────────────────────────────────────────
 const ROLE_META = {
@@ -23,16 +24,40 @@ const RoleBadge = ({ role }) => {
   const meta = ROLE_META[role] || { color: '#64748b', bg: '#f8fafc', label: role };
   return (
     <span style={{
-      padding: '0.2rem 0.65rem',
+      padding: '0.15rem 0.5rem',
       borderRadius: '99px',
-      fontSize: '0.72rem',
+      fontSize: '0.6rem',
       fontWeight: '700',
       color: meta.color,
       background: meta.bg,
       border: `1px solid ${meta.color}30`,
-      letterSpacing: '0.02em',
+      letterSpacing: '0.01em',
+      whiteSpace: 'nowrap'
     }}>
       {meta.label}
+    </span>
+  );
+};
+
+const DirectionBadge = ({ name }) => {
+  if (!name) return <span style={{ color: '#cbd5e1', fontStyle: 'italic', fontSize: '0.65rem' }}>—</span>;
+  return (
+    <span style={{
+      padding: '0.15rem 0.5rem',
+      borderRadius: '6px',
+      fontSize: '0.55rem',
+      fontWeight: '600',
+      color: '#475569',
+      background: '#f1f5f9',
+      border: '1px solid #e2e8f0',
+      display: 'inline-block',
+      wordBreak: 'break-word',
+      whiteSpace: 'normal',
+      verticalAlign: 'middle',
+      maxWidth: '100%',
+      lineHeight: '1.2'
+    }} title={name}>
+      {name}
     </span>
   );
 };
@@ -58,39 +83,106 @@ const Toast = ({ msg, type, onClose }) => (
 
 // ── Modal de confirmation ─────────────────────────────────────
 const ConfirmModal = ({ title, message, onConfirm, onCancel, danger }) => (
-  <div style={{
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
-    zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  }}>
-    <div style={{
-      background: 'white', borderRadius: '16px', padding: '2rem',
-      maxWidth: '420px', width: '90%', boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-        <div style={{
-          width: '48px', height: '48px', borderRadius: '12px',
-          background: danger ? '#fee2e2' : '#dbeafe',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <FiAlertTriangle size={22} color={danger ? '#dc2626' : '#2563eb'} />
+  <div className="modal-backdrop-cab" onClick={onCancel}>
+    <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-top-rfc-style">
+        <div className="rfc-style-icon-wrapper" style={{ background: danger ? '#fee2e2' : '#dbeafe', color: danger ? '#dc2626' : '#2563eb', borderColor: danger ? '#fecaca' : '#bfdbfe' }}>
+          <FiAlertTriangle size={22} />
         </div>
-        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700' }}>{title}</h3>
+        <div className="rfc-style-header-text">
+          <h2>{title}</h2>
+          <div className="rfc-style-subtitle">Confirmation requise</div>
+        </div>
+        <button className="close-btn-rfc-style" onClick={onCancel}><FiX size={24} /></button>
       </div>
-      <p style={{ color: '#475569', marginBottom: '1.75rem', lineHeight: 1.6 }}>{message}</p>
-      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-        <button onClick={onCancel} style={{
-          padding: '0.6rem 1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0',
-          background: 'white', cursor: 'pointer', fontWeight: '600', color: '#475569',
-        }}>Annuler</button>
-        <button onClick={onConfirm} style={{
-          padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none',
-          background: danger ? '#dc2626' : '#2563eb',
-          color: 'white', cursor: 'pointer', fontWeight: '700',
-        }}>Confirmer</button>
+
+      <div className="modal-body-rfc-style">
+        <p style={{ color: '#475569', marginBottom: '1.75rem', lineHeight: 1.6 }}>{message}</p>
+      </div>
+
+      <div className="modal-footer-rfc-style">
+        <button type="button" className="btn-cancel-rfc-style" onClick={onCancel}>Annuler</button>
+        <button type="button" className="btn-submit-rfc-style" onClick={onConfirm} style={{ background: danger ? '#dc2626' : undefined }}>
+          Confirmer
+        </button>
       </div>
     </div>
   </div>
 );
+
+// ── Modal Envoi Notification ──────────────────────────────────
+const SendNotifModal = ({ user, onClose, onSent }) => {
+  const [form, setForm] = useState({ objet: '', message: '' });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.message.trim()) return;
+    setLoading(true);
+    try {
+      await api.post('/notifications', {
+        id_user: user.id_user,
+        objet: form.objet,
+        message: form.message,
+        type_notif: 'IN_APP'
+      });
+      onSent();
+      onClose();
+    } catch (err) {
+      alert("Erreur lors de l'envoi de la notification.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop-cab" onClick={onClose}>
+      <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-top-rfc-style">
+          <div className="rfc-style-icon-wrapper" style={{ background: '#dbeafe', color: '#2563eb', borderColor: '#bfdbfe' }}>
+            <FiBell size={20} />
+          </div>
+          <div className="rfc-style-header-text">
+            <h2>Envoyer une notification</h2>
+            <div className="rfc-style-subtitle">Message interne pour l'utilisateur sélectionné</div>
+          </div>
+          <button className="close-btn-rfc-style" onClick={onClose}><FiX size={24} /></button>
+        </div>
+
+        <div className="modal-body-rfc-style">
+          <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1.5rem' }}>
+            Destinataire : <strong>{user.prenom_user} {user.nom_user}</strong> ({user.email_user})
+          </p>
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#475569', marginBottom: '0.4rem' }}>Objet</label>
+              <input 
+                value={form.objet} 
+                onChange={e => setForm(f => ({...f, objet: e.target.value}))}
+                placeholder="Ex: Rappel de validation..."
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', outline: 'none' }}
+              />
+            </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#475569', marginBottom: '0.4rem' }}>Message *</label>
+              <textarea 
+                required
+                value={form.message} 
+                onChange={e => setForm(f => ({...f, message: e.target.value}))}
+                placeholder="Votre message ici..."
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', minHeight: '120px', outline: 'none', resize: 'vertical' }}
+              />
+            </div>
+            <div className="modal-footer-rfc-style">
+              <button type="button" className="btn-cancel-rfc-style" onClick={onClose}>Annuler</button>
+              <button type="submit" disabled={loading} className="btn-submit-rfc-style">{loading ? 'Envoi...' : 'Envoyer la notification'}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ── Modal création de compte ──────────────────────────────────
 const CreateUserModal = ({ roles, directions, onClose, onCreated }) => {
@@ -129,8 +221,12 @@ const CreateUserModal = ({ roles, directions, onClose, onCreated }) => {
 
     try {
       const res = await api.post('/users', payload);
-      if (res.success) { onCreated(res.data.user); onClose(); }
-      else setApiError(res.message || 'Erreur inconnue.');
+      if (res.success) {
+        // Extraction robuste de l'utilisateur
+        const createdUser = res.user || res.data?.user || res.data;
+        onCreated(createdUser);
+        onClose();
+      } else setApiError(res.message || 'Erreur inconnue.');
     } catch (err) {
       setApiError(err?.message || err?.error?.message || 'Erreur lors de la création.');
     } finally { setLoading(false); }
@@ -144,117 +240,210 @@ const CreateUserModal = ({ roles, directions, onClose, onCreated }) => {
   });
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
-      zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
-    }}>
-      <div style={{
-        background: 'white', borderRadius: '20px', padding: '2rem',
-        width: '100%', maxWidth: '520px', boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-        maxHeight: '90vh', overflowY: 'auto',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FiUserPlus size={20} color="#7c3aed" />
-            </div>
-            <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800' }}>Nouveau compte</h2>
+    <div className="modal-backdrop-cab" onClick={onClose}>
+      <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-top-rfc-style">
+          <div className="rfc-style-icon-wrapper" style={{ background: '#ede9fe', color: '#7c3aed', borderColor: '#c7d2fe' }}>
+            <FiUserPlus size={20} />
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}>
-            <FiX size={22} />
-          </button>
+          <div className="rfc-style-header-text">
+            <h2>Nouveau compte</h2>
+            <div className="rfc-style-subtitle">Créer un nouvel utilisateur</div>
+          </div>
+          <button className="close-btn-rfc-style" onClick={onClose}><FiX size={24} /></button>
         </div>
 
-        {apiError && (
-          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#b91c1c', fontSize: '0.875rem' }}>
-            {apiError}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Prénom *</label>
-              <input value={form.prenom_user} onChange={e => setForm(f => ({...f, prenom_user: e.target.value}))}
-                style={fieldStyle(errors.prenom_user)} placeholder="Sara" />
-              {errors.prenom_user && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.prenom_user}</span>}
+        <div className="modal-body-rfc-style">
+          {apiError && (
+            <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', color: '#b91c1c', fontSize: '0.875rem' }}>
+              {apiError}
             </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Nom *</label>
-              <input value={form.nom_user} onChange={e => setForm(f => ({...f, nom_user: e.target.value}))}
-                style={fieldStyle(errors.nom_user)} placeholder="Rahmani" />
-              {errors.nom_user && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.nom_user}</span>}
-            </div>
-          </div>
+          )}
 
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Email *</label>
-            <input type="email" value={form.email_user} onChange={e => setForm(f => ({...f, email_user: e.target.value}))}
-              style={fieldStyle(errors.email_user)} placeholder="sara.rahmani@casnos.dz" />
-            {errors.email_user && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.email_user}</span>}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Mot de passe *</label>
-              <div style={{ position: 'relative' }}>
-                <input type={showPassword ? "text" : "password"} value={form.mot_passe} onChange={e => setForm(f => ({...f, mot_passe: e.target.value}))}
-                  style={{ ...fieldStyle(errors.mot_passe), paddingRight: '2rem' }} placeholder="••••••••" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '0.6rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }} title={showPassword ? 'Masquer' : 'Afficher'}>
-                  {showPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
-                </button>
+          <form onSubmit={handleSubmit}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Prénom *</label>
+                <input value={form.prenom_user} onChange={e => setForm(f => ({...f, prenom_user: e.target.value}))}
+                  style={fieldStyle(errors.prenom_user)} placeholder="Sara" />
+                {errors.prenom_user && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.prenom_user}</span>}
               </div>
-              {errors.mot_passe && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.mot_passe}</span>}
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Nom *</label>
+                <input value={form.nom_user} onChange={e => setForm(f => ({...f, nom_user: e.target.value}))}
+                  style={fieldStyle(errors.nom_user)} placeholder="Rahmani" />
+                {errors.nom_user && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.nom_user}</span>}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Email *</label>
+              <input type="email" value={form.email_user} onChange={e => setForm(f => ({...f, email_user: e.target.value}))}
+                style={fieldStyle(errors.email_user)} placeholder="sara.rahmani@casnos.dz" />
+              {errors.email_user && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.email_user}</span>}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Mot de passe *</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showPassword ? "text" : "password"} value={form.mot_passe} onChange={e => setForm(f => ({...f, mot_passe: e.target.value}))}
+                    style={{ ...fieldStyle(errors.mot_passe), paddingRight: '2rem' }} placeholder="••••••••" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '0.6rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }} title={showPassword ? 'Masquer' : 'Afficher'}>
+                    {showPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                  </button>
+                </div>
+                {errors.mot_passe && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.mot_passe}</span>}
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Téléphone</label>
+                <input type="tel" value={form.telephone_user} onChange={e => setForm(f => ({...f, telephone_user: e.target.value}))}
+                  style={fieldStyle(false)} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Date de Naissance *</label>
+              <input type="date" value={form.date_naissance} onChange={e => setForm(f => ({...f, date_naissance: e.target.value}))}
+                style={fieldStyle(errors.date_naissance)} />
+              {errors.date_naissance && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.date_naissance}</span>}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.75rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Rôle *</label>
+                <select value={form.nom_role} onChange={e => setForm(f => ({...f, nom_role: e.target.value}))}
+                  style={{ ...fieldStyle(errors.roleName), background: 'white' }}>
+                  <option value="">— Sélectionner —</option>
+                  {roles.map(r => <option key={r.id_role} value={r.nom_role}>{ROLE_META[r.nom_role]?.label || r.nom_role}</option>)}
+                </select>
+                {errors.roleName && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.roleName}</span>}
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Direction</label>
+                <select value={form.id_direction} onChange={e => setForm(f => ({...f, id_direction: e.target.value}))}
+                  style={{ ...fieldStyle(false), background: 'white' }}>
+                  <option value="">— Optionnel —</option>
+                  {directions.map(d => <option key={d.id_direction} value={d.id_direction}>{d.nom_direction}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="modal-footer-rfc-style">
+              <button type="button" className="btn-cancel-rfc-style" onClick={onClose}>Annuler</button>
+              <button type="submit" disabled={loading} className="btn-submit-rfc-style">
+                {loading ? <><FiLoader size={14} /> Création…</> : <><FiUserPlus size={14} /> Créer le compte</>}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Modal de Modification d'Utilisateur ───────────────────────
+const EditUserModal = ({ user, roles, directions, onClose, onUpdated }) => {
+  const [form, setForm] = useState({
+    nom_user: user.nom_user || '',
+    prenom_user: user.prenom_user || '',
+    email_user: user.email_user || '',
+    phone: user.phone || '',
+    code_metier: user.code_metier || '',
+    id_role: user.roles?.[0] ? roles.find(r => r.nom_role === user.roles[0])?.id_role : '',
+    id_direction: user.direction?.id_direction || ''
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    const selectedRole = roles.find(r => r.id_role === form.id_role);
+    const selectedDirection = directions.find(d => String(d.id_direction) === String(form.id_direction));
+    
+    const payload = { 
+      ...form, 
+      nom_role: selectedRole?.nom_role 
+    };
+
+    try {
+      const res = await api.put(`/users/${user.id_user}`, payload);
+      if (res.success) {
+        // Extraction robuste de l'utilisateur mis à jour
+        const updatedData = res.user || res.data?.user || res.data;
+        
+        // Maintien de la cohérence de la colonne Direction pour la mise à jour optimiste
+        updatedData.nom_direction = selectedDirection ? selectedDirection.nom_direction : null;
+        
+        onUpdated(updatedData);
+        onClose();
+      } else {
+        alert(res.message || 'Erreur lors de la mise à jour.');
+      }
+    } catch (err) {
+      alert(err?.message || err?.error?.message || 'Erreur réseau.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop-cab" onClick={onClose}>
+      <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-top-rfc-style">
+          <div className="rfc-style-icon-wrapper" style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>
+            <FiEdit2 size={20} />
+          </div>
+          <div className="rfc-style-header-text">
+            <h2>Modifier l'utilisateur</h2>
+            <div className="rfc-style-subtitle">Mettre à jour les informations du compte</div>
+          </div>
+          <button className="close-btn-rfc-style" onClick={onClose}><FiX size={24} /></button>
+        </div>
+
+        <div className="modal-body-rfc-style">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.4rem', color: '#64748b' }}>Prénom</label>
+                <input type="text" value={form.prenom_user} onChange={e => setForm({...form, prenom_user: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0' }} required />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.4rem', color: '#64748b' }}>Nom</label>
+                <input type="text" value={form.nom_user} onChange={e => setForm({...form, nom_user: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0' }} required />
+              </div>
             </div>
             <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Téléphone</label>
-              <input type="tel" value={form.telephone_user} onChange={e => setForm(f => ({...f, telephone_user: e.target.value}))}
-                style={fieldStyle(false)} />
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.4rem', color: '#64748b' }}>Email</label>
+              <input type="email" value={form.email_user} onChange={e => setForm({...form, email_user: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0' }} required />
             </div>
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Date de Naissance *</label>
-            <input type="date" value={form.date_naissance} onChange={e => setForm(f => ({...f, date_naissance: e.target.value}))}
-              style={fieldStyle(errors.date_naissance)} />
-            {errors.date_naissance && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.date_naissance}</span>}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.75rem' }}>
             <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Rôle *</label>
-              <select value={form.nom_role} onChange={e => setForm(f => ({...f, nom_role: e.target.value}))}
-                style={{ ...fieldStyle(errors.roleName), background: 'white' }}>
-                <option value="">— Sélectionner —</option>
-                {roles.map(r => <option key={r.id_role} value={r.nom_role}>{ROLE_META[r.nom_role]?.label || r.nom_role}</option>)}
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.4rem', color: '#64748b' }}>Rôle</label>
+              <select value={form.id_role} onChange={e => setForm({...form, id_role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0' }} required>
+                <option value="">Sélectionner un rôle</option>
+                {roles.map(r => <option key={r.id_role} value={r.id_role}>{r.libelle_role || r.nom_role}</option>)}
               </select>
-              {errors.roleName && <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>{errors.roleName}</span>}
             </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '0.4rem' }}>Direction</label>
-              <select value={form.id_direction} onChange={e => setForm(f => ({...f, id_direction: e.target.value}))}
-                style={{ ...fieldStyle(false), background: 'white' }}>
-                <option value="">— Optionnel —</option>
-                {directions.map(d => <option key={d.id_direction} value={d.id_direction}>{d.nom_direction}</option>)}
-              </select>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.4rem', color: '#64748b' }}>Téléphone</label>
+                <input type="text" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '0.4rem', color: '#64748b' }}>Direction</label>
+                <select value={form.id_direction} onChange={e => setForm({...form, id_direction: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <option value="">Non assignée</option>
+                  {directions.map(d => <option key={d.id_direction} value={d.id_direction}>{d.nom_direction}</option>)}
+                </select>
+              </div>
             </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-            <button type="button" onClick={onClose} style={{
-              padding: '0.7rem 1.5rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
-              background: 'white', cursor: 'pointer', fontWeight: '600', color: '#475569',
-            }}>Annuler</button>
-            <button type="submit" disabled={loading} style={{
-              padding: '0.7rem 1.5rem', borderRadius: '10px', border: 'none',
-              background: loading ? '#a78bfa' : '#7c3aed',
-              color: 'white', cursor: loading ? 'not-allowed' : 'pointer',
-              fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem',
-            }}>
-              {loading ? <><FiLoader size={14} /> Création…</> : <><FiUserPlus size={14} /> Créer le compte</>}
-            </button>
-          </div>
-        </form>
+            <div className="modal-footer-rfc-style">
+              <button type="button" className="btn-cancel-rfc-style" onClick={onClose}>Annuler</button>
+              <button type="submit" disabled={loading} className="btn-submit-rfc-style">{loading ? 'Enregistrement...' : 'Enregistrer'}</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -290,59 +479,56 @@ const DetailUserModal = ({ user, onClose, onEdit, onDelete }) => {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div className="glass-card" style={{ padding: '2rem', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+    <div className="modal-backdrop-cab" onClick={onClose}>
+      <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+        <button className="close-btn-rfc-style" onClick={onClose} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem' }}>
           <FiX size={24} />
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
-          <div style={{
-            width: '70px', height: '70px', borderRadius: '18px',
-            background: meta.bg, color: meta.color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '1.8rem', fontWeight: '800', border: `1px solid ${meta.color}30`
-          }}>
-            {user.nom_user?.[0]}{user.prenom_user?.[0]}
+        <div className="modal-top-rfc-style">
+          <div className="rfc-style-icon-wrapper" style={{ background: meta.bg, color: meta.color, borderColor: meta.color + '30' }}>
+            <span style={{ fontWeight: '800', fontSize: '1.4rem' }}>{user.nom_user?.[0]}{user.prenom_user?.[0]}</span>
           </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800' }}>{user.prenom_user} {user.nom_user}</h2>
-            <div style={{ marginTop: '0.4rem' }}><RoleBadge role={user.roles?.[0]} /></div>
+          <div className="rfc-style-header-text">
+            <h2>{user.prenom_user} {user.nom_user}</h2>
+            <div className="rfc-style-subtitle">Détails du compte utilisateur</div>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-          <div style={detailStyle}>
-            <div style={labelStyle}>Email du compte</div>
-            <div style={valueStyle}>{user.email_user}</div>
-          </div>
-          <div style={detailStyle}>
-            <div style={labelStyle}>Téléphone</div>
-            <div style={valueStyle}>{user.phone || '—'}</div>
-          </div>
-          <div style={detailStyle}>
-            <div style={labelStyle}>Direction</div>
-            <div style={valueStyle}>{user.nom_direction || 'Non assigné'}</div>
-          </div>
-          <div style={detailStyle}>
-            <div style={labelStyle}>Date de Naissance</div>
-            <div style={valueStyle}>{user.date_naissance ? new Date(user.date_naissance).toLocaleDateString('fr-DZ') : '—'}</div>
-          </div>
-          <div style={detailStyle}>
-            <div style={labelStyle}>Code Métier</div>
-            <div style={valueStyle}>{user.code_metier}</div>
-          </div>
-          <div style={detailStyle}>
-            <div style={labelStyle}>Statut</div>
-            <div style={{ ...valueStyle, color: user.actif ? '#059669' : '#dc2626' }}>{user.actif ? 'Actif' : 'Désactivé'}</div>
+        <div className="modal-body-rfc-style">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+            <div style={detailStyle}>
+              <div style={labelStyle}>Email du compte</div>
+              <div style={valueStyle}>{user.email_user}</div>
+            </div>
+            <div style={detailStyle}>
+              <div style={labelStyle}>Téléphone</div>
+              <div style={valueStyle}>{user.phone || '—'}</div>
+            </div>
+            <div style={detailStyle}>
+              <div style={labelStyle}>Direction</div>
+              <div style={valueStyle}>{user.direction?.nom_direction || 'Non assigné'}</div>
+            </div>
+            <div style={detailStyle}>
+              <div style={labelStyle}>Date de Naissance</div>
+              <div style={valueStyle}>{user.date_naissance ? new Date(user.date_naissance).toLocaleDateString('fr-DZ') : '—'}</div>
+            </div>
+            <div style={detailStyle}>
+              <div style={labelStyle}>Code Métier</div>
+              <div style={valueStyle}>{user.code_metier}</div>
+            </div>
+            <div style={detailStyle}>
+              <div style={labelStyle}>Statut</div>
+              <div style={{ ...valueStyle, color: user.actif ? '#059669' : '#dc2626' }}>{user.actif ? 'Actif' : 'Désactivé'}</div>
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
-           <button onClick={() => { onClose(); onDelete(user); }} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.25rem', borderRadius: '10px', border: '1px solid #fee2e2', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontWeight: '700' }}>
+        <div className="modal-footer-rfc-style" style={{ justifyContent: 'flex-end' }}>
+           <button type="button" className="btn-cancel-rfc-style" onClick={() => { onClose(); onDelete(user); }}>
               <FiTrash2 size={16} /> Supprimer
            </button>
-           <button onClick={() => { onClose(); onEdit(user); }} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.25rem', borderRadius: '10px', border: 'none', background: '#3b82f6', color: 'white', cursor: 'pointer', fontWeight: '700' }}>
+           <button type="button" className="btn-submit-rfc-style" onClick={() => { onClose(); onEdit(user); }}>
               <FiEdit2 size={16} /> Modifier
            </button>
         </div>
@@ -350,125 +536,6 @@ const DetailUserModal = ({ user, onClose, onEdit, onDelete }) => {
     </div>
   );
 };
-
-// ── Modal Modifier Compte ──────────────────────────────────
-const EditUserModal = ({ user, roles, directions, onClose, onUpdated }) => {
-  const [form, setForm] = useState({
-    nom_user: user.nom_user || '',
-    prenom_user: user.prenom_user || '',
-    phone: user.phone || '',
-    date_naissance: user.date_naissance ? user.date_naissance.substring(0, 10) : '',
-    id_direction: user.direction?.id_direction || '',
-    nom_role: user.roles?.[0] || '',
-    email_user: user.email_user || '',
-    mot_passe: ''
-  });
-  const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true); setApiError('');
-    try {
-      const payload = { ...form };
-      if (!payload.mot_passe) delete payload.mot_passe;
-      if (!payload.id_direction) payload.id_direction = null;
-      if (!payload.phone) payload.phone = null;
-
-      const res = await api.put(`/users/${user.id_user}`, payload);
-      if (res.success) {
-        onUpdated(res.data.user);
-        onClose();
-      } else {
-        setApiError(res.message || 'Erreur inconnue.');
-      }
-    } catch (err) {
-      setApiError(err?.message || 'Erreur lors de la mise à jour.');
-    } finally { setLoading(false); }
-  };
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', maxWidth: '500px', width: '90%', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800' }}>Modifier le compte</h3>
-          <button onClick={onClose} type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><FiX size={20} /></button>
-        </div>
-        {apiError && <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem' }}>{apiError}</div>}
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.4rem', color: '#475569' }}>Prénom</label>
-              <input value={form.prenom_user} onChange={e => setForm({...form, prenom_user: e.target.value})} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' }} required />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.4rem', color: '#475569' }}>Nom</label>
-              <input value={form.nom_user} onChange={e => setForm({...form, nom_user: e.target.value})} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' }} required />
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.4rem', color: '#475569' }}>Téléphone</label>
-              <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' }} />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.4rem', color: '#475569' }}>Date de naissance</label>
-              <input type="date" value={form.date_naissance} onChange={e => setForm({...form, date_naissance: e.target.value})} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' }} />
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.4rem', color: '#475569' }}>Rôle *</label>
-              <select value={form.nom_role} onChange={e => setForm({...form, nom_role: e.target.value})} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' }} required>
-                <option value="">— Sélectionner —</option>
-                {roles.map(r => <option key={r.id_role} value={r.nom_role}>{ROLE_META[r.nom_role]?.label || r.nom_role}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.4rem', color: '#475569' }}>Direction (Optionnel)</label>
-              <select value={form.id_direction} onChange={e => setForm({...form, id_direction: e.target.value})} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
-                <option value="">Aucune</option>
-                {directions.map(d => <option key={d.id_direction} value={d.id_direction}>{d.nom_direction}</option>)}
-              </select>
-            </div>
-          </div>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.4rem', color: '#475569' }}>Email du compte *</label>
-            <input type="email" value={form.email_user} onChange={e => setForm({...form, email_user: e.target.value})} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' }} required />
-          </div>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.4rem', color: '#475569' }}>Nouveau mot de passe</label>
-            <div style={{ position: 'relative' }}>
-              <input 
-                type={showPassword ? "text" : "password"} 
-                value={form.mot_passe} 
-                onChange={e => setForm({...form, mot_passe: e.target.value})} 
-                style={{ width: '100%', padding: '0.65rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' }} 
-                placeholder="•••••••• (Laissez vide pour ne pas changer)" 
-              />
-              <button 
-                type="button" 
-                onClick={() => setShowPassword(!showPassword)} 
-                style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center' }}
-              >
-                {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
-              </button>
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-            <button type="button" onClick={onClose} style={{ padding: '0.6rem 1.25rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer', fontWeight: '600', color: '#475569' }}>Annuler</button>
-            <button type="submit" disabled={loading} style={{ padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', background: loading ? '#93c5fd' : '#2563eb', color: 'white', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: '700' }}>
-              {loading ? 'Enregistrement…' : 'Enregistrer'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 
 // ═══════════════════════════════════════════════════════════
 //  PAGE PRINCIPALE — UserManagement
@@ -488,6 +555,7 @@ const UserManagement = () => {
   const [detailUser,  setDetailUser]  = useState(null);   
   const [confirmDel,  setConfirmDel]  = useState(null);   
   const [confirmTog,  setConfirmTog]  = useState(null);   
+  const [sendNotif,   setSendNotif]   = useState(null);   
 
   // Toast
   const [toast, setToast] = useState(null);
@@ -504,9 +572,9 @@ const UserManagement = () => {
         api.get('/users/directions'),
       ]);
       if (uRes.success) setUsers(uRes.data.data || []);
-      if (rRes.success) setRoles(rRes.data.roles || []);
+      if (rRes.success) setRoles(rRes.data.roles || rRes.data || []);
       if (dRes.success) {
-        setDirections(dRes.data.directions || []);
+        setDirections(dRes.data.directions || dRes.data || []);
       }
     } catch (err) {
       showToast('Erreur lors du chargement des données depuis le backend.', 'error');
@@ -527,6 +595,11 @@ const UserManagement = () => {
 
   // ── Handlers ──────────────────────────────────────────────
   const handleCreated = (newUser) => {
+    // Si la direction n'est qu'un ID, on injecte l'objet direction pour l'affichage immédiat
+    if (newUser.id_direction && !newUser.direction) {
+      const dir = directions.find(d => d.id_direction === newUser.id_direction);
+      if (dir) newUser.direction = dir;
+    }
     setUsers(prev => [newUser, ...prev]);
     showToast(`Compte "${newUser.email_user}" créé avec succès !`);
   };
@@ -547,7 +620,7 @@ const UserManagement = () => {
         setUsers(prev => prev.map(u =>
           u.id_user === user.id_user ? { ...u, actif: !u.actif } : u
         ));
-        showToast(!user.actif ? 'Compte activé.' : 'Compte désactivé.');
+        showToast(`Compte ${!user.actif ? 'activé' : 'désactivé'} avec succès.`);
       } else showToast(res.message || 'Erreur.', 'error');
     } catch (err) {
       showToast(err?.message || 'Erreur réseau.', 'error');
@@ -561,7 +634,8 @@ const UserManagement = () => {
       const res = await api.delete(`/users/${user.id_user}`);
       if (res.success) {
         setUsers(prev => prev.filter(u => u.id_user !== user.id_user));
-        showToast(`Compte "${user.email_user}" supprimé.`);
+        showToast('Compte supprimé avec succès.');
+        setDetailUser(null);
       } else showToast(res.message || 'Erreur.', 'error');
     } catch (err) {
       showToast(err?.message || 'Ce compte est lié à des données. Désactivez-le.', 'error');
@@ -576,7 +650,7 @@ const UserManagement = () => {
     const matchRole = filterRole === 'ALL' || (u.roles && u.roles.includes(filterRole));
     const matchDir  = filterDirection === 'ALL' 
       ? true 
-      : (filterDirection === 'NONE' ? !u.nom_direction : u.nom_direction === filterDirection);
+      : (filterDirection === 'NONE' ? !u.direction?.nom_direction : u.direction?.nom_direction === filterDirection);
     return matchSearch && matchRole && matchDir;
   });
 
@@ -629,7 +703,7 @@ const UserManagement = () => {
           background: rgba(255, 255, 255, 0.8); 
           border: 1px solid #e2e8f0; 
           cursor: pointer; 
-          padding: 8px; 
+          padding: 6px; 
           border-radius: 10px; 
           transition: all 0.2s; 
           display: inline-flex; 
@@ -649,6 +723,46 @@ const UserManagement = () => {
           box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1) !important;
           outline: none; 
         }
+
+        /* Style du scrollbar horizontal premium */
+        .table-scroll-container::-webkit-scrollbar {
+          height: 8px;
+        }
+        .table-scroll-container::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 10px;
+        }
+        .table-scroll-container::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 10px;
+          border: 2px solid #f1f5f9;
+        }
+        .table-scroll-container::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+
+        /* Colonnes collantes (Sticky) pour l'effet de glissement */
+        .sticky-col-first {
+          position: sticky;
+          left: 0;
+          z-index: 2;
+          background: white !important;
+          box-shadow: 4px 0 8px rgba(0,0,0,0.05);
+        }
+        .sticky-col-last {
+          position: sticky;
+          right: 0;
+          z-index: 2;
+          background: white !important;
+          box-shadow: -4px 0 8px rgba(0,0,0,0.05);
+        }
+        thead th.sticky-col-first, thead th.sticky-col-last {
+          background: linear-gradient(to right, #f8fafc, #f1f5f9) !important;
+          z-index: 3;
+        }
+        .user-row:hover .sticky-col-first, .user-row:hover .sticky-col-last {
+          background: #f8fafc !important;
+        }
       `}</style>
 
       {/* ── Header ─────────────────────────────────────────── */}
@@ -656,52 +770,58 @@ const UserManagement = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
           <div>
             <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <FiUsers size={28} color="#7c3aed" /> Gestion des Comptes
+              <FiUsers size={28} color="#7c3aed" /> Gestion des Comptes & RBAC
             </h1>
-            <p style={{ color: '#64748b', margin: 0 }}>Créer, modifier et gérer les accès des utilisateurs CASNOS.</p>
+            <p style={{ color: '#64748b', margin: 0 }}>Gérer les accès, les rôles et les permissions des utilisateurs CASNOS.</p>
           </div>
-          <button onClick={() => setShowCreate(true)} style={{
-            display: 'flex', alignItems: 'center', gap: '0.6rem',
-            padding: '0.75rem 1.5rem', borderRadius: '12px', border: 'none',
-            background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
-            color: 'white', cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem',
-            boxShadow: '0 4px 14px rgba(124,58,237,0.4)',
-            transition: 'transform 0.2s, box-shadow 0.2s',
-          }}
-            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(124,58,237,0.5)'; }}
-            onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(124,58,237,0.4)'; }}
-          >
+          <button onClick={() => setShowCreate(true)} className="btn-create-premium">
             <FiUserPlus size={16} /> Créer un compte
           </button>
         </div>
       </div>
 
       {/* ── KPI Cards ──────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(130px, 1fr)', gap: '0.75rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-        <Card style={{ textAlign: 'center', borderTop: '3px solid #7c3aed', padding: '1rem' }}>
-          <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#7c3aed' }}>{total}</div>
-          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Total comptes</div>
+      <div style={{ 
+        display: 'grid', 
+        gridAutoFlow: 'column', 
+        gridAutoColumns: 'minmax(110px, 1fr)', 
+        gap: '0.6rem', 
+        marginBottom: '1.25rem', 
+        overflowX: 'auto', 
+        paddingBottom: '0.5rem',
+        scrollbarWidth: 'thin'
+      }}>
+        {/* Totaux de base */}
+        <Card style={{ textAlign: 'center', borderTop: '3px solid #64748b', padding: '0.75rem' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1e293b' }}>{total}</div>
+          <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Total</div>
         </Card>
-        <Card style={{ textAlign: 'center', borderTop: '3px solid #10b981', padding: '1rem' }}>
-          <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#10b981' }}>{actifs}</div>
-          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Actifs</div>
+        <Card style={{ textAlign: 'center', borderTop: '3px solid #10b981', padding: '0.75rem' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>{actifs}</div>
+          <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Actifs</div>
         </Card>
-        <Card style={{ textAlign: 'center', borderTop: '3px solid #f59e0b', padding: '1rem' }}>
-          <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#f59e0b' }}>{inactifs}</div>
-          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Désactivés</div>
+        <Card style={{ textAlign: 'center', borderTop: '3px solid #f59e0b', padding: '0.75rem' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#f59e0b' }}>{inactifs}</div>
+          <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Inactifs</div>
         </Card>
-        {Object.entries(roleCounts).slice(0, 4).map(([role, count]) => (
-          <Card key={role} style={{ textAlign: 'center', borderTop: `3px solid ${ROLE_META[role]?.color || '#64748b'}`, padding: '1rem' }}>
-            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: ROLE_META[role]?.color || '#64748b' }}>{count}</div>
-            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
-              {ROLE_META[role]?.label || role}
-            </div>
-          </Card>
-        ))}
+        
+        {/* Rôles spécifiques - On boucle sur ROLE_META pour garantir l'ordre et la présence */}
+        {Object.keys(ROLE_META).map(role => {
+          const count = roleCounts[role] || 0;
+          const meta = ROLE_META[role];
+          return (
+            <Card key={role} style={{ textAlign: 'center', borderTop: `3px solid ${meta.color}`, padding: '0.75rem' }}>
+              <div style={{ fontSize: '1.2rem', fontWeight: '800', color: meta.color }}>{count}</div>
+              <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {meta.label}
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       {/* ── Filters Bar ────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
           <FiSearch size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
           <input
@@ -760,19 +880,24 @@ const UserManagement = () => {
 
       {/* ── Table ──────────────────────────────────────────── */}
       <Card className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="table-scroll-container" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'linear-gradient(to right, #f8fafc, #f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
-                {['Utilisateur', 'Email', 'Téléphone', 'Mot de passe', 'Direction', 'Rôle', 'Statut', 'Date Création', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '1rem 1.25rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                ))}
+                <th className="sticky-col-first" style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '16%' }}>Utilisateur</th>
+                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '16%' }}>Email</th>
+                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '10%' }}>Rôle</th>
+                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '18%' }}>Direction</th>
+                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '10%' }}>Téléphone</th>
+                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '8%' }}>Statut</th>
+                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '10%' }}>Création</th>
+                <th className="sticky-col-last" style={{ padding: '0.4rem 0.3rem', textAlign: 'center', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '12%' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
                     <FiUsers size={40} style={{ display: 'block', margin: '0 auto 1rem', opacity: 0.3 }} />
                     Aucun utilisateur trouvé.
                   </td>
@@ -786,95 +911,79 @@ const UserManagement = () => {
                     borderBottom: '1px solid #f1f5f9',
                     background: i % 2 === 0 ? 'white' : '#fafbfc',
                     opacity: u.actif ? 1 : 0.6,
+                    cursor: 'pointer'
                   }}>
-                  {/* Avatar + Nom */}
-                  <td style={{ padding: '1rem 1.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  {/* 1. Utilisateur */}
+                  <td className="sticky-col-first" style={{ padding: '0.4rem 0.3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <div style={{
-                        width: '38px', height: '38px', borderRadius: '10px',
+                        width: '24px', height: '24px', borderRadius: '6px',
                         background: ROLE_META[u.roles?.[0]]?.bg || '#f1f5f9',
                         color: ROLE_META[u.roles?.[0]]?.color || '#64748b',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: '800', fontSize: '0.85rem',
+                        fontWeight: '800', fontSize: '0.6rem',
                       }}>
                         {(u.prenom_user?.[0] || '') + (u.nom_user?.[0] || '')}
                       </div>
                       <div>
-                        <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#0f172a' }}>
+                        <div style={{ fontWeight: '700', fontSize: '0.75rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
                           {u.prenom_user} {u.nom_user}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{u.code_metier}</div>
+                        <div style={{ fontSize: '0.6rem', color: '#94a3b8' }}>{u.code_metier}</div>
                       </div>
                     </div>
                   </td>
 
-                   {/* Email */}
-                  <td style={{ padding: '1rem 1.25rem', fontSize: '0.875rem', color: '#334155' }}>{u.email_user}</td>
-
-                  {/* Telephone */}
-                  <td style={{ padding: '1rem 1.25rem', fontSize: '0.875rem', color: '#334155' }}>
-                    {u.phone ? u.phone : <span style={{ color: '#cbd5e1', fontStyle: 'italic' }}>—</span>}
+                  {/* 2. Email */}
+                  <td style={{ padding: '0.4rem 0.3rem' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#475569', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>{u.email_user}</div>
                   </td>
 
-                  {/* Password */}
-                  <td style={{ padding: '1rem 1.25rem', maxWidth: '150px' }}>
-                    {u.mot_passe ? (
-                      <div style={{
-                        fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace',
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        background: '#f1f5f9', padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid #e2e8f0'
-                      }} title={u.mot_passe}>
-                        {u.mot_passe}
-                      </div>
-                    ) : (
-                      <span style={{ color: '#cbd5e1', fontSize: '0.8rem', fontStyle: 'italic' }}>Non défini</span>
-                    )}
-                  </td>
-
-                  {/* Direction */}
-                  <td style={{ padding: '1rem 1.25rem', fontSize: '0.8rem', color: '#64748b' }}>
-                    {u.nom_direction || <span style={{ color: '#cbd5e1', fontStyle: 'italic' }}>—</span>}
-                  </td>
-
-                  {/* Rôle */}
-                  <td style={{ padding: '1rem 1.25rem' }}>
+                  {/* 3. Rôle */}
+                  <td style={{ padding: '0.4rem 0.3rem' }}>
                     {u.roles?.length > 0
                       ? <RoleBadge role={u.roles[0]} />
-                      : <span style={{ color: '#cbd5e1', fontSize: '0.8rem', fontStyle: 'italic' }}>Aucun rôle</span>}
+                      : <span style={{ color: '#cbd5e1', fontSize: '0.7rem', fontStyle: 'italic' }}>—</span>}
                   </td>
 
-                  {/* Statut */}
-                  <td style={{ padding: '1rem 1.25rem' }}>
+                  {/* 4. Direction */}
+                  <td style={{ padding: '0.4rem 0.3rem' }}>
+                    <DirectionBadge name={u.direction?.nom_direction} />
+                  </td>
+
+                  {/* 5. Téléphone */}
+                  <td style={{ padding: '0.4rem 0.3rem', fontSize: '0.7rem', color: '#64748b' }}>
+                    {u.phone || <span style={{ color: '#cbd5e1' }}>—</span>}
+                  </td>
+
+                  {/* 6. Statut */}
+                  <td style={{ padding: '0.4rem 0.3rem' }}>
                     <span style={{
-                      padding: '0.25rem 0.65rem', borderRadius: '99px', fontSize: '0.72rem', fontWeight: '700',
+                      padding: '0.1rem 0.4rem', borderRadius: '99px', fontSize: '0.55rem', fontWeight: '700',
                       color: u.actif ? '#065f46' : '#7f1d1d',
                       background: u.actif ? '#d1fae5' : '#fee2e2',
+                      whiteSpace: 'nowrap'
                     }}>
-                      {u.actif ? 'Actif' : 'Désactivé'}
+                      {u.actif ? 'Actif' : 'Off'}
                     </span>
                   </td>
 
-                  {/* Date */}
-                  <td style={{ padding: '1rem 1.25rem', fontSize: '0.8rem', color: '#94a3b8' }}>
-                    {u.date_creation ? new Date(u.date_creation).toLocaleDateString('fr-DZ') : '—'}
+                  {/* 7. Création */}
+                  <td style={{ padding: '0.4rem 0.3rem', fontSize: '0.7rem', color: '#94a3b8' }}>
+                    {u.date_creation ? new Date(u.date_creation).toLocaleDateString('fr-DZ', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
                   </td>
 
-                  {/* Actions */}
-                  <td style={{ padding: '1rem 1.25rem' }} onClick={e => e.stopPropagation()}>
-                    <div style={{ display: 'flex', gap: '0.25rem' }}>
-                      {/* Modifier le compte */}
-                      <button className="action-btn" title="Modifier le compte" onClick={() => setEditUser(u)}>
-                        <FiEdit2 size={15} color="#3b82f6" />
+                  {/* 8. Actions */}
+                  <td className="sticky-col-last" style={{ padding: '0.4rem 0.3rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ display: 'flex', gap: '0.2rem', justifyContent: 'center' }}>
+                      <button className="action-btn" style={{ padding: '4px' }} title="Modifier" onClick={() => setEditUser(u)}>
+                        <FiEdit2 size={12} color="#3b82f6" />
                       </button>
-                      {/* Activer / Désactiver */}
-                      <button className="action-btn" title={u.actif ? 'Désactiver' : 'Activer'} onClick={() => setConfirmTog({ user: u })}>
-                        {u.actif
-                          ? <FiToggleRight size={18} color="#10b981" />
-                          : <FiToggleLeft size={18} color="#94a3b8" />}
+                      <button className="action-btn" style={{ padding: '4px' }} title={u.actif ? 'Désactiver' : 'Activer'} onClick={() => setConfirmTog({ user: u })}>
+                        {u.actif ? <FiToggleRight size={14} color="#10b981" /> : <FiToggleLeft size={14} color="#94a3b8" />}
                       </button>
-                      {/* Supprimer */}
-                      <button className="action-btn" title="Supprimer" onClick={() => setConfirmDel({ user: u })}>
-                        <FiTrash2 size={15} color="#ef4444" />
+                      <button className="action-btn" style={{ padding: '4px' }} title="Supprimer" onClick={() => setConfirmDel({ user: u })}>
+                        <FiTrash2 size={12} color="#ef4444" />
                       </button>
                     </div>
                   </td>
@@ -916,8 +1025,33 @@ const UserManagement = () => {
           roles={roles}
           directions={directions}
           onClose={() => setEditUser(null)}
-          onUpdated={(updatedUser) => {
-            setUsers(users.map(u => u.id_user === updatedUser.id_user ? { ...u, ...updatedUser } : u));
+          onUpdated={async (resData) => {
+            // Extraction très robuste de l'objet utilisateur
+            let updatedUser = resData?.user || resData?.data?.user || resData?.data || resData;
+            
+            if (updatedUser && updatedUser.id_user) {
+              // Normalisation des rôles : s'assurer que c'est un tableau de strings
+              if (Array.isArray(updatedUser.roles)) {
+                updatedUser.roles = updatedUser.roles.map(r => (typeof r === 'object' && r !== null) ? (r.nom_role || r.role?.nom_role || JSON.stringify(r)) : r);
+              }
+
+              // 1. Mise à jour optimiste et profonde du state
+              setUsers(prevUsers => prevUsers.map(u => 
+                u.id_user === updatedUser.id_user 
+                  ? { ...u, ...updatedUser } 
+                  : u
+              ));
+              
+              // 2. Si le détail est ouvert, on le met à jour
+              if (detailUser && detailUser.id_user === updatedUser.id_user) {
+                setDetailUser(prev => ({ ...prev, ...updatedUser }));
+              }
+            }
+            
+            // 3. Re-synchronisation complète avec le backend pour garantir la cohérence
+            await fetchData();
+            
+            showToast('Utilisateur mis à jour avec succès.');
           }}
         />
       )}
@@ -939,6 +1073,14 @@ const UserManagement = () => {
           danger={true}
           onConfirm={handleDelete}
           onCancel={() => setConfirmDel(null)}
+        />
+      )}
+
+      {sendNotif && (
+        <SendNotifModal
+          user={sendNotif}
+          onClose={() => setSendNotif(null)}
+          onSent={() => showToast(`Notification envoyée à ${sendNotif.prenom_user} !`)}
         />
       )}
 

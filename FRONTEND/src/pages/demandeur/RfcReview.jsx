@@ -9,7 +9,7 @@ import {
   FiUsers, FiFileText, FiRotateCcw, FiShield, FiClock, FiAlertCircle
 } from 'react-icons/fi';
 
-import api from '../../api/axios';
+import api from '../../api/axiosClient';
 
 const RfcReview = () => {
   const { id } = useParams();

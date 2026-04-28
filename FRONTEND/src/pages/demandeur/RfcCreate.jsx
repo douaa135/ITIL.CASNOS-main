@@ -9,7 +9,18 @@ import {
 import Button from '../../components/common/Button';
 import './RfcCreate.css';
 
-import api from '../../api/axios';
+import api from '../../api/axiosClient';
+import rfcService from '../../services/rfcService';
+
+const ROLE_LABELS = {
+  ADMIN:          'Admin',
+  CHANGE_MANAGER: 'Change Manager',
+  SERVICE_DESK:   'Service Desk',
+  IMPLEMENTEUR:   'Implémenteur',
+  DEMANDEUR:      'Demandeur',
+  MEMBRE_CAB:     'Membre CAB',
+  ADMIN_SYSTEME:  'Admin Système',
+};
 
 // ─── Static Data ───────────────────────────
 const STEPS = [
@@ -56,10 +67,110 @@ const FormCardHeader = ({ icon, title, subtitle }) => (
   </div>
 );
 
+// ─── Modèles prédéfinis ──────────────────────────────────────────────────────
+const TEMPLATES = [
+  {
+    label: 'Mise à jour préventive',
+    titre: 'Mise à jour préventive du système [Nom]',
+    description: 'Opération de maintenance proactive visant à appliquer les derniers correctifs et optimisations sur l\'infrastructure [Nom].',
+    justification: 'Garantir la stabilité et la disponibilité continue des services critiques.'
+  },
+  {
+    label: 'Interruption de service',
+    titre: 'Interruption de service planifiée - [Service]',
+    description: 'Arrêt temporaire du service [Nom] pour permettre des interventions techniques majeures sur la couche [Base de données/Réseau].',
+    justification: 'Nécessaire pour le déploiement de correctifs structurels ne pouvant être appliqués à chaud.'
+  },
+  {
+    label: 'Service restauré',
+    titre: 'Restauration complète du service [Service]',
+    description: 'Suite à l\'incident [ID], nous procédons à la restauration formelle de la configuration stable du service [Nom].',
+    justification: 'Rétablissement de l\'activité métier normale après résolution technique.'
+  },
+  {
+    label: 'Changement d\'urgence',
+    titre: 'Changement d\'urgence en cours - [Composant]',
+    description: 'Application immédiate d\'une solution de contournement ou d\'un correctif pour résoudre une panne bloquante sur [Nom].',
+    justification: 'Résolution d\'un incident de haute priorité impactant gravement la production.'
+  },
+  {
+    label: 'Maintenance ce soir',
+    titre: 'Maintenance planifiée – ce soir - [Infrastructure]',
+    description: 'Travaux de maintenance périodique prévus ce soir entre 18h et 20h sur les serveurs de [Module].',
+    justification: 'Entretien régulier pour prévenir les pannes et assurer les performances.'
+  },
+  {
+    label: 'Nouvelle RFC soumise',
+    titre: 'Nouvelle RFC soumise – action requise - [Projet]',
+    description: 'Soumission d\'un changement pour le projet [Nom] nécessitant une analyse et une validation prioritaire.',
+    justification: 'Respect des délais de mise en production pour les nouveaux besoins métier.'
+  }
+];
+
 // ─── STEP 1 : Informations générales ─────────────────────────────────────────
-const Step1 = ({ data, onChange, isSD, demandeurs }) => (
-  <div className="form-card-body">
-    <div className="form-grid cols-1" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+const Step1 = ({ data, onChange, isSD, demandeurs, isEdit }) => {
+  const applyTemplate = (t) => {
+    onChange('titre', t.titre);
+    onChange('description', t.description);
+    onChange('justification', t.justification);
+  };
+
+  return (
+    <div className="form-card-body">
+      {!isEdit && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label className="form-label" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Suggestions de modèles :</label>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+            {TEMPLATES.map((t, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => applyTemplate(t)}
+                style={{
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  background: '#f8fafc',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: '#475569',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => { e.target.style.borderColor = '#3b82f6'; e.target.style.color = '#3b82f6'; }}
+                onMouseLeave={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.color = '#475569'; }}
+              >
+                <FiFileText size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="form-grid cols-1" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        
+      {isSD && (
+        <div className="form-field">
+          <label className="form-label">Émettre au nom de (Demandeur) <span className="required">*</span></label>
+          <select 
+            className="form-select" 
+            value={data.id_demandeur || ''} 
+            onChange={e => onChange('id_demandeur', e.target.value)}
+            style={{ fontWeight: 600 }}
+          >
+            <option value="">-- Sélectionner le demandeur --</option>
+            {demandeurs.map(u => (
+              <option key={u.id_user} value={u.id_user}>
+                👤 {u.prenom_user} {u.nom_user} ({ROLE_LABELS[u.roles?.[0]] || 'Demandeur'})
+              </option>
+            ))}
+          </select>
+          <span className="form-hint" style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: '#64748b' }}>
+            En tant que Service Desk / Admin, vous pouvez créer une RFC pour un autre utilisateur.
+          </span>
+        </div>
+      )}
       
 
 
@@ -87,6 +198,7 @@ const Step1 = ({ data, onChange, isSD, demandeurs }) => (
     </div>
   </div>
 );
+};
 
 // ─── STEP 2 : Justification, Implémentation & Risques ────────────────────────
 const Step2 = ({ data, onChange }) => (
@@ -224,7 +336,7 @@ const Step3 = ({ data, onChange }) => {
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-const RfcCreate = () => {
+const RfcCreate = ({ isModal = false, onSuccess, onCancel }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -234,7 +346,8 @@ const RfcCreate = () => {
   const [demandeurs, setDemandeurs] = useState([]);
 
   const userRole = user?.roles?.[0] || user?.role;
-  const isSD = userRole === 'SERVICE_DESK' || userRole === 'ADMIN';
+  // On ne redirige vers Service Desk que si on est explicitement dans une route Service Desk
+  const isSD = (userRole === 'SERVICE_DESK' || userRole === 'ADMIN') && location.pathname.startsWith('/servicedesk');
 
   // Fetch demandeurs for SD/Admin
   useEffect(() => {
@@ -273,58 +386,35 @@ const RfcCreate = () => {
 
   const handleNext = () => { if (isStepValid()) setStep(s => s + 1); };
   const handleBack = () => setStep(s => s - 1);
-
   const handleSubmit = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      // Le type_code sera défini plus tard par le Service Desk
       const payload = {
-        id_demandeur:   undefined,
         titre_rfc:      form.titre,
         description:    form.description,
         justification:  form.justification,
         date_souhaitee: form.dateSouhaitee || null,
         urgence:        form.urgence === 'HAUTE',
         impacte_estimee: form.impacte_estimee || 'MINEUR',
-        type_code:      'TYPE-RFC-NRM', // Défaut initial sécurisé
-        priorite_code:  'P0',
       };
 
-      let response;
       if (isEdit) {
-        response = await api.put(`/rfc/${initialRfc.db_id}`, payload);
+        await rfcService.updateRfc(initialRfc.db_id, payload);
       } else {
-        response = await api.post('/rfc', payload);
+        await rfcService.createRfc(payload); // On crée juste, le backend gère le statut BROUILLON par défaut
       }
 
-        if (response.success) {
-          const targetPath = isSD ? '/servicedesk/inquiry' : '/mes-rfcs';
-          
-          if (isEdit && initialRfc?.statut?.code === 'A_COMPLETER') {
-             try {
-                // Fetch le statut SOUMIS
-                const statutsRes = await api.get('/admin/statuts?contexte=RFC');
-                const soumisStatut = statutsRes.data?.statuts?.find(s => s.code_statut === 'SOUMIS');
-                if (soumisStatut) {
-                   await api.patch(`/rfc/${initialRfc.db_id}/status`, {
-                      id_statut: soumisStatut.id_statut,
-                      commentaire: "RFC complétée et resoumise par le demandeur."
-                   });
-                }
-             } catch (e) {
-                console.error("Erreur lors de la resoumission:", e);
-             }
-          }
-
-          navigate(targetPath, { state: { success: true } });
-        } else {
-          setError(response.error?.message || response.message || 'Erreur lors de la soumission.');
-        }
-      } catch (err) {
-        console.error('RFC Save Error:', err);
-        setError(err.error?.message || err.message || 'Une erreur est survenue lors de l\'enregistrement.');
-      } finally {
+      if (isModal && onSuccess) {
+        onSuccess();
+      } else {
+        const targetPath = isSD ? '/servicedesk/inquiry' : '/mes-rfcs';
+        navigate(targetPath, { state: { success: true } });
+      }
+    } catch (err) {
+      console.error('RFC Save Error:', err);
+      setError(err.message || 'Une erreur est survenue lors de l\'enregistrement.');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -336,23 +426,27 @@ const RfcCreate = () => {
   ];
 
   return (
-    <div className="rfc-create-page">
-      {/* Breadcrumb */}
-      <nav className="page-breadcrumb">
-        {isSD ? (
-          <a onClick={() => navigate('/servicedesk/inquiry')}>Gestion des RFC (Service Desk)</a>
-        ) : (
-          <a onClick={() => navigate('/mes-rfcs')}>Mes RFCs (Demandeur)</a>
-        )}
-        <FiChevronRight className="breadcrumb-sep" />
-        <span>{isEdit ? 'Modifier la Demande' : 'Nouvelle Demande'}</span>
-      </nav>
+    <div className={isModal ? "" : "rfc-create-page"}>
+      {!isModal && (
+        <>
+          {/* Breadcrumb */}
+          <nav className="page-breadcrumb">
+            {isSD ? (
+              <a onClick={() => navigate('/servicedesk/inquiry')}>Gestion des RFC (Service Desk)</a>
+            ) : (
+              <a onClick={() => navigate('/mes-rfcs')}>Mes RFCs (Demandeur)</a>
+            )}
+            <FiChevronRight className="breadcrumb-sep" />
+            <span>{isEdit ? 'Modifier la Demande' : 'Nouvelle Demande'}</span>
+          </nav>
 
-      {/* Heading */}
-      <div className="create-page-heading">
-        <h1>{isEdit ? 'Modifier votre RFC' : 'Soumettre une RFC'}</h1>
-        <p>Fournissez les informations métier nécessaires pour initier le processus de changement.</p>
-      </div>
+          {/* Heading */}
+          <div className="create-page-heading">
+            <h1>{isEdit ? 'Modifier votre RFC' : 'Soumettre une RFC'}</h1>
+            <p>Fournissez les informations métier nécessaires pour initier le processus de changement.</p>
+          </div>
+        </>
+      )}
 
       {/* Stepper */}
       <StepperBar current={step} />
@@ -371,7 +465,7 @@ const RfcCreate = () => {
         )}
         <FormCardHeader {...stepHeaders[step]} />
 
-        {step === 0 && <Step1 data={form} onChange={update} isSD={isSD} demandeurs={demandeurs} />}
+        {step === 0 && <Step1 data={form} onChange={update} isSD={isSD} demandeurs={demandeurs} isEdit={isEdit} />}
         {step === 1 && <Step2 data={form} onChange={update} />}
         {step === 2 && <Step3 data={form} onChange={update} />}
 
@@ -379,6 +473,11 @@ const RfcCreate = () => {
         <div className="form-navigation">
           <span className="nav-progress">Étape <span>{step + 1}</span> sur {STEPS.length}</span>
           <div className="nav-btn-group">
+            {isModal && step === 0 && (
+              <Button variant="secondary" onClick={onCancel}>
+                Annuler
+              </Button>
+            )}
             {step > 0 && (
               <Button variant="secondary" icon={<FiChevronLeft />} onClick={handleBack}>
                 Précédent

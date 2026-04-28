@@ -1,197 +1,257 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/Login';
-import AuthService from './services/auth.service';
 import { AuthProvider } from './context/AuthContext';
+import authService from './services/authService';
+import { ROLE_ROUTES } from './utils/constants';
+
+// ── Layouts ───────────────────────────────────────────────────
+import AdminLayout          from './components/layout/AdminLayout';
+import DemandeurLayout      from './components/layout/DemandeurLayout';
+import ChangeManagerLayout  from './components/layout/ChangeManagerLayout';
+import ImplementerLayout    from './components/layout/ImplementerLayout';
+import ServiceDeskLayout    from './components/layout/ServiceDeskLayout';
+import CabLayout            from './components/layout/CabLayout';
+
+// ── Pages communes ────────────────────────────────────────────
+import Login   from './pages/Login';
+import Profile from './pages/Profile';
+import Notifications from './pages/Notifications';
+
+// ── Admin ─────────────────────────────────────────────────────
 import AdminSystemDashboard from './pages/admin/AdminSystemDashboard';
-import UserManagement from './pages/admin/UserManagement';
-import AdminLayout from './components/layout/AdminLayout';
-import Profile from './pages/common/Profile';
-import { FiUser } from 'react-icons/fi';
+import UserManagement       from './pages/admin/UserManagement';
+import CiManagement         from './pages/admin/CiManagement';
+import AuditLog             from './pages/admin/AuditLog';
+import BroadcastCenter      from './pages/admin/BroadcastCenter';
+import EnvironmentManagement from './pages/admin/SystemSettings';
+import AdminChangementList  from './pages/admin/AdminChangementList';
+import DirectionManagement  from './pages/admin/DirectionManagement';
+import TaskManagement from './pages/admin/TaskManagement';
+import AdminCabManagement from './pages/admin/AdminCabManagement';
 
-// Demandeur Imports
-import MesRfcs from './pages/demandeur/demandeur';
-import RfcCreate from './pages/demandeur/RfcCreate';
-import RfcDetail from './pages/demandeur/RfcDetail';
-import RfcReview from './pages/demandeur/RfcReview';
+
+// ── Demandeur ─────────────────────────────────────────────────
 import DemandeurDashboard from './pages/demandeur/DemandeurDashboard';
-import HistoriqueRfc from './pages/demandeur/HistoriqueRfc';
-import DemandeurLayout from './components/layout/DemandeurLayout';
+import RfcList            from './pages/demandeur/RfcList';
+import RfcCreate          from './pages/demandeur/RfcCreate';
+import RfcDetail          from './pages/demandeur/RfcDetail';
+import RfcReview          from './pages/demandeur/RfcReview';
+import RfcHistory         from './pages/demandeur/RfcHistory';
 
-// Change Manager Imports
-import ChangeManagerLayout from './components/layout/ChangeManagerLayout';
-import ChangeManagerDashboard from './pages/changemanager/Dashboard';
-import RfcManagement from './pages/changemanager/RfcManagement';
-import RfcEvaluation from './pages/changemanager/RfcEvaluation';
-import RfcEdit from './pages/changemanager/RfcEdit';
-import CabManagement from './pages/changemanager/CabManagement';
+// ── Change Manager ────────────────────────────────────────────
+import ChangeManagerDashboard from './pages/changemanager/ChangeManagerDashboard';
+import RfcManagement          from './pages/changemanager/RfcManagement';
+import RfcEvaluation          from './pages/changemanager/RfcEvaluation';
+import RfcEdit                from './pages/changemanager/RfcEdit';
+import CabManagement          from './pages/changemanager/CabManagement';
+import ChangeManagement       from './pages/changemanager/ChangeManagement';
+import ChangeCalendar         from './pages/changemanager/ChangeCalendar';
+import ImplementationTracker  from './pages/changemanager/ImplementationTracker';
 
-import ChangeCalendar from './pages/changemanager/ChangeCalendar';
-import ImplementationTracker from './pages/changemanager/ImplementationTracker';
-import ChangeManagement from './pages/changemanager/ChangeManagement';
+// ── Implémenteur ──────────────────────────────────────────────
+import ImplementerDashboard from './pages/implementeur/ImplementerDashboard';
+import MyTasks              from './pages/implementeur/MyTasks';
 
-// Implementer Imports
-import ImplementerLayout from './components/layout/ImplementerLayout';
-import ImplementerDashboard from './pages/implementeur/Dashboard';
-import MyTasks from './pages/implementeur/MyTasks';
+// ── Service Desk ──────────────────────────────────────────────
+import ServiceDeskDashboard from './pages/servicedesk/ServiceDeskDashboard';
+import InquiryHub           from './pages/servicedesk/InquiryHub';
+import Broadcaster          from './pages/servicedesk/Broadcaster';
 
-// Service Desk Imports
-import ServiceDeskLayout from './components/layout/ServiceDeskLayout';
-import ServiceDeskDashboard from './pages/servicedesk/Dashboard';
-import InquiryHub from './pages/servicedesk/InquiryHub';
-import Broadcaster from './pages/servicedesk/Broadcaster';
+// ── CAB ───────────────────────────────────────────────────────
+import CabDashboard       from './pages/cab/CabDashboard';
+import RfcEvaluationList  from './pages/cab/RfcEvaluationList';
+import RfcEvaluationForm  from './pages/cab/RfcEvaluationForm';
+import CabMeetings        from './pages/cab/CabMeetings';
 
-// CAB Imports
-import CabDashboard from './pages/cab/dashboard';
-import CabLayout from './components/layout/CabLayout';
-import RfcEvaluationList from './pages/cab/RfcEvaluationList';
-import RfcEvaluationForm from './pages/cab/RfcEvaluationForm';
-import CabMeetings from './pages/cab/CabMeetings';
-
-
-
-
-// Simple ProtectedRoute component
+// ─────────────────────────────────────────────────────────────
+// ProtectedRoute — redirige vers /login si non authentifié
+// ─────────────────────────────────────────────────────────────
 const ProtectedRoute = ({ children }) => {
-  const user = AuthService.getCurrentUser();
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  const user = authService.getCurrentUser();
+  if (!user) return <Navigate to="/login" replace />;
   return children;
 };
 
-// Smart Dashboard Redirector
-const DashboardPlaceholder = () => {
-  const user = AuthService.getCurrentUser();
-  const role = user?.roles?.[0]; // Assuming first role is primary
-
-  if (role === 'ADMIN_SYSTEME') return <Navigate to="/admin-system" replace />;
-  if (role === 'CHANGE_MANAGER') return <Navigate to="/manager" replace />;
-  if (role === 'MEMBRE_CAB') return <Navigate to="/cab" replace />;
-  if (role === 'DEMANDEUR') return <Navigate to="/demandeur" replace />;
-  if (role === 'SERVICE_DESK') return <Navigate to="/servicedesk" replace />;
-  if (role === 'IMPLEMENTEUR') return <Navigate to="/implementer/tasks" replace />;
-
-  return (
-    <div style={{ padding: '40px', textAlign: 'center' }}>
-      <h1>Dashboard ITIL CASNOS</h1>
-      <p>Bienvenue, {user?.prenom_user} {user?.nom_user} !</p>
-      <p>Rôle : {user?.roles?.join(', ')}</p>
-      <button 
-        onClick={() => { AuthService.logout(); window.location.reload(); }}
-        style={{ padding: '10px 20px', marginTop: '20px', cursor: 'pointer' }}
-      >
-        Se déconnecter
-      </button>
-    </div>
-  );
+// ─────────────────────────────────────────────────────────────
+// DashboardRedirect — redirige selon le rôle
+// ─────────────────────────────────────────────────────────────
+const DashboardRedirect = () => {
+  const user = authService.getCurrentUser();
+  const role = user?.roles?.[0];
+  const destination = ROLE_ROUTES[role] ?? '/login';
+  return <Navigate to={destination} replace />;
 };
 
-const AdminPlaceholder = ({ title }) => (
+// ─────────────────────────────────────────────────────────────
+// ProfileWrapper — entoure Profile avec le bon layout selon le rôle
+// ─────────────────────────────────────────────────────────────
+const ProfileWrapper = () => {
+  const user = authService.getCurrentUser();
+  const role = user?.roles?.[0];
+
+  const layouts = {
+    ADMIN:          AdminLayout,
+    CHANGE_MANAGER: ChangeManagerLayout,
+    DEMANDEUR:      DemandeurLayout,
+    SERVICE_DESK:   ServiceDeskLayout,
+    IMPLEMENTEUR:   ImplementerLayout,
+    MEMBRE_CAB:     CabLayout,
+  };
+
+  const Layout = layouts[role];
+  if (!Layout) return <div style={{ padding: '2rem' }}><Profile /></div>;
+  return <Layout><Profile /></Layout>;
+};
+
+const NotificationsWrapper = () => {
+  const user = authService.getCurrentUser();
+  const role = user?.roles?.[0];
+
+  const layouts = {
+    ADMIN:          AdminLayout,
+    CHANGE_MANAGER: ChangeManagerLayout,
+    DEMANDEUR:      DemandeurLayout,
+    SERVICE_DESK:   ServiceDeskLayout,
+    IMPLEMENTEUR:   ImplementerLayout,
+    MEMBRE_CAB:     CabLayout,
+  };
+
+  const Layout = layouts[role];
+  if (!Layout) return <div style={{ padding: '2rem' }}><Notifications /></div>;
+  return <Layout><Notifications /></Layout>;
+};
+
+// ─────────────────────────────────────────────────────────────
+// Placeholder pour les sections en cours de développement
+// ─────────────────────────────────────────────────────────────
+const Placeholder = ({ title }) => (
   <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', marginBottom: '1rem' }}>{title}</h1>
-    <div style={{ background: 'white', padding: '3rem', borderRadius: '16px', border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b' }}>
-      <p style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '0.5rem' }}>Module en cours de développement</p>
-      <p>Cette section correspond aux spécifications UML de la configuration ITIL.</p>
+    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', marginBottom: '1rem' }}>
+      {title}
+    </h1>
+    <div style={{
+      background: 'white', padding: '3rem', borderRadius: '16px',
+      border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b',
+    }}>
+      <p style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+        Module en cours de développement
+      </p>
+      <p>Cette section correspond aux spécifications ITIL configurées.</p>
     </div>
   </div>
 );
 
+// ─────────────────────────────────────────────────────────────
+// App — Arbre de routes
+// ─────────────────────────────────────────────────────────────
 function App() {
   return (
     <AuthProvider>
       <Router>
         <Routes>
+          {/* Public */}
           <Route path="/login" element={<Login />} />
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <DashboardPlaceholder />
-              </ProtectedRoute>
-            } 
-          />
-          <Route path="/admin-system" element={<ProtectedRoute><AdminLayout><AdminSystemDashboard /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin-system/users" element={<ProtectedRoute><AdminLayout><UserManagement /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin-system/change-types" element={<ProtectedRoute><AdminLayout><AdminPlaceholder title="Configuration des types de changements" /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin-system/cis" element={<ProtectedRoute><AdminLayout><AdminPlaceholder title="Gestion du référentiel CIs" /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin-system/audit" element={<ProtectedRoute><AdminLayout><AdminPlaceholder title="Journaux d'audit Logs" /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin-system/settings" element={<ProtectedRoute><AdminLayout><AdminPlaceholder title="Paramétrages système" /></AdminLayout></ProtectedRoute>} />
-          
-          {/* Demandeur Routes */}
+
+          {/* Redirect root */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<ProtectedRoute><DashboardRedirect /></ProtectedRoute>} />
+
+          {/* Profile & Notifications (layout dynamique selon le rôle) */}
+          <Route path="/profile" element={<ProtectedRoute><ProfileWrapper /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><NotificationsWrapper /></ProtectedRoute>} />
+
+          {/* ── Admin ────────────────────────────────────────── */}
+          <Route path="/admin-system" element={
+            <ProtectedRoute><AdminLayout><AdminSystemDashboard /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/users" element={
+            <ProtectedRoute><AdminLayout><UserManagement /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/rfcs" element={
+            <ProtectedRoute><AdminLayout><RfcManagement /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/cis" element={
+            <ProtectedRoute><AdminLayout><CiManagement /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/audit" element={
+            <ProtectedRoute><AdminLayout><AuditLog /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/broadcast" element={
+            <ProtectedRoute><AdminLayout><BroadcastCenter /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/settings" element={
+            <ProtectedRoute><AdminLayout><EnvironmentManagement /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/cab" element={
+            <ProtectedRoute><AdminLayout><AdminCabManagement /></AdminLayout></ProtectedRoute>
+          } />
+
+          <Route path="/admin-system/cab/meetings" element={
+            <ProtectedRoute><AdminLayout><CabMeetings /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/changes" element={
+            <ProtectedRoute><AdminLayout><AdminChangementList /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/directions" element={
+            <ProtectedRoute><AdminLayout><DirectionManagement /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/environments" element={
+            <ProtectedRoute><AdminLayout><EnvironmentManagement /></AdminLayout></ProtectedRoute>
+          } />
+          <Route path="/admin-system/tasks" element={
+            <ProtectedRoute><AdminLayout><TaskManagement /></AdminLayout></ProtectedRoute>
+          } />
+
+          {/* ── Demandeur ────────────────────────────────────── */}
           <Route element={<ProtectedRoute><DemandeurLayout /></ProtectedRoute>}>
-            <Route path="/demandeur" element={<DemandeurDashboard />} />
-            <Route path="/mes-rfcs" element={<MesRfcs />} />
-            <Route path="/historique" element={<HistoriqueRfc />} />
-            <Route path="/rfcs/new" element={<RfcCreate />} />
-            <Route path="/rfcs/:id" element={<RfcDetail />} />
-            <Route path="/rfcs/:id/review" element={<RfcReview />} />
+            <Route path="/demandeur"        element={<DemandeurDashboard />} />
+            <Route path="/mes-rfcs"         element={<RfcList />} />
+            <Route path="/historique"       element={<RfcHistory />} />
+            <Route path="/rfcs/new"         element={<RfcCreate />} />
+            <Route path="/rfcs/:id"         element={<RfcDetail />} />
+            <Route path="/rfcs/:id/review"  element={<RfcReview />} />
           </Route>
 
-          {/* Change Manager Routes */}
+          {/* ── Change Manager ───────────────────────────────── */}
           <Route element={<ProtectedRoute><ChangeManagerLayout /></ProtectedRoute>}>
-            <Route path="/manager" element={<ChangeManagerDashboard />} />
-            <Route path="/manager/rfcs" element={<RfcManagement />} />
-            <Route path="/rfcs/:id/edit" element={<RfcEdit />} />
-            <Route path="/manager/cab" element={<CabManagement />} />
-            <Route path="/manager/changements" element={<ChangeManagement />} />
-            <Route path="/manager/calendar" element={<ChangeCalendar />} />
-            <Route path="/manager/implementation" element={<ImplementationTracker />} />
+            <Route path="/manager"                    element={<ChangeManagerDashboard />} />
+            <Route path="/manager/rfcs"               element={<RfcManagement />} />
+            <Route path="/manager/rfcs/:id/evaluation"  element={<RfcEvaluation />} />
+            <Route path="/manager/cab"                element={<CabManagement />} />
+            <Route path="/manager/changements"        element={<ChangeManagement />} />
+            <Route path="/manager/calendar"           element={<ChangeCalendar />} />
+            <Route path="/manager/implementation"     element={<ImplementationTracker />} />
+            <Route path="/rfcs/:id/edit"              element={<RfcEdit />} />
           </Route>
 
-          {/* Implementer Routes */}
+          {/* ── Implémenteur ─────────────────────────────────── */}
           <Route element={<ProtectedRoute><ImplementerLayout /></ProtectedRoute>}>
-            <Route path="/implementer" element={<ImplementerDashboard />} />
-            <Route path="/implementer/tasks" element={<MyTasks />} />
-            <Route path="/implementer/history" element={<AdminPlaceholder title="Historique d'exécution" />} />
+            <Route path="/implementer"         element={<ImplementerDashboard />} />
+            <Route path="/implementer/tasks"   element={<MyTasks />} />
+            <Route path="/implementer/history" element={<Placeholder title="Historique d'exécution" />} />
           </Route>
 
-          {/* Service Desk Routes */}
+          {/* ── Service Desk ─────────────────────────────────── */}
           <Route element={<ProtectedRoute><ServiceDeskLayout /></ProtectedRoute>}>
-            <Route path="/servicedesk" element={<ServiceDeskDashboard />} />
-            <Route path="/servicedesk/inquiry" element={<InquiryHub />} />
-            <Route path="/servicedesk/calendar" element={<ChangeCalendar />} />
+            <Route path="/servicedesk"           element={<ServiceDeskDashboard />} />
+            <Route path="/servicedesk/inquiry"   element={<InquiryHub />} />
+            <Route path="/servicedesk/calendar"  element={<ChangeCalendar />} />
             <Route path="/servicedesk/broadcast" element={<Broadcaster />} />
           </Route>
 
-          {/* CAB Routes */}
+          {/* ── CAB ──────────────────────────────────────────── */}
           <Route element={<ProtectedRoute><CabLayout /></ProtectedRoute>}>
-            <Route path="/cab" element={<CabDashboard />} />
-            <Route path="/cab/rfcs" element={<RfcEvaluationList />} />
-            <Route path="/cab/rfcs/:id/evaluate" element={<RfcEvaluationForm />} />
-            <Route path="/cab/meetings" element={<CabMeetings />} />
+            <Route path="/cab"                      element={<CabDashboard />} />
+            <Route path="/cab/rfcs"                 element={<RfcEvaluationList />} />
+            <Route path="/cab/rfcs/:id/evaluate"    element={<RfcEvaluationForm />} />
+            <Route path="/cab/meetings"             element={<CabMeetings />} />
           </Route>
-          
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              {/* Dynamic layout selection based on role or simple default */}
-              <DashboardWrapper>
-                <Profile />
-              </DashboardWrapper>
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/rfcs" element={<Navigate to="/demandeur" replace />} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Router>
     </AuthProvider>
   );
 }
-
-// Wrapper to provide layout for standalone pages like Profile
-const DashboardWrapper = ({ children }) => {
-  const user = AuthService.getCurrentUser();
-  const role = user?.roles?.[0];
-
-  if (role === 'ADMIN_SYSTEME') return <AdminLayout>{children}</AdminLayout>;
-  if (role === 'CHANGE_MANAGER') return <ChangeManagerLayout>{children}</ChangeManagerLayout>;
-  if (role === 'DEMANDEUR') return <DemandeurLayout>{children}</DemandeurLayout>;
-  if (role === 'SERVICE_DESK') return <ServiceDeskLayout>{children}</ServiceDeskLayout>;
-  if (role === 'IMPLEMENTEUR') return <ImplementerLayout>{children}</ImplementerLayout>;
-  if (role === 'MEMBRE_CAB') return <CabLayout>{children}</CabLayout>;
-
-  return <div style={{ padding: '2rem' }}>{children}</div>;
-};
 
 export default App;

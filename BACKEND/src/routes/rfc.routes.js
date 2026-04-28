@@ -2,7 +2,7 @@
  * ============================================================
  * Routes — /api/rfc
  * ============================================================
- */
+*/
 
 const router = require('express').Router();
 
@@ -58,11 +58,138 @@ router.patch(
   rfcController.updateRfcStatus
 );
 
-router.put(
-  '/:id/evaluate',
+/**
+ * ============================================================
+ * COMMENTAIRES (discussion entre acteurs)
+ *   GET    /api/rfc/:id/commentaires
+ *   POST   /api/rfc/:id/commentaires
+ *   PUT    /api/rfc/:id/commentaires/:id_commentaire
+ *   DELETE /api/rfc/:id/commentaires/:id_commentaire
+ *
+ * ÉVALUATION DE RISQUE (1-to-1, upsert)
+ *   GET    /api/rfc/:id/evaluation-risque
+ *   PUT    /api/rfc/:id/evaluation-risque     ← crée ou met à jour
+ *   DELETE /api/rfc/:id/evaluation-risque
+ *
+ * PIÈCES JOINTES (métadonnées)
+ *   GET    /api/rfc/:id/pieces-jointes
+ *   POST   /api/rfc/:id/pieces-jointes
+ *   DELETE /api/rfc/:id/pieces-jointes/:id_piece
+ * ============================================================
+ */
+ 
+const {
+  checkRfcExists,
+  validateCreateCommentaire,
+  validateUpdateCommentaire,
+  checkCommentaireExists,
+  checkCommentaireOwner,
+  validateEvaluationRisque,
+  validateUpdateEvaluationRisque,
+  validateCreatePieceJointe,
+  checkPieceJointeExists,
+} = require('../middlewares/rfc.middleware');
+ 
+// ============================================================
+// COMMENTAIRES
+// ============================================================
+ 
+router.get(
+  '/:id/commentaires',
   authenticateJWT,
-  checkPermission(PERMISSIONS.RFC_STATUT.code), // Using status permission for evaluation
-  rfcController.evaluateRfc
+  checkPermission('rfc:read'),
+  checkRfcExists,
+  rfcController.getCommentairesByRfc
 );
-
+ 
+router.post(
+  '/:id/commentaires',
+  authenticateJWT,
+  checkPermission('rfc:read'),    // tout acteur lisant la RFC peut commenter
+  checkRfcExists,
+  validateCreateCommentaire,
+  rfcController.createCommentaire
+);
+ 
+router.put(
+  '/:id/commentaires/:id_commentaire',
+  authenticateJWT,
+  checkPermission('rfc:read'),
+  checkRfcExists,
+  checkCommentaireExists,
+  checkCommentaireOwner,          // propriétaire ou manager
+  validateUpdateCommentaire,
+  rfcController.updateCommentaire
+);
+ 
+router.delete(
+  '/:id/commentaires/:id_commentaire',
+  authenticateJWT,
+  checkPermission('rfc:read'),
+  checkRfcExists,
+  checkCommentaireExists,
+  checkCommentaireOwner,
+  rfcController.deleteCommentaire
+);
+ 
+// ============================================================
+// ÉVALUATION DE RISQUE
+// ============================================================
+ 
+router.get(
+  '/:id/evaluation-risque',
+  authenticateJWT,
+  checkPermission('rfc:read'),
+  checkRfcExists,
+  rfcController.getEvaluationRisqueByRfc
+);
+ 
+// PUT = créer ou mettre à jour (upsert)
+router.put(
+  '/:id/evaluation-risque',
+  authenticateJWT,
+  checkPermission('rfc:update'),
+  checkRfcExists,
+  validateEvaluationRisque,
+  rfcController.upsertEvaluationRisque
+);
+ 
+router.delete(
+  '/:id/evaluation-risque',
+  authenticateJWT,
+  checkPermission('rfc:update'),
+  checkRfcExists,
+  rfcController.deleteEvaluationRisque
+);
+ 
+// ============================================================
+// PIÈCES JOINTES
+// ============================================================
+ 
+router.get(
+  '/:id/pieces-jointes',
+  authenticateJWT,
+  checkPermission('rfc:read'),
+  checkRfcExists,
+  rfcController.getPiecesJointesByRfc
+);
+ 
+router.post(
+  '/:id/pieces-jointes',
+  authenticateJWT,
+  checkPermission('rfc:update'),
+  checkRfcExists,
+  validateCreatePieceJointe,
+  rfcController.createPieceJointe
+);
+ 
+router.delete(
+  '/:id/pieces-jointes/:id_piece',
+  authenticateJWT,
+  checkPermission('rfc:update'),
+  checkRfcExists,
+  checkPieceJointeExists,
+  rfcController.deletePieceJointe
+);
+ 
 module.exports = router;
