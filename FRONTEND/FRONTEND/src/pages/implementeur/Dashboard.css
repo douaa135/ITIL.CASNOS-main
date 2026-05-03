@@ -1,0 +1,315 @@
+.impl-dashboard {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.impl-welcome-section {
+  margin-bottom: 2rem;
+}
+
+.impl-welcome-section h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.impl-welcome-section p {
+  color: #64748b;
+  font-size: 1.1rem;
+}
+
+.impl-welcome-section strong {
+  color: var(--impl-primary);
+  font-size: 1.1rem;
+  color: #64748b;
+}
+
+/* ── Stats Grid ── */
+.impl-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.stat-card {
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.1);
+}
+
+.stat-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.stat-card.blue .stat-icon-wrapper { color: #2563eb; background: #eff6ff; }
+.stat-card.amber .stat-icon-wrapper { color: #d97706; background: #fffbeb; }
+.stat-card.green .stat-icon-wrapper { color: #059669; background: #ecfdf5; }
+
+.stat-info .stat-value {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #0f172a;
+  margin-bottom: 0.25rem;
+}
+
+.stat-info .stat-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Layout ── */
+.impl-dashboard-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 2rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.section-header h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #1e3a8a;
+}
+
+.btn-link {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+/* ── Mini Task Cards ── */
+.impl-tasks-mini-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mini-task-card-premium {
+  background: white;
+  border-radius: 16px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  border: 1px solid #f1f5f9;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.mini-task-card-premium:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+  transform: scale(1.01);
+}
+
+.status-indicator {
+  width: 4px;
+  height: 40px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.status-indicator.EN_ATTENTE { background: #f59e0b; }
+.status-indicator.EN_COURS { background: #3b82f6; }
+.status-indicator.TERMINEE { background: #10b981; }
+
+.task-content-wrapper {
+  flex: 1;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.task-id {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.task-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.task-badge.en_attente { background: #fffbeb; color: #b45309; }
+.task-badge.en_cours { background: #eff6ff; color: #1e40af; }
+.task-badge.terminee { background: #ecfdf5; color: #047857; }
+
+.mini-task-card-premium h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.mini-task-card-premium p {
+  font-size: 0.85rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+}
+
+.btn-view-task {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-view-task:hover {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+/* ── Productivity Side ── */
+.productivity-card {
+  padding: 2rem;
+  text-align: center;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1e3a8a;
+  margin-bottom: 2rem;
+}
+
+.productivity-circle {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: conic-gradient(#10b981 var(--progress), #e2e8f0 0deg);
+  margin: 0 auto 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.circle-inner {
+  width: 110px;
+  height: 110px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.circle-inner .count {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0d9488;
+}
+
+.circle-inner .unit {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.productivity-desc {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-bottom: 1.5rem;
+}
+
+.impl-tip-box {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  font-size: 0.8rem;
+  color: #1e40af;
+  line-height: 1.5;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.impl-tip svg {
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+  color: #1e40af;
+}
+
+.impl-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  color: #64748b;
+  font-weight: 600;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

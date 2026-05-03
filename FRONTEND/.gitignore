@@ -1,0 +1,17 @@
+node_modules/
+<<<<<<< HEAD
+BACKEND/node_modules/
+.DS_Store
+dist/
+build/
+.env
+BACKEND/.env
+*.log
+.gemini/
+.antigravity/
+/src/generated/prisma
+=======
+dist/
+.env
+.DS_Store
+>>>>>>> fa86a1a (Standardize interfaces, fix UUID display, and fix Admin dashboard KPIs)

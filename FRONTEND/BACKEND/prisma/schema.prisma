@@ -1,0 +1,595 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Permission {
+  id_permission   String           @id @default(uuid()) @db.Uuid
+  code_metier     String           @unique @db.VarChar(40)
+  code_permission String           @unique @db.VarChar(80)
+  description     String?
+  module          String?          @db.VarChar(50)
+  rolePermissions RolePermission[]
+
+  @@map("permission")
+}
+
+model Role {
+  id_role         String           @id @default(uuid()) @db.Uuid
+  code_metier     String           @unique @db.VarChar(40)
+  nom_role        String           @unique @db.VarChar(60)
+  description     String?
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("role")
+}
+
+model RolePermission {
+  id_role       String     @db.Uuid
+  id_permission String     @db.Uuid
+  permission    Permission @relation(fields: [id_permission], references: [id_permission], onDelete: Cascade)
+  role          Role       @relation(fields: [id_role], references: [id_role], onDelete: Cascade)
+
+  @@id([id_role, id_permission])
+  @@map("role_permission")
+}
+
+model UserRole {
+  id_user          String      @db.Uuid
+  id_role          String      @db.Uuid
+  date_attribution DateTime    @default(now())
+  role             Role        @relation(fields: [id_role], references: [id_role], onDelete: Cascade)
+  utilisateur      Utilisateur @relation(fields: [id_user], references: [id_user], onDelete: Cascade)
+
+  @@id([id_user, id_role])
+  @@map("user_role")
+}
+
+model RefreshToken {
+  id          String      @id @default(uuid())
+  jti         String      @unique
+  id_user     String      @db.Uuid
+  revoked     Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  Utilisateur Utilisateur @relation(fields: [id_user], references: [id_user])
+}
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  jti       String   @unique
+  revokedAt DateTime @default(now())
+}
+
+model Session {
+  id           String    @id @default(uuid())
+  userId       String
+  refreshToken String
+  ip           String?
+  userAgent    String?
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  logoutAt     DateTime?
+  jti          String    @unique
+
+  @@index([userId])
+}
+
+model DirectionMetier {
+  id_direction  String        @id @default(uuid()) @db.Uuid
+  code_metier   String        @unique @db.VarChar(40)
+  nom_direction String        @unique @db.VarChar(150)
+  utilisateurs  Utilisateur[]
+
+  @@map("direction_metier")
+}
+
+model Utilisateur {
+  id_user        String           @id @default(uuid()) @db.Uuid
+  code_metier    String           @unique @db.VarChar(40)
+  nom_user       String           @db.VarChar(80)
+  prenom_user    String           @db.VarChar(80)
+  date_naissance DateTime         @db.Date
+  email_user     String           @unique @db.VarChar(150)
+  phone          String?          @db.VarChar(20)
+  mot_passe      String           @db.VarChar(255)
+  date_creation  DateTime         @default(now())
+  actif          Boolean          @default(true)
+  id_direction   String?          @db.Uuid
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]
+  changements    Changement[]     @relation("ChangeManagerChangement")
+  commentaires   Commentaire[]    @relation("AuteurCommentaire")
+  membresCab     MembreCab[]
+  notifications  Notification[]
+  participants   Participant[]
+  rfcs           Rfc[]            @relation("DemandeurRfc")
+  historiques    StatutHistory[]
+  taches         Tache[]          @relation("ImplementeurTache")
+  userRoles      UserRole[]
+  direction      DirectionMetier? @relation(fields: [id_direction], references: [id_direction])
+  votesCab       VoteCab[]
+
+  @@map("utilisateur")
+}
+
+model Cab {
+  id_cab        String       @id @default(uuid()) @db.Uuid
+  code_metier   String       @unique @db.VarChar(40)
+  type_cab      TypeCab
+  date_creation DateTime     @default(now()) @db.Date
+  membres       MembreCab[]
+  reunions      ReunionCab[]
+
+  @@map("cab")
+}
+
+model MembreCab {
+  id_cab        String        @db.Uuid
+  id_user       String        @db.Uuid
+  date_adhesion DateTime      @default(now()) @db.Date
+  role          RoleMembreCab @default(MEMBRE)
+  cab           Cab           @relation(fields: [id_cab], references: [id_cab], onDelete: Cascade)
+  utilisateur   Utilisateur   @relation(fields: [id_user], references: [id_user], onDelete: Cascade)
+
+  @@id([id_cab, id_user])
+  @@map("membre_cab")
+}
+
+model TypeRfc {
+  id_type     String  @id @default(uuid()) @db.Uuid
+  code_metier String  @unique @db.VarChar(40)
+  type        TypeRFC
+  description String?
+  rfcs        Rfc[]
+
+  @@map("type_rfc")
+}
+
+model Statut {
+  id_statut   String          @id @default(uuid()) @db.Uuid
+  code_metier String          @unique @db.VarChar(40)
+  code_statut String          @db.VarChar(30)
+  libelle     String          @db.VarChar(60)
+  description String?         @db.VarChar(200)
+  contexte    ContexteStatut
+  changements Changement[]    @relation("StatutChangement")
+  rfcs        Rfc[]           @relation("StatutRfc")
+  historiques StatutHistory[]
+  taches      Tache[]         @relation("StatutTache")
+
+  @@unique([code_statut, contexte])
+  @@map("statut")
+}
+
+model StatutHistory {
+  id_history      String       @id @default(uuid()) @db.Uuid
+  code_metier     String       @db.VarChar(40)
+  id_statut       String       @db.Uuid
+  id_rfc          String?      @db.Uuid
+  id_changement   String?      @db.Uuid
+  id_user         String?      @db.Uuid
+  date_changement DateTime     @default(now())
+  commentaire     String?
+  changement      Changement?  @relation(fields: [id_changement], references: [id_changement], onDelete: Cascade)
+  rfc             Rfc?         @relation(fields: [id_rfc], references: [id_rfc], onDelete: Cascade)
+  statut          Statut       @relation(fields: [id_statut], references: [id_statut])
+  utilisateur     Utilisateur? @relation(fields: [id_user], references: [id_user])
+
+  @@map("statut_history")
+}
+
+model Priorite {
+  id_priorite   String @id @default(uuid()) @db.Uuid
+  code_metier   String @unique @db.VarChar(40)
+  code_priorite String @unique
+  libelle       String @db.VarChar(60)
+  rfcs          Rfc[]
+
+  @@map("priorite")
+}
+
+model Environnement {
+  id_env      String       @id @default(uuid()) @db.Uuid
+  code_metier String       @unique @db.VarChar(40)
+  nom_env     String       @unique @db.VarChar(50)
+  description String?      @db.VarChar(200)
+  changements Changement[]
+  ciEnvs      CiEnv[]
+
+  @@map("environnement")
+}
+
+model ConfigurationItem {
+  id_ci       String  @id @default(uuid()) @db.Uuid
+  code_metier String  @unique @db.VarChar(40)
+  nom_ci      String  @unique @db.VarChar(150)
+  type_ci     String  @db.VarChar(80)
+  version_ci  String? @db.VarChar(30)
+  description String?
+  ciEnvs      CiEnv[]
+  ciRfcs      CiRfc[]
+
+  @@map("configuration_item")
+}
+
+model CiEnv {
+  id_ci         String            @db.Uuid
+  id_env        String            @db.Uuid
+  ci            ConfigurationItem @relation(fields: [id_ci], references: [id_ci], onDelete: Cascade)
+  environnement Environnement     @relation(fields: [id_env], references: [id_env], onDelete: Cascade)
+
+  @@id([id_ci, id_env])
+  @@map("ci_env")
+}
+
+model Rfc {
+  id_rfc            String            @id @default(uuid()) @db.Uuid
+  code_rfc          String            @unique @db.VarChar(40)
+  titre_rfc         String            @db.VarChar(200)
+  description       String
+  justification     String
+  date_creation     DateTime          @default(now())
+  date_souhaitee    DateTime?         @db.Date
+  date_modification DateTime?         @updatedAt
+  date_cloture      DateTime?
+  urgence           Boolean           @default(false)
+  impacte_estimee   String?
+  id_statut         String            @db.Uuid
+  id_user           String            @db.Uuid
+  id_priorite       String            @db.Uuid
+  id_type           String            @db.Uuid
+  changements       Changement[]
+  ciRfcs            CiRfc[]
+  commentaires      Commentaire[]
+  decisionsCab      DecisionCab[]
+  evaluationRisque  EvaluationRisque?
+  notifications     Notification[]
+  piecesJointes     PiecesJointe[]
+  rapports          Rapport[]
+  priorite          Priorite          @relation(fields: [id_priorite], references: [id_priorite])
+  statut            Statut            @relation("StatutRfc", fields: [id_statut], references: [id_statut])
+  typeRfc           TypeRfc           @relation(fields: [id_type], references: [id_type])
+  demandeur         Utilisateur       @relation("DemandeurRfc", fields: [id_user], references: [id_user])
+  rfcReunions       RfcReunion[]
+  historiques       StatutHistory[]
+  votesCab          VoteCab[]
+
+  @@map("rfc")
+}
+
+model CiRfc {
+  id_ci  String            @db.Uuid
+  id_rfc String            @db.Uuid
+  ci     ConfigurationItem @relation(fields: [id_ci], references: [id_ci], onDelete: Cascade)
+  rfc    Rfc               @relation(fields: [id_rfc], references: [id_rfc], onDelete: Cascade)
+
+  @@id([id_ci, id_rfc])
+  @@map("ci_rfc")
+}
+
+model EvaluationRisque {
+  id_evaluation   String    @id @default(uuid()) @db.Uuid
+  code_metier     String    @unique @db.VarChar(40)
+  impacte         Int
+  probabilite     Int
+  score_risque    Int
+  description     String?
+  date_evaluation DateTime? @db.Date
+  id_rfc          String    @unique @db.Uuid
+  rfc             Rfc       @relation(fields: [id_rfc], references: [id_rfc], onDelete: Cascade)
+
+  @@map("evaluation_risque")
+}
+
+model PiecesJointe {
+  id_piece     String   @id @default(uuid()) @db.Uuid
+  code_metier  String   @unique @db.VarChar(40)
+  type_piece   String?  @db.VarChar(50)
+  taille_piece BigInt?
+  date_upload  DateTime @default(now())
+  id_rfc       String   @db.Uuid
+  rfc          Rfc      @relation(fields: [id_rfc], references: [id_rfc], onDelete: Cascade)
+
+  @@map("pieces_jointe")
+}
+
+model Commentaire {
+  id_commentaire   String      @id @default(uuid()) @db.Uuid
+  code_metier      String      @unique @db.VarChar(40)
+  contenu          String
+  date_publication DateTime    @default(now())
+  id_rfc           String      @db.Uuid
+  id_user          String      @db.Uuid
+  rfc              Rfc         @relation(fields: [id_rfc], references: [id_rfc], onDelete: Cascade)
+  auteur           Utilisateur @relation("AuteurCommentaire", fields: [id_user], references: [id_user])
+
+  @@map("commentaire")
+}
+
+model Changement {
+  id_changement   String                    @id @default(uuid()) @db.Uuid
+  code_changement String                    @unique @db.VarChar(40)
+  date_creation   DateTime                  @default(now())
+  date_debut      DateTime?                 @db.Date
+  date_fin_prevu  DateTime?                 @db.Date
+  date_fin_reelle DateTime?                 @db.Date
+  reussite        Boolean?
+  id_user         String                    @db.Uuid
+  id_env          String                    @db.Uuid
+  id_rfc          String?                   @db.Uuid
+  id_statut       String                    @db.Uuid
+  environnement   Environnement             @relation(fields: [id_env], references: [id_env])
+  rfc             Rfc?                      @relation(fields: [id_rfc], references: [id_rfc])
+  statut          Statut                    @relation("StatutChangement", fields: [id_statut], references: [id_statut])
+  changeManager   Utilisateur               @relation("ChangeManagerChangement", fields: [id_user], references: [id_user])
+  guides          Guide[]
+  notifications   Notification[]
+  planChangement  PlanChangement?
+  planRollback    PlanRollback?
+  pir             PostImplementationReview?
+  historiques     StatutHistory[]
+  taches          Tache[]
+  tests           Test[]
+
+  @@map("changement")
+}
+
+model PlanChangement {
+  id_plan       String     @id @default(uuid()) @db.Uuid
+  code_metier   String     @unique @db.VarChar(40)
+  titre_plan    String     @db.VarChar(200)
+  etapes_plan   String?
+  duree_estimee Int?
+  id_changement String     @unique @db.Uuid
+  changement    Changement @relation(fields: [id_changement], references: [id_changement], onDelete: Cascade)
+
+  @@map("plan_changement")
+}
+
+model PlanRollback {
+  id_rollback        String     @id @default(uuid()) @db.Uuid
+  code_metier        String     @unique @db.VarChar(40)
+  description        String
+  procedure_rollback String?
+  id_changement      String     @unique @db.Uuid
+  changement         Changement @relation(fields: [id_changement], references: [id_changement], onDelete: Cascade)
+
+  @@map("plan_rollback")
+}
+
+model Test {
+  id_test       String       @id @default(uuid()) @db.Uuid
+  code_metier   String       @unique @db.VarChar(40)
+  date_test     DateTime?    @db.Date
+  critere_test  String?
+  resultat      ResultatTest @default(EN_ATTENTE)
+  contexte      String?      @db.VarChar(100)
+  id_changement String       @db.Uuid
+  changement    Changement   @relation(fields: [id_changement], references: [id_changement], onDelete: Cascade)
+
+  @@map("test")
+}
+
+model PostImplementationReview {
+  id_pir               String     @id @default(uuid()) @db.Uuid
+  code_metier          String     @unique @db.VarChar(40)
+  date_pir             DateTime?  @db.Date
+  description          String?
+  conformite_objectifs Boolean?
+  conformite_delais    Boolean?
+  id_changement        String     @unique @db.Uuid
+  changement           Changement @relation(fields: [id_changement], references: [id_changement], onDelete: Cascade)
+
+  @@map("post_implementation_review")
+}
+
+model Guide {
+  id_guide      String     @id @default(uuid()) @db.Uuid
+  code_metier   String     @unique @db.VarChar(40)
+  nom_guide     String     @db.VarChar(150)
+  contenu       String?
+  id_changement String     @db.Uuid
+  changement    Changement @relation(fields: [id_changement], references: [id_changement], onDelete: Cascade)
+
+  @@map("guide")
+}
+
+model Tache {
+  id_tache      String             @id @default(uuid()) @db.Uuid
+  code_tache    String             @unique @db.VarChar(40)
+  date_creation DateTime           @default(now())
+  ordre_tache   Int
+  titre_tache   String             @db.VarChar(200)
+  description   String?
+  duree         Int?
+  id_changement String             @db.Uuid
+  id_user       String             @db.Uuid
+  id_statut     String             @db.Uuid
+  journaux      JournalExecution[]
+  notifications Notification[]
+  changement    Changement         @relation(fields: [id_changement], references: [id_changement], onDelete: Cascade)
+  statut        Statut             @relation("StatutTache", fields: [id_statut], references: [id_statut])
+  implementeur  Utilisateur        @relation("ImplementeurTache", fields: [id_user], references: [id_user])
+
+  @@map("tache")
+}
+
+model JournalExecution {
+  id_journal    String   @id @default(uuid()) @db.Uuid
+  code_metier   String   @unique @db.VarChar(40)
+  titre_journal String?  @db.VarChar(200)
+  description   String
+  date_entree   DateTime @default(now())
+  id_tache      String   @db.Uuid
+  tache         Tache    @relation(fields: [id_tache], references: [id_tache], onDelete: Cascade)
+
+  @@map("journal_execution")
+}
+
+model ReunionCab {
+  id_reunion   String        @id @default(uuid()) @db.Uuid
+  code_metier  String        @unique @db.VarChar(40)
+  date_reunion DateTime      @db.Date
+  heure_debut  DateTime?     @db.Time(6)
+  heure_fin    DateTime?     @db.Time(6)
+  ordre_jour   String?
+  id_cab       String        @db.Uuid
+  decisionsCab DecisionCab[]
+  participants Participant[]
+  cab          Cab           @relation(fields: [id_cab], references: [id_cab])
+  rfcReunions  RfcReunion[]
+  votesCab     VoteCab[]
+
+  @@map("reunion_cab")
+}
+
+model Participant {
+  id_reunion  String      @db.Uuid
+  id_user     String      @db.Uuid
+  reunion     ReunionCab  @relation(fields: [id_reunion], references: [id_reunion], onDelete: Cascade)
+  utilisateur Utilisateur @relation(fields: [id_user], references: [id_user], onDelete: Cascade)
+
+  @@id([id_reunion, id_user])
+  @@map("participant")
+}
+
+model VoteCab {
+  id_vote     String      @id @default(uuid()) @db.Uuid
+  code_metier String      @unique @db.VarChar(40)
+  valeur_vote ValeurVote
+  date_vote   DateTime    @default(now())
+  id_reunion  String      @db.Uuid
+  id_user     String      @db.Uuid
+  id_rfc      String      @db.Uuid
+  reunion     ReunionCab  @relation(fields: [id_reunion], references: [id_reunion])
+  rfc         Rfc         @relation(fields: [id_rfc], references: [id_rfc])
+  utilisateur Utilisateur @relation(fields: [id_user], references: [id_user])
+
+  @@unique([id_reunion, id_user, id_rfc])
+  @@map("vote_cab")
+}
+
+model DecisionCab {
+  id_decision   String       @id @default(uuid()) @db.Uuid
+  code_metier   String       @unique @db.VarChar(40)
+  decision      TypeDecision
+  motif         String?
+  date_decision DateTime     @default(now())
+  id_reunion    String       @db.Uuid
+  id_rfc        String       @db.Uuid
+  reunion       ReunionCab   @relation(fields: [id_reunion], references: [id_reunion])
+  rfc           Rfc          @relation(fields: [id_rfc], references: [id_rfc])
+
+  @@unique([id_reunion, id_rfc])
+  @@map("decision_cab")
+}
+
+model RfcReunion {
+  id_rfc     String     @db.Uuid
+  id_reunion String     @db.Uuid
+  reunion    ReunionCab @relation(fields: [id_reunion], references: [id_reunion], onDelete: Cascade)
+  rfc        Rfc        @relation(fields: [id_rfc], references: [id_rfc], onDelete: Cascade)
+
+  @@id([id_rfc, id_reunion])
+  @@map("rfc_reunion")
+}
+
+model Notification {
+  id_notif      String           @id @default(uuid()) @db.Uuid
+  code_metier   String           @unique @db.VarChar(40)
+  message       String
+  objet         String?          @db.VarChar(200)
+  type_notif    TypeNotification
+  date_envoi    DateTime         @default(now())
+  lue           Boolean          @default(false)
+  id_user       String           @db.Uuid
+  id_rfc        String?          @db.Uuid
+  id_changement String?          @db.Uuid
+  id_tache      String?          @db.Uuid
+  changement    Changement?      @relation(fields: [id_changement], references: [id_changement])
+  rfc           Rfc?             @relation(fields: [id_rfc], references: [id_rfc])
+  tache         Tache?           @relation(fields: [id_tache], references: [id_tache])
+  utilisateur   Utilisateur      @relation(fields: [id_user], references: [id_user])
+
+  @@map("notification")
+}
+
+model Rapport {
+  id_rapport      String   @id @default(uuid()) @db.Uuid
+  code_metier     String   @unique @db.VarChar(40)
+  titre_rapport   String   @db.VarChar(200)
+  type_rapport    String?  @db.VarChar(50)
+  contenu_rapport String?
+  date_generation DateTime @default(now())
+  id_rfc          String   @db.Uuid
+  rfc             Rfc      @relation(fields: [id_rfc], references: [id_rfc])
+
+  @@map("rapport")
+}
+
+model AuditLog {
+  id_log       String      @id @default(uuid()) @db.Uuid
+  code_metier  String      @unique @db.VarChar(40)
+  action       String      @db.VarChar(50)
+  entite_type  String      @db.VarChar(50)
+  entite_id    String      @db.VarChar(100)
+  ancienne_val Json?
+  nouvelle_val Json?
+  date_action  DateTime    @default(now())
+  id_user      String      @db.Uuid
+  utilisateur  Utilisateur @relation(fields: [id_user], references: [id_user])
+
+  @@map("audit_log")
+}
+
+enum TypeRFC {
+  STANDARD
+  NORMAL
+  URGENT
+}
+
+enum ContexteStatut {
+  RFC
+  CHANGEMENT
+  TACHE
+}
+
+enum TypeCab {
+  STANDARD
+  NORMAL
+  URGENT
+}
+
+enum RoleMembreCab {
+  PRESIDENT
+  MEMBRE
+}
+
+enum ValeurVote {
+  APPROUVER
+  REJETER
+  ABSTENTION
+}
+
+enum TypeDecision {
+  APPROUVER
+  REJETER
+  REPORTER
+}
+
+enum TypeNotification {
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum ResultatTest {
+  REUSSI
+  ECHOUE
+  EN_ATTENTE
+}

@@ -1,0 +1,162 @@
+/* ============================================================
+   Badge.css — CASNOS ITIL Design System v2
+   ============================================================ */
+
+.common-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0.28rem 0.7rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+/* Dot indicator inside badge */
+.common-badge.with-dot::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.badge-primary {
+  background: var(--casnos-blue-50, #eff6ff);
+  color: var(--casnos-blue-700, #003366);
+  border: 1px solid var(--casnos-blue-100, #dbeafe);
+}
+
+.badge-success {
+  background: var(--success-bg, #ecfdf5);
+  color: var(--success-dark, #065f46);
+  border: 1px solid #a7f3d0;
+}
+
+.badge-warning {
+  background: var(--warning-bg, #fffbeb);
+  color: var(--warning-dark, #92400e);
+  border: 1px solid var(--warning-light, #fde68a);
+}
+
+.badge-danger {
+  background: var(--error-bg, #fef2f2);
+  color: var(--error-dark, #991b1b);
+  border: 1px solid var(--error-light, #fecaca);
+}
+
+.badge-info {
+  background: var(--info-bg, #eff6ff);
+  color: var(--info-dark, #1e40af);
+  border: 1px solid var(--info-light, #bfdbfe);
+}
+
+.badge-secondary {
+  background: var(--slate-100, #f1f5f9);
+  color: var(--slate-600, #475569);
+  border: 1px solid var(--slate-200, #e2e8f0);
+}
+
+.badge-gold {
+  background: var(--casnos-gold-50, #fffdf0);
+  color: var(--casnos-gold-600, #b78000);
+  border: 1px solid var(--casnos-gold-100, #fef9e7);
+}
+
+.badge-transparent {
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  padding: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: none;
+}
+
+/* Solid variants (for high-contrast contexts) */
+.badge-solid-primary {
+  background: var(--casnos-blue-700, #003366);
+  color: white;
+}
+
+.badge-solid-success {
+  background: var(--success-base, #10b981);
+  color: white;
+}
+
+.badge-solid-danger {
+  background: var(--error-base, #ef4444);
+  color: white;
+}
+
+/* Animated live badge */
+.badge-live {
+  background: #ef4444;
+  color: white;
+  animation: pulseBadge 2s infinite;
+  border: none;
+}
+
+@keyframes pulseBadge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+/* Size variants */
+.badge-sm {
+  font-size: 0.6rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.badge-lg {
+  font-size: 0.75rem;
+  padding: 0.4rem 0.875rem;
+  border-radius: 8px;
+}
+
+/* Editable badge styles */
+.common-badge.editable {
+  cursor: pointer;
+  position: relative;
+  border-style: dashed;
+}
+
+.common-badge.editable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  filter: brightness(0.95);
+}
+
+.common-badge.editable::after {
+  content: '▾';
+  margin-left: 4px;
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+/* Inline select styles */
+.inline-badge-select {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  outline: none;
+}
+.inline-badge-select option {
+  background: white;
+  color: #333;
+  text-transform: none;
+}
