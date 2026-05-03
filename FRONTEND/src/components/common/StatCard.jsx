@@ -1,10 +1,10 @@
 import React from 'react';
 import './StatCard.css';
 
-const StatCard = ({ title, value, icon, color, trend, onClick }) => {
+const StatCard = ({ title, value, icon, color, trend, onClick, active }) => {
   return (
     <div 
-      className={`stat-card ${color} ${onClick ? 'clickable' : ''}`}
+      className={`stat-card ${color} ${onClick ? 'clickable' : ''} ${active ? 'selected-active' : ''}`}
       onClick={onClick}
     >
       <div className="stat-icon-wrapper">

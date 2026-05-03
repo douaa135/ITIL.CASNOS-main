@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import api from '../../api/axiosClient';
 import Card from '../../components/common/Card';
 import Toast from '../../components/common/Toast';
+import StatCard from '../../components/common/StatCard';
 import {
   FiUsers, FiUserPlus, FiTrash2, FiEdit2, FiCheck,
   FiX, FiSearch, FiShield, FiToggleLeft, FiToggleRight,
@@ -756,29 +757,35 @@ const UserManagement = () => {
         </div>
       </div>
 
-      {/* ── KPI Cards ──────────────────────────────────────── */}
-      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-        <div className={`stat-card blue ${kpiFilter === '' && filterRole === 'ALL' ? 'selected-active' : ''}`} onClick={() => { setKpiFilter(''); setFilterRole('ALL'); }} style={{ cursor: 'pointer' }}>
-          <div className="stat-icon-wrapper"><FiUsers size={24} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{total}</div>
-            <div className="stat-label">Total Utilisateurs</div>
-          </div>
-        </div>
-        <div className={`stat-card green ${kpiFilter === 'ACTIF' ? 'selected-active' : ''}`} onClick={() => setKpiFilter(k => k === 'ACTIF' ? '' : 'ACTIF')} style={{ cursor: 'pointer' }}>
-          <div className="stat-icon-wrapper"><FiCheckCircle size={24} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{actifs}</div>
-            <div className="stat-label">Actifs</div>
-          </div>
-        </div>
-        <div className={`stat-card amber ${kpiFilter === 'INACTIF' ? 'selected-active' : ''}`} onClick={() => setKpiFilter(k => k === 'INACTIF' ? '' : 'INACTIF')} style={{ cursor: 'pointer' }}>
-          <div className="stat-icon-wrapper"><FiClock size={24} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{inactifs}</div>
-            <div className="stat-label">Inactifs</div>
-          </div>
-        </div>
+      {/* ── KPI Cards — Coherent with Global System ─────────── */}
+      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+        <StatCard
+          title="Total Utilisateurs"
+          value={total}
+          icon={<FiUsers size={22} />}
+          color="blue"
+          active={kpiFilter === '' && filterRole === 'ALL'}
+          onClick={() => { setKpiFilter(''); setFilterRole('ALL'); }}
+          trend={{ value: `${actifs} actifs / ${inactifs} inactifs`, type: 'info' }}
+        />
+        <StatCard
+          title="Actifs"
+          value={actifs}
+          icon={<FiCheckCircle size={22} />}
+          color="green"
+          active={kpiFilter === 'ACTIF'}
+          onClick={() => setKpiFilter(k => k === 'ACTIF' ? '' : 'ACTIF')}
+          trend={{ value: `${Math.round((actifs / (total || 1)) * 100)}% du total`, type: 'success' }}
+        />
+        <StatCard
+          title="Inactifs"
+          value={inactifs}
+          icon={<FiClock size={22} />}
+          color="amber"
+          active={kpiFilter === 'INACTIF'}
+          onClick={() => setKpiFilter(k => k === 'INACTIF' ? '' : 'INACTIF')}
+          trend={{ value: 'Cliquer pour filtrer', type: 'warning' }}
+        />
       </div>
 
       {/* ── Filters Bar ────────────────────────────────────── */}
