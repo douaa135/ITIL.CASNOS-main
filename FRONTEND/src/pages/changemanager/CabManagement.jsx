@@ -99,6 +99,25 @@ const CabManagement = () => {
   const [newReunionParticipants, setNewReunionParticipants] = useState([]);
   const [reunionMemberSearch,   setReunionMemberSearch]   = useState('');
 
+  // Toast notification
+  const [toast, setToast] = useState(null);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const loadReunionDetails = async (reunionId) => {
+    try {
+      const res = await api.get(`/reunions/${reunionId}`);
+      if (res.success) {
+        setSelectedReunion(res.reunion);
+      }
+    } catch (err) {
+      console.error('Erreur rechargement réunion:', err);
+    }
+  };
+
   const handleVoteClick = async (rfc) => {
     setSelectedRfcForVote(rfc);
     setUserVote('');
@@ -187,18 +206,19 @@ const CabManagement = () => {
         profilesCount: resProfiles.data?.data?.length || 0
       });
 
-      if (resCabs.success && resCabs.cabs?.length > 0) {
-        const cab = resCabs.cabs[0];
+      if (resCabs.success && (resCabs.data?.cabs?.length > 0 || resCabs.cabs?.length > 0)) {
+        const cab = resCabs.data?.cabs?.[0] || resCabs.cabs?.[0];
         setActiveCab(cab);
         await fetchReunions(cab.id_cab);
         await fetchCabMembers(cab.id_cab);
       }
 
       if (resRfcs.success) {
-        setRfcsApprouvees((resRfcs.rfcs || []).filter(r => r.statut?.code_statut === 'APPROUVEE'));
+        const rfcsList = resRfcs.data?.rfcs || resRfcs.rfcs || [];
+        setRfcsApprouvees(rfcsList.filter(r => r.statut?.code_statut === 'APPROUVEE'));
       }
 
-      const cabProfiles = resProfiles.data?.data || [];
+      const cabProfiles = resProfiles.data?.data || resProfiles.data || [];
       if (cabProfiles.length > 0) {
         console.log('Profiles CAB chargés:', cabProfiles);
         setAllCabProfiles(cabProfiles);
@@ -216,7 +236,7 @@ const CabManagement = () => {
   const fetchReunions = async (cabId) => {
     try {
       const res = await api.get(`/cab/${cabId}/reunions`);
-      if (res.success) setReunions(res.reunions || []);
+      if (res.success) setReunions(res.data?.reunions || res.reunions || []);
     } catch (err) {
       console.error('Fetch Reunions:', err);
     }
@@ -225,7 +245,7 @@ const CabManagement = () => {
   const fetchCabMembers = async (cabId) => {
     try {
       const res = await api.get(`/cab/${cabId}/membres`);
-      if (res.success) setCabMembers(res.membres || []);
+      if (res.success) setCabMembers(res.data?.membres || res.membres || []);
     } catch (err) {
       console.error('Fetch CAB Members:', err);
     }
@@ -234,7 +254,7 @@ const CabManagement = () => {
   const fetchParticipants = async (reunionId) => {
     try {
       const res = await api.get(`/reunions/${reunionId}/participants`);
-      if (res.success) setParticipants(res.participants || []);
+      if (res.success) setParticipants(res.data?.participants || res.participants || []);
     } catch (err) {
       console.error('Fetch Participants:', err);
     }
@@ -452,34 +472,55 @@ const CabManagement = () => {
       )}
 
       {/* ═══ HEADER ══════════════════════════════════════════ */}
-      <div className="cab-header">
-        <div>
-          <h1><FiUsers /> Gestion de la Planification CAB</h1>
-          <p>Planifiez les sessions, gérez les membres et enregistrez les décisions collectives.</p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }}><FiUsers /></div>
+          <div className="premium-header-text">
+            <h1>Gestion de la Planification CAB</h1>
+            <p>Planifiez les sessions, gérez les membres et enregistrez les décisions collectives.</p>
+          </div>
         </div>
-        <div className="cab-header-actions">
-          <button className="btn-secondary-cab" onClick={() => setShowAddMember(true)}>
+        <div className="premium-header-actions">
+          <button className="btn-secondary-cab" onClick={() => initData()} style={{ marginRight: '0.75rem', background: '#f8fafc' }}>
+            <FiRefreshCw /> Actualiser
+          </button>
+          <button className="btn-secondary-cab" onClick={() => setShowAddMember(true)} style={{ marginRight: '0.75rem' }}>
             <FiUserPlus /> Gérer les profils
           </button>
-          <button className="btn-primary-cab" onClick={() => setShowCreateReunion(true)}>
+          <button className="btn-create-premium" onClick={() => setShowCreateReunion(true)}>
             <FiPlus /> Nouvelle réunion
           </button>
         </div>
       </div>
 
       {/* ═══ KPIs ════════════════════════════════════════════ */}
-      <div className="cab-kpis">
-        <div className="cab-kpi">
-          <FiUsers />
-          <div><span className="kpi-num">{cabMembers.length}</span><span className="kpi-lbl">Membres CAB</span></div>
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+        <div className="stat-card blue">
+          <div className="stat-icon-wrapper">
+            <FiUsers size={24} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{cabMembers.length}</div>
+            <div className="stat-label">Membres CAB</div>
+          </div>
         </div>
-        <div className="cab-kpi">
-          <FiCalendar />
-          <div><span className="kpi-num">{reunions.length}</span><span className="kpi-lbl">Sessions</span></div>
+        <div className="stat-card purple">
+          <div className="stat-icon-wrapper">
+            <FiCalendar size={24} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{reunions.length}</div>
+            <div className="stat-label">Sessions</div>
+          </div>
         </div>
-        <div className="cab-kpi">
-          <FiFileText />
-          <div><span className="kpi-num">{rfcsApprouvees.length}</span><span className="kpi-lbl">RFC Approuvées</span></div>
+        <div className="stat-card green">
+          <div className="stat-icon-wrapper">
+            <FiFileText size={24} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{rfcsApprouvees.length}</div>
+            <div className="stat-label">RFC Approuvées</div>
+          </div>
         </div>
       </div>
 

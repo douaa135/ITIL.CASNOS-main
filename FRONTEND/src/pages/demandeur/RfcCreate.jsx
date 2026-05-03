@@ -108,7 +108,7 @@ const TEMPLATES = [
 ];
 
 // ─── STEP 1 : Informations générales ─────────────────────────────────────────
-const Step1 = ({ data, onChange, isSD, demandeurs, isEdit }) => {
+const Step1 = ({ data, onChange, isSD, demandeurs, isEdit, environments }) => {
   const applyTemplate = (t) => {
     onChange('titre', t.titre);
     onChange('description', t.description);
@@ -174,14 +174,34 @@ const Step1 = ({ data, onChange, isSD, demandeurs, isEdit }) => {
       
 
 
-      <div className="form-field">
-        <label className="form-label">Titre de la RFC <span className="required">*</span></label>
-        <input
-          className="form-input"
-          placeholder="Titre clair et concis (ex: Ajout d'un rapport financier mensuel)"
-          value={data.titre}
-          onChange={e => onChange('titre', e.target.value)}
-        />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+        <div className="form-field">
+          <label className="form-label">Titre de la RFC <span className="required">*</span></label>
+          <input
+            className="form-input"
+            placeholder="Titre clair et concis (ex: Ajout d'un rapport financier mensuel)"
+            value={data.titre}
+            onChange={e => onChange('titre', e.target.value)}
+          />
+        </div>
+
+        <div className="form-field">
+          <label className="form-label">Cible (Environnement) <span className="required">*</span></label>
+          <select 
+            className="form-select" 
+            value={data.id_env || ''} 
+            onChange={e => onChange('id_env', e.target.value)}
+            style={{ fontWeight: 600 }}
+            required
+          >
+            <option value="">-- Sélectionner l'environnement --</option>
+            {environments.map(env => (
+              <option key={env.id_env} value={env.id_env}>
+                🌐 {env.nom_env}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="form-field">
@@ -220,9 +240,9 @@ const Step2 = ({ data, onChange }) => (
         <div className="form-field">
           <label className="form-label">Urgence métier exprimée</label>
           <select className="form-select" value={data.urgence} onChange={e => onChange('urgence', e.target.value)}>
-            <option value="FAIBLE">Faible (Aucun impact immédiat)</option>
-            <option value="NORMALE">Normale (Impact opérationnel standard)</option>
-            <option value="HAUTE">Haute (Impact direct sur l'activité)</option>
+            <option value="FAIBLE">🟢 Faible (Aucun impact immédiat)</option>
+            <option value="NORMALE">🟡 Normale (Impact opérationnel standard)</option>
+            <option value="HAUTE">🔴 Haute (Impact direct sur l'activité)</option>
           </select>
         </div>
         <div className="form-field">
@@ -308,7 +328,7 @@ const Step3 = ({ data, onChange }) => {
                 <div className="file-name">{file.name}</div>
                 <div className="file-size">{formatSize(file.size)}</div>
               </div>
-              <button className="file-remove" onClick={() => removeFile(id)}><FiX /></button>
+              <button className="file-remove" onClick={() => removeFile(file.id)}><FiX /></button>
             </div>
           ))}
         </div>
@@ -344,20 +364,27 @@ const RfcCreate = ({ isModal = false, onSuccess, onCancel }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [demandeurs, setDemandeurs] = useState([]);
+  const [environments, setEnvironments] = useState([]);
 
   const userRole = user?.roles?.[0] || user?.role;
   // On ne redirige vers Service Desk que si on est explicitement dans une route Service Desk
   const isSD = (userRole === 'SERVICE_DESK' || userRole === 'ADMIN') && location.pathname.startsWith('/servicedesk');
 
-  // Fetch demandeurs for SD/Admin
+  // Fetch demandeurs for SD/Admin and environments
   useEffect(() => {
     if (isSD) {
-      api.get('/users/demandeurs')
-        .then(res => {
-          if (res.success) setDemandeurs(res.users);
-        })
+      rfcService.getUsersByRole('DEMANDEUR')
+        .then(list => setDemandeurs(list))
         .catch(err => console.error('Error fetching demandeurs:', err));
     }
+    
+    // Fetch environments for all
+    api.get('/environnements')
+      .then(res => {
+        const list = res.data?.environnements || res.data || [];
+        setEnvironments(Array.isArray(list) ? list : []);
+      })
+      .catch(err => console.error('Error fetching environments:', err));
   }, [isSD]);
 
   const isEdit = location.state?.edit;
@@ -371,6 +398,7 @@ const RfcCreate = ({ isModal = false, onSuccess, onCancel }) => {
     dateSouhaitee: initialRfc?.date_souhaitee || '', 
     urgence: initialRfc?.urgence || 'NORMALE',
     impacte_estimee: initialRfc?.impacte_estimee || 'MINEUR',
+    id_env: initialRfc?.id_env || '',
     planImplementation: initialRfc?.planImplementation || '', 
     risquesConnus: initialRfc?.risquesConnus || '',
     piecesJointes: [],
@@ -397,6 +425,8 @@ const RfcCreate = ({ isModal = false, onSuccess, onCancel }) => {
         date_souhaitee: form.dateSouhaitee || null,
         urgence:        form.urgence === 'HAUTE',
         impacte_estimee: form.impacte_estimee || 'MINEUR',
+        id_env:          form.id_env || null,
+        id_user:         isSD ? form.id_demandeur : undefined,
       };
 
       if (isEdit) {
@@ -465,7 +495,7 @@ const RfcCreate = ({ isModal = false, onSuccess, onCancel }) => {
         )}
         <FormCardHeader {...stepHeaders[step]} />
 
-        {step === 0 && <Step1 data={form} onChange={update} isSD={isSD} demandeurs={demandeurs} isEdit={isEdit} />}
+        {step === 0 && <Step1 data={form} onChange={update} isSD={isSD} demandeurs={demandeurs} isEdit={isEdit} environments={environments} />}
         {step === 1 && <Step2 data={form} onChange={update} />}
         {step === 2 && <Step3 data={form} onChange={update} />}
 

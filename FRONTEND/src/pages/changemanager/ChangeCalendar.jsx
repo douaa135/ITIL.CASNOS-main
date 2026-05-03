@@ -16,7 +16,8 @@ const ChangeCalendar = () => {
             try {
                 const res = await api.get('/changements');
                 if (res.success) {
-                    setChangements(res.changements);
+                    const data = res.data?.changements || res.changements || [];
+                    setChangements(data);
                 }
             } catch (error) {
                 console.error('Fetch Changes Error:', error);
@@ -49,20 +50,27 @@ const ChangeCalendar = () => {
 
     return (
         <div className="calendar-page">
-            <div className="calendar-header">
-                <div className="header-info">
-                    <h1>Forward Schedule of Change (FSC)</h1>
-                    <p>Calendrier prévisionnel des changements approuvés et planifiés.</p>
+            <div className="premium-header-card">
+                <div className="premium-header-left">
+                    <div className="premium-header-icon" style={{ background: '#f0f9ff', color: '#0369a1', borderColor: '#bae6fd' }}><FiCalendar /></div>
+                    <div className="premium-header-text">
+                        <h1>Forward Schedule of Change (FSC)</h1>
+                        <p>Calendrier prévisionnel des changements approuvés et planifiés.</p>
+                    </div>
                 </div>
-                <div className="calendar-filters">
-                    <FiFilter className="filter-icon" />
-                    <select value={selectedEnv} onChange={(e) => setSelectedEnv(e.target.value)}>
-                        <option value="ALL">Tous les environnements</option>
-                        {/* Env list would ideally be fetched from API */}
-                        <option value="1">PRODUCTION</option>
-                        <option value="2">STAGING</option>
-                        <option value="3">PRE-PROD</option>
-                    </select>
+                <div className="premium-header-actions">
+                    <div className="calendar-filters" style={{ marginRight: '1rem' }}>
+                        <FiFilter className="filter-icon" />
+                        <select value={selectedEnv} onChange={(e) => setSelectedEnv(e.target.value)}>
+                            <option value="ALL">Tous les environnements</option>
+                            <option value="1">PRODUCTION</option>
+                            <option value="2">STAGING</option>
+                            <option value="3">PRE-PROD</option>
+                        </select>
+                    </div>
+                    <button className="btn-create-premium" onClick={() => window.location.reload()} style={{ background: 'linear-gradient(135deg, #0369a1 0%, #075985 100%)' }}>
+                        <FiActivity /> Actualiser
+                    </button>
                 </div>
             </div>
 

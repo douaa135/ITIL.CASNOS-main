@@ -1119,3 +1119,69 @@
   font-weight: 700;
   font-size: 0.85rem;
 }
+/* Mini Tasks Table */
+.tasks-table-mini-wrapper {
+    margin-top: 1rem;
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+.tasks-table-mini {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    font-size: 0.85rem;
+}
+
+.tasks-table-mini th,
+.tasks-table-mini td {
+    padding: 0.85rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.tasks-table-mini th {
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+}
+
+.mini-code {
+    font-weight: 700;
+    color: #2563eb;
+    font-family: monospace;
+    white-space: nowrap;
+}
+
+.mini-title {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.mini-status-select {
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    background: white;
+}
+
+.mini-status-select.en_attente { background: #f1f5f9; color: #475569; }
+.mini-status-select.en_cours { background: #fffbeb; color: #b45309; }
+.mini-status-select.terminee { background: #ecfdf5; color: #047857; }
+
+.mini-imp-select {
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    border: 1px solid #e2e8f0;
+    background: white;
+    width: 100%;
+}

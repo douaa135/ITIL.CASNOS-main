@@ -181,14 +181,21 @@ const RfcMonitoring = () => {
 
   return (
     <div className="rfc-mgr-page">
-      <div className="rfc-mgr-header">
-        <div>
-          <h1><FiList /> Analyse et Évaluation des RFC</h1>
-          <p>Évaluation technique, classification et transition vers la planification.</p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiList /></div>
+          <div className="premium-header-text">
+            <h1>Analyse et Évaluation des RFC</h1>
+            <p>Évaluation technique, classification et transition vers la planification.</p>
+          </div>
         </div>
-        <div className="header-date-badge">
-          <FiCalendar />
-          {new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' })}
+        <div className="premium-header-actions">
+          <button className="btn-secondary-cab" onClick={fetchRfcs} style={{ marginRight: '0.75rem' }}>
+            <FiRefreshCw /> Actualiser
+          </button>
+          <button className="btn-create-premium" onClick={() => navigate('/rfcs/new')}>
+            <FiPlus /> Nouvelle RFC
+          </button>
         </div>
       </div>
 
@@ -217,12 +224,7 @@ const RfcMonitoring = () => {
             <option value="APPROUVEE">✅ Approuvées</option>
             <option value="REJETEE">❌ Rejetées</option>
           </select>
-          <button className="refresh-btn-premium" onClick={fetchRfcs} title="Actualiser">
-            <FiRefreshCw />
-          </button>
-          <button className="act-btn-new-premium" onClick={() => navigate('/rfcs/new')}>
-            <FiPlus /> Nouvelle RFC
-          </button>
+          </select>
         </div>
       </div>
 
@@ -350,7 +352,7 @@ const RfcMonitoring = () => {
                  <h3 style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <FiInfo /> Détails de la Demande
                  </h3>
-                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                     <div>
                         <label style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Titre</label>
                         <div style={{ fontSize: '0.9rem', fontWeight: '600' }}>{selectedRfc.titre_rfc}</div>
@@ -358,6 +360,22 @@ const RfcMonitoring = () => {
                     <div>
                         <label style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Demandeur</label>
                         <div style={{ fontSize: '0.9rem' }}>{selectedRfc.demandeur?.prenom_user} {selectedRfc.demandeur?.nom_user}</div>
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Score de Changement</label>
+                        <div style={{ marginTop: '4px' }}>
+                          <span style={{ 
+                            padding: '4px 12px', 
+                            borderRadius: '20px', 
+                            fontSize: '0.85rem', 
+                            fontWeight: '800',
+                            background: (selectedRfc.evaluationRisque?.score_risque || 0) > 12 ? '#fef2f2' : (selectedRfc.evaluationRisque?.score_risque || 0) > 6 ? '#fffbeb' : '#f0fdf4',
+                            color: (selectedRfc.evaluationRisque?.score_risque || 0) > 12 ? '#ef4444' : (selectedRfc.evaluationRisque?.score_risque || 0) > 6 ? '#d97706' : '#22c55e',
+                            border: `1px solid ${(selectedRfc.evaluationRisque?.score_risque || 0) > 12 ? '#fee2e2' : (selectedRfc.evaluationRisque?.score_risque || 0) > 6 ? '#fef3c7' : '#dcfce7'}`
+                          }}>
+                            {selectedRfc.evaluationRisque?.score_risque || 'N/A'}
+                          </span>
+                        </div>
                     </div>
                  </div>
                  <div style={{ marginBottom: '1rem' }}>

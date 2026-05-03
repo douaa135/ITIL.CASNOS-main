@@ -48,6 +48,11 @@ export const getChangeStatuses = async () => {
   return extract(result, 'statuts', []);
 };
 
+export const getTaskStatuses = async () => {
+  const result = await api.get('/statuts?contexte=TACHE');
+  return extract(result, 'statuts', []);
+};
+
 // ── Tâches ───────────────────────────────────────────────────
 
 export const getTasksByChange = async (idChangement) => {
@@ -145,7 +150,7 @@ export const createTest = async (idChangement, payload) => {
 const changeService = {
   getAllChangements, getChangementById, createChangement,
   updateChangement, updateChangementStatus, cloturerChangement,
-  getChangeStatuses,
+  getChangeStatuses, getTaskStatuses,
   getTasksByChange, createTache, updateTache, updateTacheStatut, deleteTache,
   getJournauxByTache, addJournal,
   getImplementers, assignImplementer, deleteChangement,

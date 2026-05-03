@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FiActivity, FiAlertTriangle, FiCheckCircle, FiSearch, 
-  FiClock, FiRadio, FiBookOpen, FiArrowRight, FiPlus
+  FiClock, FiBookOpen, FiArrowRight, FiPlus
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
 import './Dashboard.css';
@@ -53,9 +53,23 @@ const ServiceDeskDashboard = () => {
 
   return (
     <div className="sd-dashboard">
-      <div className="sd-welcome">
-        <h1>Cockpit Service Desk</h1>
-        <p>Surveillance en temps réel et support utilisateur première ligne.</p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiActivity /></div>
+          <div className="premium-header-text">
+            <h1>Cockpit Service Desk</h1>
+            <p>Surveillance en temps réel et support utilisateur première ligne.</p>
+          </div>
+        </div>
+        <div className="premium-header-actions">
+           <button 
+             className="btn-create-premium" 
+             onClick={() => window.location.reload()}
+             style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}
+           >
+              <FiActivity /> Actualiser
+           </button>
+        </div>
       </div>
 
       <div className="sd-stats-grid">
@@ -111,7 +125,7 @@ const ServiceDeskDashboard = () => {
                       <p>Impact: PRODUCTION • {change.environnement?.nom_env}</p>
                    </div>
                    <div className="monitor-progress">
-                      <div className="progress-bar"><div className="fill" style={{width: '60%'}}></div></div>
+                      <div className="progress-bar"><div className="fill fill-60"></div></div>
                       <span>En cours...</span>
                    </div>
                    <button className="sd-view-btn"><FiArrowRight /></button>

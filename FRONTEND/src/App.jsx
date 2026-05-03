@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import authService from './services/authService';
 import { ROLE_ROUTES } from './utils/constants';
+import './App.css';
 
 // ── Layouts ───────────────────────────────────────────────────
 import AdminLayout          from './components/layout/AdminLayout';
@@ -21,7 +22,7 @@ import AdminSystemDashboard from './pages/admin/AdminSystemDashboard';
 import UserManagement       from './pages/admin/UserManagement';
 import CiManagement         from './pages/admin/CiManagement';
 import AuditLog             from './pages/admin/AuditLog';
-import BroadcastCenter      from './pages/admin/BroadcastCenter';
+
 import EnvironmentManagement from './pages/admin/SystemSettings';
 import AdminChangementList  from './pages/admin/AdminChangementList';
 import DirectionManagement  from './pages/admin/DirectionManagement';
@@ -54,7 +55,7 @@ import MyTasks              from './pages/implementeur/MyTasks';
 // ── Service Desk ──────────────────────────────────────────────
 import ServiceDeskDashboard from './pages/servicedesk/ServiceDeskDashboard';
 import InquiryHub           from './pages/servicedesk/InquiryHub';
-import Broadcaster          from './pages/servicedesk/Broadcaster';
+
 
 // ── CAB ───────────────────────────────────────────────────────
 import CabDashboard       from './pages/cab/CabDashboard';
@@ -98,7 +99,7 @@ const ProfileWrapper = () => {
   };
 
   const Layout = layouts[role];
-  if (!Layout) return <div style={{ padding: '2rem' }}><Profile /></div>;
+  if (!Layout) return <div className="app-fallback-container"><Profile /></div>;
   return <Layout><Profile /></Layout>;
 };
 
@@ -116,7 +117,7 @@ const NotificationsWrapper = () => {
   };
 
   const Layout = layouts[role];
-  if (!Layout) return <div style={{ padding: '2rem' }}><Notifications /></div>;
+  if (!Layout) return <div className="app-fallback-container"><Notifications /></div>;
   return <Layout><Notifications /></Layout>;
 };
 
@@ -124,15 +125,12 @@ const NotificationsWrapper = () => {
 // Placeholder pour les sections en cours de développement
 // ─────────────────────────────────────────────────────────────
 const Placeholder = ({ title }) => (
-  <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-    <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', marginBottom: '1rem' }}>
+  <div className="app-placeholder-page">
+    <h1 className="app-placeholder-title">
       {title}
     </h1>
-    <div style={{
-      background: 'white', padding: '3rem', borderRadius: '16px',
-      border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b',
-    }}>
-      <p style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+    <div className="app-placeholder-box">
+      <p className="app-placeholder-lead">
         Module en cours de développement
       </p>
       <p>Cette section correspond aux spécifications ITIL configurées.</p>
@@ -160,44 +158,42 @@ function App() {
           <Route path="/notifications" element={<ProtectedRoute><NotificationsWrapper /></ProtectedRoute>} />
 
           {/* ── Admin ────────────────────────────────────────── */}
-          <Route path="/admin-system" element={
+          <Route path="/admin" element={
             <ProtectedRoute><AdminLayout><AdminSystemDashboard /></AdminLayout></ProtectedRoute>
           } />
-          <Route path="/admin-system/users" element={
+          <Route path="/admin/users" element={
             <ProtectedRoute><AdminLayout><UserManagement /></AdminLayout></ProtectedRoute>
           } />
-          <Route path="/admin-system/rfcs" element={
+          <Route path="/admin/rfcs" element={
             <ProtectedRoute><AdminLayout><RfcManagement /></AdminLayout></ProtectedRoute>
           } />
-          <Route path="/admin-system/cis" element={
+          <Route path="/admin/cis" element={
             <ProtectedRoute><AdminLayout><CiManagement /></AdminLayout></ProtectedRoute>
           } />
-          <Route path="/admin-system/audit" element={
+          <Route path="/admin/audit" element={
             <ProtectedRoute><AdminLayout><AuditLog /></AdminLayout></ProtectedRoute>
           } />
-          <Route path="/admin-system/broadcast" element={
-            <ProtectedRoute><AdminLayout><BroadcastCenter /></AdminLayout></ProtectedRoute>
-          } />
-          <Route path="/admin-system/settings" element={
+
+          <Route path="/admin/settings" element={
             <ProtectedRoute><AdminLayout><EnvironmentManagement /></AdminLayout></ProtectedRoute>
           } />
-          <Route path="/admin-system/cab" element={
+          <Route path="/admin/cab" element={
             <ProtectedRoute><AdminLayout><AdminCabManagement /></AdminLayout></ProtectedRoute>
           } />
 
-          <Route path="/admin-system/cab/meetings" element={
+          <Route path="/admin/cab/meetings" element={
             <ProtectedRoute><AdminLayout><CabMeetings /></AdminLayout></ProtectedRoute>
           } />
-          <Route path="/admin-system/changes" element={
+          <Route path="/admin/changes" element={
             <ProtectedRoute><AdminLayout><AdminChangementList /></AdminLayout></ProtectedRoute>
           } />
-          <Route path="/admin-system/directions" element={
+          <Route path="/admin/directions" element={
             <ProtectedRoute><AdminLayout><DirectionManagement /></AdminLayout></ProtectedRoute>
           } />
-          <Route path="/admin-system/environments" element={
+          <Route path="/admin/environments" element={
             <ProtectedRoute><AdminLayout><EnvironmentManagement /></AdminLayout></ProtectedRoute>
           } />
-          <Route path="/admin-system/tasks" element={
+          <Route path="/admin/tasks" element={
             <ProtectedRoute><AdminLayout><TaskManagement /></AdminLayout></ProtectedRoute>
           } />
 
@@ -235,7 +231,7 @@ function App() {
             <Route path="/servicedesk"           element={<ServiceDeskDashboard />} />
             <Route path="/servicedesk/inquiry"   element={<InquiryHub />} />
             <Route path="/servicedesk/calendar"  element={<ChangeCalendar />} />
-            <Route path="/servicedesk/broadcast" element={<Broadcaster />} />
+
           </Route>
 
           {/* ── CAB ──────────────────────────────────────────── */}

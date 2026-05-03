@@ -78,17 +78,7 @@ const RoleLayout = ({
               <span className="itil-nav-icon">{item.icon}</span>
               <span>{item.label}</span>
               {item.badge != null && (
-                <span
-                  style={{
-                    marginLeft: 'auto',
-                    background: 'rgba(255,255,255,0.2)',
-                    color: 'white',
-                    borderRadius: '99px',
-                    padding: '1px 8px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                  }}
-                >
+                <span className="itil-nav-item-badge">
                   {item.badge}
                 </span>
               )}

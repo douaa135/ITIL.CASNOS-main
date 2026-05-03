@@ -63,10 +63,26 @@
   border: 1px solid var(--slate-200, #e2e8f0);
 }
 
+.badge-neutral {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
 .badge-gold {
   background: var(--casnos-gold-50, #fffdf0);
   color: var(--casnos-gold-600, #b78000);
   border: 1px solid var(--casnos-gold-100, #fef9e7);
+}
+
+.badge-transparent {
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  padding: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: none;
 }
 
 /* Solid variants (for high-contrast contexts) */
@@ -108,4 +124,45 @@
   font-size: 0.75rem;
   padding: 0.4rem 0.875rem;
   border-radius: 8px;
+}
+
+/* Editable badge styles */
+.common-badge.editable {
+  cursor: pointer;
+  position: relative;
+  border-style: dashed;
+}
+
+.common-badge.editable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  filter: brightness(0.95);
+}
+
+.common-badge.editable::after {
+  content: '▾';
+  margin-left: 4px;
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+/* Inline select styles */
+.inline-badge-select {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  outline: none;
+}
+.inline-badge-select option {
+  background: white;
+  color: #333;
+  text-transform: none;
 }

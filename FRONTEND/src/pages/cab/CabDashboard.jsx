@@ -227,21 +227,24 @@ const CabDashboard = () => {
   }
 
   return (
-    <div className="cab-dashboard">
+    <div className="cab-dashboard" style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
 
       {/* Header */}
-      <div className="dashboard-header">
-        <div>
-          <h1><FiShield /> CAB</h1>
-          <p>Vue d'ensemble des activités du Change Advisory Board</p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiShield /></div>
+          <div className="premium-header-text">
+            <h1>Espace CAB</h1>
+            <p>Vue d'ensemble des activités du Change Advisory Board</p>
+          </div>
         </div>
-        <div className="header-actions">
+        <div className="premium-header-actions">
           <button
             type="button"
-            className="cab-action-btn small"
+            className="btn-create-premium"
             onClick={() => setShowCreateForm(true)}
           >
-            Créer CAB
+            <FiPlus /> Créer CAB
           </button>
         </div>
       </div>

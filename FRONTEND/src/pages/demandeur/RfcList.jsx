@@ -5,109 +5,32 @@ import {
   FiPlus, FiSearch, FiFileText, FiCheckCircle,
   FiClock, FiXCircle, FiEye, FiEdit2, FiTrash2,
   FiUser, FiFilter, FiRefreshCw, FiAlertCircle,
-  FiActivity, FiInbox
+  FiActivity, FiInbox, FiSend, FiX, FiTarget, FiPaperclip, FiFile, FiMessageSquare
 } from 'react-icons/fi';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import api from '../../api/axiosClient';
+import rfcService from '../../services/rfcService';
 import './demandeur.css';
 
-// ─── Dummy data reflétant le diagramme de classe ─────────────────────────────
-const MY_RFCS = [
-  {
-    id_rfc: 'RFC-2026-045',
-    titre: 'Mise à jour PostgreSQL 15 → PostgreSQL 16 sur serveur de production',
-    type: 'NORMAL',
-    impactEstime: 'MAJEUR',
-    urgence: 'HAUTE',
-    priorite: { niveau: 'P1', libelle: 'Haute' },
-    statut: { code: 'EN_ATTENTE_CAB', libelle: 'Attente CAB' },
-    date_creation: '2026-04-01',
-    date_souhaitee: '2026-04-20',
-    nb_pieces: 3,
-    nb_commentaires: 5,
-    score_risque: 12,
-  },
-  {
-    id_rfc: 'RFC-2026-046',
-    titre: 'Patch critique CVE-2026-1234 sur pare-feu DMZ-PALO01',
-    type: 'URGENT',
-    impactEstime: 'CRITIQUE',
-    urgence: 'CRITIQUE',
-    priorite: { niveau: 'P0', libelle: 'Critique' },
-    statut: { code: 'APPROUVE', libelle: 'Approuvé' },
-    date_creation: '2026-04-05',
-    date_souhaitee: '2026-04-10',
-    nb_pieces: 1,
-    nb_commentaires: 2,
-    score_risque: 20,
-  },
-  {
-    id_rfc: 'RFC-2026-044',
-    titre: 'Ajout champ numéro matricule dans API profil utilisateur',
-    type: 'STANDARD',
-    impactEstime: 'MINEUR',
-    urgence: 'FAIBLE',
-    priorite: { niveau: 'P3', libelle: 'Basse' },
-    statut: { code: 'EN_COURS_IMPLEMENTATION', libelle: 'En cours' },
-    date_creation: '2026-03-28',
-    date_souhaitee: '2026-04-15',
-    nb_pieces: 2,
-    nb_commentaires: 8,
-    score_risque: 4,
-  },
-  {
-    id_rfc: 'RFC-2026-040',
-    titre: 'Migration serveur mail Exchange 2016 vers Exchange 2019',
-    type: 'NORMAL',
-    impactEstime: 'MAJEUR',
-    urgence: 'NORMALE',
-    priorite: { niveau: 'P2', libelle: 'Moyenne' },
-    statut: { code: 'CLOTURE', libelle: 'Clôturé' },
-    date_creation: '2026-03-10',
-    date_souhaitee: '2026-03-25',
-    nb_pieces: 5,
-    nb_commentaires: 11,
-    score_risque: 9,
-  },
-  {
-    id_rfc: 'RFC-2026-047',
-    titre: 'Déploiement module archivage des dossiers médicaux numérisés',
-    type: 'NORMAL',
-    impactEstime: 'MODERE',
-    urgence: 'MOYENNE',
-    priorite: { niveau: 'P2', libelle: 'Moyenne' },
-    statut: { code: 'REJETE', libelle: 'Rejeté' },
-    date_creation: '2026-04-07',
-    date_souhaitee: '2026-04-30',
-    nb_pieces: 0,
-    nb_commentaires: 3,
-    score_risque: 6,
-  },
-  {
-    id_rfc: 'RFC-2026-048',
-    titre: 'Activation HTTPS/TLS 1.3 sur portail intranet RH CASNOS',
-    type: 'STANDARD',
-    impactEstime: 'MODERE',
-    urgence: 'NORMALE',
-    priorite: { niveau: 'P2', libelle: 'Moyenne' },
-    statut: { code: 'NOUVEAU', libelle: 'Nouveau' },
-    date_creation: '2026-04-09',
-    date_souhaitee: '2026-04-25',
-    nb_pieces: 1,
-    nb_commentaires: 0,
-    score_risque: 6,
-  },
-];
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  BROUILLON:   { badge: 'warning', label: 'Soumise',        progress: 30 },
-  SOUMIS:      { badge: 'warning', label: 'Soumise',        progress: 30 },
-  EVALUEE:     { badge: 'warning', label: 'Évaluée',        progress: 55 },
-  APPROUVEE:   { badge: 'success', label: 'Approuvée',     progress: 75 },
-  CLOTUREE:    { badge: 'success', label: 'Clôturée',      progress: 100 },
-  REJETEE:     { badge: 'danger',  label: 'Rejetée',       progress: 100 },
+  BROUILLON:      { badge: 'neutral',  label: 'Brouillon',       progress: 10 },
+  SOUMIS:         { badge: 'warning',  label: 'Soumise',         progress: 25 },
+  ACCEPTEE_SD:    { badge: 'info',     label: 'Acceptée (SD)',   progress: 35 },
+  A_COMPLETER:    { badge: 'warning',  label: 'À Compléter',     progress: 30 },
+  EN_EVALUATION:  { badge: 'info',     label: 'En Évaluation',   progress: 45 },
+  EVALUEE:        { badge: 'info',     label: 'Évaluée',         progress: 55 },
+  PRE_APPROUVEE:  { badge: 'info',     label: 'Pré-approuvée',   progress: 65 },
+  EN_ATTENTE_CAB: { badge: 'warning',  label: 'Attente CAB',     progress: 70 },
+  PLANIFIEE:      { badge: 'info',     label: 'Planifiée',       progress: 75 },
+  EN_COURS:       { badge: 'primary',  label: 'En Cours',        progress: 80 },
+  APPROUVEE:      { badge: 'success',  label: 'Approuvée',       progress: 90 },
+  CLOTUREE:       { badge: 'success',  label: 'Clôturée',        progress: 100 },
+  REJETEE:        { badge: 'danger',   label: 'Rejetée',         progress: 100 },
+  ANNULEE:        { badge: 'danger',   label: 'Annulée',         progress: 100 },
 };
 
 const PROGRESS_COLORS = {
@@ -134,7 +57,7 @@ const TABS = [
 
 const filterByTab = (rfcs, tab) => {
   switch (tab) {
-    case 'active':   return rfcs.filter(r => ['BROUILLON','SOUMIS','EVALUEE'].includes(r.statut.code));
+    case 'active':   return rfcs.filter(r => ['BROUILLON','SOUMIS','EVALUEE','EN_EVALUATION','ACCEPTEE_SD','A_COMPLETER','PRE_APPROUVEE','PLANIFIEE','EN_COURS'].includes(r.statut.code));
     case 'approved': return rfcs.filter(r => r.statut.code === 'APPROUVEE');
     case 'rejected': return rfcs.filter(r => r.statut.code === 'REJETEE');
     case 'closed':   return rfcs.filter(r => r.statut.code === 'CLOTUREE');
@@ -142,215 +65,11 @@ const filterByTab = (rfcs, tab) => {
   }
 };
 
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 // ─── RfcDetailModal ──────────────────────────────────────────────────────────
-const RfcDetailModal = ({ rfcId, onClose }) => {
-  const [rfc, setRfc] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [comment, setComment] = useState('');
-  const [sending, setSending] = useState(false);
 
-  const fetchDetail = async () => {
-    try {
-      const res = await api.get(`/rfc/${rfcId}`);
-      if (res.success) setRfc(res.data.rfc);
-    } catch (err) {
-      console.error('Modal detail fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (rfcId) fetchDetail();
-  }, [rfcId]);
-
-  const handleAddComment = async () => {
-    if (!comment.trim()) return;
-    setSending(true);
-    try {
-      const res = await api.post(`/rfc/${rfc.id_rfc}/comments`, { contenu: comment });
-      if (res.success) {
-        setComment('');
-        fetchDetail(); // Refresh to show new comment
-      }
-    } catch (err) {
-      console.error('Add comment error:', err);
-      alert('Erreur lors de l\'envoi du message.');
-    } finally {
-      setSending(false);
-    }
-  };
-
-  if (!rfcId) return null;
-
-  return (
-    <div className="modal-overlay-premium" onClick={onClose}>
-      <div className="modal-content-premium" onClick={e => e.stopPropagation()}>
-        <div className="modal-header-premium">
-          <h3><FiFileText color="var(--primary-color)" /> Détails de la RFC</h3>
-          <button className="modal-close-btn" onClick={onClose}><FiX /></button>
-        </div>
-        
-        <div className="modal-body-premium">
-          {loading ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-              <span className="spinner" /> Chargement des détails...
-            </div>
-          ) : rfc ? (
-            <>
-              <div className="modal-section">
-                <div className="modal-section-title"><FiInfo /> Informations Générales</div>
-                <div className="info-grid-premium">
-                  <div className="info-item-premium">
-                    <span className="info-label-premium">ID RFC</span>
-                    <span className="info-value-premium" style={{ color: 'var(--primary-color)', fontWeight: 800 }}>{rfc.code_rfc}</span>
-                  </div>
-                  <div className="info-item-premium">
-                    <span className="info-label-premium">Statut Actuel</span>
-                    <Badge status={STATUS_CONFIG[rfc.statut?.code_statut]?.badge || 'default'}>
-                      {rfc.statut?.libelle || 'Inconnu'}
-                    </Badge>
-                  </div>
-                  <div className="info-item-premium">
-                    <span className="info-label-premium">Urgence</span>
-                    <span className="info-value-premium">{rfc.urgence ? 'HAUTE' : 'NORMALE'}</span>
-                  </div>
-                  <div className="info-item-premium">
-                    <span className="info-label-premium">Priorité</span>
-                    <span className="info-value-premium">{rfc.priorite?.libelle || 'Moyenne'}</span>
-                  </div>
-                  <div className="info-item-premium">
-                    <span className="info-label-premium">Date de Création</span>
-                    <span className="info-value-premium">{new Date(rfc.date_creation).toLocaleDateString('fr-FR')}</span>
-                  </div>
-                  <div className="info-item-premium">
-                    <span className="info-label-premium">Date Souhaitée</span>
-                    <span className="info-value-premium">{rfc.date_souhaitee ? new Date(rfc.date_souhaitee).toLocaleDateString('fr-FR') : '-'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-section">
-                <div className="modal-section-title"><FiTarget /> Contenu de la Demande</div>
-                <div className="description-block-premium">
-                  <span className="info-label-premium">Titre</span>
-                  <p className="info-value-premium" style={{ marginTop: '0.25rem', fontSize: '1.05rem' }}>{rfc.titre_rfc}</p>
-                </div>
-                <div className="description-block-premium">
-                  <span className="info-label-premium">Description</span>
-                  <p className="description-text-premium">{rfc.description}</p>
-                </div>
-                <div className="description-block-premium">
-                  <span className="info-label-premium">Justification</span>
-                  <p className="description-text-premium">{rfc.justification}</p>
-                </div>
-              </div>
-
-              <div className="modal-section">
-                <div className="modal-section-title"><FiLayers /> Configuration & Impact</div>
-                <div className="info-grid-premium">
-                  <div className="info-item-premium">
-                    <span className="info-label-premium">Impact Estimé</span>
-                    <span className="info-value-premium">{rfc.impacte_estimee || 'MINEUR'}</span>
-                  </div>
-                  <div className="info-item-premium">
-                    <span className="info-label-premium">Type de Changement</span>
-                    <span className="info-value-premium">{rfc.typeRfc?.type || 'NORMAL'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ─── Commentaires & Feedback ─── */}
-              <div className="modal-section">
-                <div className="modal-section-title"><FiMessageSquare /> Échanges & Feedback</div>
-                
-                <div className="comments-list-premium" style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {rfc.commentaires?.length > 0 ? rfc.commentaires.map(c => (
-                    <div key={c.id_commentaire} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
-                        {c.auteur?.prenom_user?.[0]}{c.auteur?.nom_user?.[0]}
-                      </div>
-                      <div style={{ flex: 1, background: '#f1f5f9', padding: '0.75rem', borderRadius: '0 12px 12px 12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>{c.auteur?.prenom_user} {c.auteur?.nom_user}</span>
-                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{new Date(c.date_publication).toLocaleDateString('fr-FR')}</span>
-                        </div>
-                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#475569' }}>{c.contenu}</p>
-                      </div>
-                    </div>
-                  )) : (
-                    <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.85rem' }}>Aucun échange pour le moment.</div>
-                  )}
-                </div>
-
-                <div className="comment-input-premium">
-                  <label className="info-label-premium" style={{ marginBottom: '0.5rem', display: 'block' }}>Modèles de Message :</label>
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                    {[
-                      { label: 'Mise à jour préventive', text: 'Bonjour, nous procédons à une mise à jour préventive du système pour garantir sa stabilité optimale.' },
-                      { label: 'Interruption de service', text: 'Bonjour, nous vous informons d\'une interruption de service momentanée suite à une anomalie critique.' },
-                      { label: 'Service restauré', text: 'Bonjour, le service a été restauré avec succès. Merci de nous signaler toute instabilité résiduelle.' },
-                      { label: 'Changement d\'urgence', text: 'Bonjour, un changement d\'urgence est actuellement en cours pour résoudre un incident majeur.' },
-                      { label: 'Maintenance – ce soir', text: 'Bonjour, une maintenance planifiée aura lieu ce soir à partir de 18h. Le service sera indisponible pendant 1h.' },
-                      { label: 'Nouvelle RFC – action requise', text: 'Bonjour, une nouvelle RFC a été soumise et nécessite votre attention immédiate.' }
-                    ].map((m, i) => (
-                      <button 
-                        key={i} 
-                        type="button" 
-                        onClick={() => setComment(m.text)}
-                        style={{ 
-                          fontSize: '0.72rem', 
-                          padding: '0.35rem 0.75rem', 
-                          borderRadius: '8px', 
-                          border: '1px solid #e2e8f0', 
-                          background: '#f8fafc', 
-                          cursor: 'pointer', 
-                          color: '#475569',
-                          fontWeight: '700',
-                          transition: 'all 0.2s',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                        onMouseEnter={e => { e.target.style.background = '#eff6ff'; e.target.style.borderColor = '#3b82f6'; e.target.style.color = '#3b82f6'; }}
-                        onMouseLeave={e => { e.target.style.background = '#f8fafc'; e.target.style.borderColor = '#e2e8f0'; e.target.style.color = '#475569'; }}
-                      >
-                        <FiRadio size={11} /> {m.label}
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <div style={{ position: 'relative' }}>
-                    <textarea 
-                      placeholder="Votre message..." 
-                      value={comment}
-                      onChange={e => setComment(e.target.value)}
-                      style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.85rem', minHeight: '80px' }}
-                    />
-                    <button 
-                      type="button"
-                      disabled={!comment.trim() || sending}
-                      onClick={handleAddComment}
-                      style={{ position: 'absolute', right: '10px', bottom: '10px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', padding: '0.4rem 0.8rem', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <FiSend size={12} /> {sending ? '...' : 'Envoyer'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#ef4444' }}>
-              Erreur lors du chargement des détails.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const MesRfcs = () => {
   const navigate  = useNavigate();
@@ -363,44 +82,46 @@ const MesRfcs = () => {
   const [statusF, setStatusF] = useState('');
   const [sortBy,  setSortBy]  = useState('date_desc');
   const [toast,   setToast]   = useState(location.state?.success || false);
-  const [showDetail, setShowDetail] = useState(false);
   const [selectedRfc, setSelectedRfc] = useState(null);
+
 
   const fetchMyRfcs = async () => {
     if (!user?.id_user) return;
     try {
       setLoading(true);
-      const data = await api.get(`/rfc?id_user=${user.id_user}`);
-      if (data.success && data.data?.rfcs) {
-        const mapped = data.data.rfcs.map(r => ({
-          id_rfc:         r.code_rfc || r.id_rfc,
-          db_id:          r.id_rfc,
-          titre:          r.titre_rfc || 'Sans titre',
-          impactEstime: r.impacte_estimee || 'MINEUR',
-          urgence:        r.urgence ? 'HAUTE' : 'NORMALE',
-          priorite: {
-            niveau:   r.priorite?.code_priorite || 'P2',
-            libelle:  r.priorite?.libelle || 'Moyenne'
-          },
-          statut: {
-            code:     r.statut?.code_statut || 'NOUVEAU',
-            libelle:  r.statut?.libelle || 'Nouveau'
-          },
-          date_creation:   r.date_creation || new Date().toISOString(),
-          date_souhaitee:  r.date_souhaitee ? new Date(r.date_souhaitee).toLocaleDateString('fr-FR') : '-',
-          nb_pieces:       r._count?.piecesJointes || 0,
-          nb_commentaires: r._count?.commentaires || 0,
-          score_risque:    r.evaluationRisque?.score_risque || 0,
-        }));
-        setLocalRfcs(mapped);
-      } else {
-        setLocalRfcs([]);
-      }
+      const rfcsData = await rfcService.getAllRfcs({ id_user: user.id_user });
+      
+      const mapped = rfcsData.map(r => ({
+        id_rfc:         r.code_rfc || r.id_rfc,
+        db_id:          r.id_rfc,
+        titre:          r.titre_rfc || 'Sans titre',
+        impactEstime:   r.impacte_estimee || 'MINEUR',
+        urgence:        r.urgence ? 'HAUTE' : 'NORMALE',
+        priorite: {
+          niveau:   r.priorite?.code_priorite || 'P2',
+          libelle:  r.priorite?.libelle || 'Moyenne'
+        },
+        statut: {
+          code:     r.statut?.code_statut || 'NOUVEAU',
+          libelle:  r.statut?.libelle || 'Nouveau'
+        },
+        date_creation:   r.date_creation || new Date().toISOString(),
+        date_souhaitee:  r.date_souhaitee ? new Date(r.date_souhaitee).toLocaleDateString('fr-FR') : '-',
+        nb_pieces:       r._count?.piecesJointes || 0,
+        nb_commentaires: r._count?.commentaires || 0,
+        score_risque:    r.evaluationRisque?.score_risque || 0,
+        type:            r.typeRfc?.type || 'NORMAL',
+      }));
+      setLocalRfcs(mapped);
     } catch (err) {
       console.error('Erreur chargement RFC:', err);
       setLocalRfcs([]);
+    } finally {
+      setLoading(false);
     }
   };
+
+
 
   // Chargement initial
   useEffect(() => { fetchMyRfcs(); }, [user?.id_user]);
@@ -438,15 +159,25 @@ const MesRfcs = () => {
   // KPIs
   const kpis = {
     total:      localRfcs.length,
-    encours:    localRfcs.filter(r => ['BROUILLON','SOUMIS','EVALUEE'].includes(r.statut.code)).length,
-    approuvees: localRfcs.filter(r => r.statut.code === 'APPROUVEE').length,
-    rejetees:   localRfcs.filter(r => r.statut.code === 'REJETEE').length,
+    soumises:   localRfcs.filter(r => r.statut.code === 'SOUMIS').length,
+    encours:    localRfcs.filter(r => ['BROUILLON','EVALUEE', 'EN_EVALUATION', 'ACCEPTEE_SD', 'A_COMPLETER', 'PRE_APPROUVEE', 'PLANIFIEE', 'EN_COURS'].includes(r.statut.code)).length,
+    traitees:   localRfcs.filter(r => ['APPROUVEE', 'CLOTUREE', 'REJETEE'].includes(r.statut.code)).length,
   };
 
-  const handleDelete = (id, e) => {
+
+  const handleDelete = async (id, e) => {
     e.stopPropagation();
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cette demande ? Cette action est irréversible.")) {
-      setLocalRfcs(prev => prev.filter(r => r.id_rfc !== id));
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette demande ? Cette action est irréversible.")) return;
+    
+    try {
+      const res = await api.delete(`/rfc/${id}`);
+      if (res.success) {
+        setToast({ msg: 'RFC supprimée avec succès.', type: 'success' });
+        fetchMyRfcs();
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Erreur lors de la suppression de la RFC.');
     }
   };
 
@@ -454,28 +185,35 @@ const MesRfcs = () => {
     <div className="mes-rfcs-page">
       {/* Success toast */}
       {toast && (
-        <div className="success-toast">
-          <div className="success-toast-icon"><FiCheckCircle /></div>
+        <div className="success-toast" style={{
+          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999,
+          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+          color: 'white', padding: '1rem 1.5rem', borderRadius: '16px',
+          boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+          display: 'flex', alignItems: 'center', gap: '1rem', animation: 'slideInUp 0.3s ease-out'
+        }}>
+          <div style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FiCheckCircle size={24} />
+          </div>
           <div>
-            <p>RFC soumise avec succès !</p>
-            <p style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--status-success-text)', opacity: 0.85 }}>
-              Votre demande a été transmise au Change Manager. Vous serez notifié à chaque changement de statut.
-            </p>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem' }}>Opération réussie !</p>
+            <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9 }}>{typeof toast === 'object' ? toast.msg : 'Votre demande a été enregistrée avec succès.'}</p>
           </div>
         </div>
       )}
 
-      <div className="rfcs-hero" style={{ padding: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="hero-content">
-          <div className="hero-badge"><FiUser size={11} /> Espace Demandeur</div>
-          <h2 style={{ color: 'white', fontSize: '1.6rem', margin: '0.5rem 0 0.5rem 0', fontWeight: 700 }}>Vue d'ensemble</h2>
-          <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0 }}>Consultez l'historique et l'avancement de vos demandes en temps réel.</p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiUser /></div>
+          <div className="premium-header-text">
+            <h1>Vue d'ensemble</h1>
+            <p>Consultez l'historique et l'avancement de vos demandes en temps réel.</p>
+          </div>
         </div>
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div className="premium-header-actions">
           <button
             onClick={() => navigate('/rfcs/new', { state: { edit: false, rfcData: null } })}
             className="btn-create-premium"
-            style={{ background: 'white', color: '#1e40af' }}
           >
             <FiPlus /> Nouveau RFC
           </button>
@@ -485,9 +223,9 @@ const MesRfcs = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
         {[
           { key: 'all',      label: 'Toutes',     value: kpis.total,     color: '#3b82f6', bg: '#eff6ff', icon: <FiInbox /> },
-          { key: 'active',   label: 'En cours',   value: kpis.encours,   color: '#f59e0b', bg: '#fff7ed', icon: <FiClock /> },
-          { key: 'approved', label: 'Approuvées', value: kpis.approuvees, color: '#10b981', bg: '#f0fdf4', icon: <FiCheckCircle /> },
-          { key: 'rejected', label: 'Rejetées',   value: kpis.rejetees,   color: '#ef4444', bg: '#fef2f2', icon: <FiXCircle /> },
+          { key: 'soumises', label: 'Soumises',   value: kpis.soumises,   color: '#f59e0b', bg: '#fff7ed', icon: <FiSend /> },
+          { key: 'active',   label: 'En cours',   value: kpis.encours,   color: '#7c3aed', bg: '#f5f3ff', icon: <FiClock /> },
+          { key: 'traitees', label: 'Résolues',   value: kpis.traitees,   color: '#10b981', bg: '#f0fdf4', icon: <FiCheckCircle /> },
         ].map(k => (
           <div 
             key={k.key}
@@ -559,85 +297,92 @@ const MesRfcs = () => {
             className="action-icon-btn"
             title="Actualiser"
             onClick={() => { setSearch(''); setTab('all'); setSortBy('date_desc'); fetchMyRfcs(); }}
+            style={{ background: '#fef3c7', color: '#d97706', border: '1px solid #fde68a' }}
           >
             <FiRefreshCw />
           </button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rfc-table-card">
-        {rfcs.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon"><FiInbox /></div>
-            <h3>Aucune RFC trouvée</h3>
-            <p>Aucune demande ne correspond à vos critères de recherche.</p>
-            <Button variant="primary" icon={<FiPlus />} onClick={() => navigate('/rfcs/new', { state: { edit: false, rfcData: null } })}>
-              Créer ma première RFC
-            </Button>
-          </div>
-        ) : (
-          <table className="rfc-table">
+      {/* Table Section */}
+      <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+        <div className="table-scroll-container" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1000px' }}>
             <thead>
-              <tr>
-                <th>ID RFC</th>
-                <th>Titre</th>
-                <th>Statut</th>
-                <th>Date</th>
-                <th>Actions</th>
+              <tr style={{ background: 'linear-gradient(to right, #f8fafc, #f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
+                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', width: '25%' }}>RFC & Code</th>
+                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
+                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Priorité</th>
+                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Impact</th>
+                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
+                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {rfcs.map(rfc => {
-                const sc = STATUS_CONFIG[rfc.statut.code] || { badge: 'default', label: rfc.statut.libelle, progress: 0 };
+              {loading ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Chargement...</td></tr>
+              ) : rfcs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
+                    <FiInbox size={48} style={{ marginBottom: '1rem', opacity: 0.2 }} />
+                    <p style={{ margin: 0, fontWeight: 600 }}>Aucune RFC trouvée</p>
+                  </td>
+                </tr>
+              ) : rfcs.map((rfc, index) => {
+                const sc = STATUS_CONFIG[rfc.statut.code] || { badge: 'default', label: rfc.statut.libelle };
                 return (
-                  <tr key={rfc.id_rfc} onClick={() => { setSelectedRfc(rfc.db_id); setShowDetail(true); }}>
-                    <td>
-                      <span className="rfc-id">{rfc.id_rfc}</span>
+                  <tr 
+                    key={rfc.db_id} 
+                    onClick={() => setSelectedRfc(rfc)}
+                    style={{ 
+                      cursor: 'pointer', 
+                      borderBottom: '1px solid #f1f5f9', 
+                      background: index % 2 === 0 ? 'white' : '#fafbfc',
+                      transition: 'background 0.2s'
+                    }}
+                    className="hover-row-sd"
+                  >
+                    <td style={{ padding: '1rem 0.75rem' }}>
+                      <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{rfc.titre}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#3b82f6', fontWeight: '700' }}>#{rfc.id_rfc}</div>
                     </td>
-                    <td>
-                      <div className="rfc-title-cell">
-                        <span className="rfc-title-text">{rfc.titre}</span>
-                        <span className="rfc-title-meta">
-                          {rfc.fichiers && rfc.fichiers.length > 0
-                            ? rfc.fichiers.map((f, i) => (
-                                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', marginRight: '0.5rem', background: 'var(--border-color)', borderRadius: '4px', padding: '1px 6px', fontSize: '0.75rem' }}>
-                                  📎 {f.name}
-                                </span>
-                              ))
-                            : <span>📎 {rfc.nb_pieces} pièce(s)</span>
-                          }
-                          &nbsp;💬 {rfc.nb_commentaires} &nbsp;· Date souhaitée : {rfc.date_souhaitee}
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      <Badge status={sc.badge}>{sc.label}</Badge>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                        {new Date(rfc.date_creation).toLocaleDateString('fr-FR')}
+                    <td style={{ padding: '1rem 0.75rem' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569', background: '#f1f5f9', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                        {rfc.type || 'NORMAL'}
                       </span>
                     </td>
-                    <td onClick={e => e.stopPropagation()}>
-                      <div className="table-actions">
-                        {rfc.statut.code === 'BROUILLON' && (
+                    <td style={{ padding: '1rem 0.75rem' }}>
+                      <span style={{ 
+                        fontSize: '0.75rem', fontWeight: '800', padding: '0.3rem 0.6rem', borderRadius: '6px',
+                        background: rfc.priorite?.niveau === 'P5' ? '#fee2e2' : '#f0f9ff',
+                        color: rfc.priorite?.niveau === 'P5' ? '#991b1b' : '#0369a1',
+                        border: `1px solid ${rfc.priorite?.niveau === 'P5' ? '#fecaca' : '#bae6fd'}`
+                      }}>
+                        {rfc.priorite?.libelle || 'Moyenne'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '1rem 0.75rem' }}>
+                      <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '500' }}>{rfc.impactEstime}</span>
+                    </td>
+                    <td style={{ padding: '1rem 0.75rem' }}>
+                      <Badge status={sc.badge}>{sc.label}</Badge>
+                    </td>
+                    <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }} onClick={e => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        {['BROUILLON', 'SOUMIS', 'A_COMPLETER', 'REJETEE'].includes(rfc.statut.code) && (
                           <button
                             className="action-icon-btn"
-                            title="Modifier"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate('/rfcs/new', { state: { edit: true, rfcData: rfc } });
-                            }}
+                            onClick={() => navigate('/rfcs/new', { state: { edit: true, rfcData: rfc } })}
+                            style={{ color: '#3b82f6', background: '#eff6ff' }}
                           >
                             <FiEdit2 />
                           </button>
                         )}
-                        {rfc.statut.code === 'BROUILLON' && (
-                          <button 
-                            className="action-icon-btn danger" 
-                            title="Supprimer la demande"
-                            onClick={(e) => handleDelete(rfc.id_rfc, e)}
+                        {['BROUILLON', 'REJETEE'].includes(rfc.statut.code) && (
+                          <button
+                            className="action-icon-btn"
+                            onClick={(e) => handleDelete(rfc.db_id, e)}
+                            style={{ color: '#ef4444', background: '#fef2f2' }}
                           >
                             <FiTrash2 />
                           </button>
@@ -649,21 +394,61 @@ const MesRfcs = () => {
               })}
             </tbody>
           </table>
-        )}
+        </div>
       </div>
 
-      {toast && (
-        <div className="toast-success">
-          <FiCheckCircle /> Votre demande a été enregistrée avec succès !
+      {/* Detail Modal */}
+      {selectedRfc && (
+        <div className="modal-backdrop-cab" onClick={() => setSelectedRfc(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="modal-box-cab" onClick={e => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: '800px', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+            <div className="modal-top-rfc-style" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '1.5rem', borderBottom: '1px solid #e2e8f0', background: '#fff' }}>
+              <div className="rfc-style-icon-wrapper" style={{ width: '56px', height: '56px', borderRadius: '14px', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', border: '1px solid #bfdbfe' }}>
+                <FiFileText />
+              </div>
+              <div className="rfc-style-header-text" style={{ flex: 1 }}>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>Détails de la RFC</h2>
+                <div className="rfc-style-subtitle" style={{ color: '#64748b', fontSize: '0.85rem' }}>ID: {selectedRfc.id_rfc} • Créé le {new Date(selectedRfc.date_creation).toLocaleDateString('fr-FR')}</div>
+              </div>
+              <button onClick={() => setSelectedRfc(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0.5rem' }}><FiX size={24} /></button>
+            </div>
+
+            <div style={{ padding: '2rem', maxHeight: '70vh', overflowY: 'auto', background: '#f8fafc' }}>
+              <div style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 700, color: '#1e293b', borderBottom: '2px solid #f1f5f9', paddingBottom: '0.5rem' }}>{selectedRfc.titre}</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Type de Changement</span>
+                    <span className="info-value-premium">{selectedRfc.type}</span>
+                  </div>
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Priorité</span>
+                    <span className="info-value-premium">{selectedRfc.priorite?.libelle}</span>
+                  </div>
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Urgence</span>
+                    <span className="info-value-premium">{selectedRfc.urgence}</span>
+                  </div>
+                  <div className="info-item-premium">
+                    <span className="info-label-premium">Date souhaitée</span>
+                    <span className="info-value-premium">{selectedRfc.date_souhaitee}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                 <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Analyse d'Impact</h3>
+                 <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem', lineHeight: 1.6 }}>{selectedRfc.impactEstime || 'Aucune description fournie.'}</p>
+              </div>
+            </div>
+
+            <div style={{ padding: '1.25rem 2rem', background: '#fff', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setSelectedRfc(null)} style={{ padding: '0.65rem 1.5rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: 'white', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}>Fermer</button>
+            </div>
+          </div>
         </div>
       )}
 
-      {showDetail && (
-        <RfcDetailModal 
-          rfcId={selectedRfc} 
-          onClose={() => { setShowDetail(false); setSelectedRfc(null); }} 
-        />
-      )}
+
     </div>
   );
 };

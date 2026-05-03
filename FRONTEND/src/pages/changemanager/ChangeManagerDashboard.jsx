@@ -2,20 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FiFileText, FiClock, FiCheckCircle, FiXCircle, 
-  FiAlertCircle, FiArrowRight, FiUsers, FiCalendar 
+  FiAlertCircle, FiArrowRight, FiUsers, FiCalendar, FiActivity 
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
+import StatCard from '../../components/common/StatCard';
 import './Dashboard.css';
-
-const StatCard = ({ title, value, icon, color }) => (
-    <div className={`premium-glass-card stat-card ${color}`}>
-        <div className="stat-icon-wrapper">{icon}</div>
-        <div className="stat-info">
-            <span className="stat-label">{title}</span>
-            <span className="stat-value">{value}</span>
-        </div>
-    </div>
-);
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -59,23 +50,30 @@ const Dashboard = () => {
 
     return (
         <div className="manager-dashboard">
-            <div className="dashboard-header-row">
-                <div className="welcome-text">
-                    <h1>Vue d'ensemble de l'activité</h1>
-                    <p>Suivi en temps réel du cycle de vie des changements.</p>
+            <div className="premium-header-card">
+                <div className="premium-header-left">
+                    <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiActivity /></div>
+                    <div className="premium-header-text">
+                        <h1>Vue d'ensemble de l'activité</h1>
+                        <p>Suivi en temps réel du cycle de vie des changements.</p>
+                    </div>
                 </div>
-                <div className="header-date">
-                    {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                <div className="premium-header-actions">
+                    <div className="header-date">
+                        <FiCalendar style={{ marginRight: '8px' }} />
+                        {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    </div>
                 </div>
             </div>
 
-            {/* Support Grid for Stats */}
+            {/* Support Grid for Stats — Coherent with Global System */}
             <div className="stats-grid">
-                <StatCard title="Total RFC" value={stats.total} icon={<FiFileText />} color="blue" />
-                <StatCard title="En attente évaluation" value={stats.pending} icon={<FiClock />} color="orange" />
-                <StatCard title="RFC Urgentes" value={stats.urgent} icon={<FiAlertCircle />} color="red" />
-                <StatCard title="Approuvées" value={stats.approved} icon={<FiCheckCircle />} color="green" />
+                <StatCard title="Total RFC" value={stats.total} icon={<FiFileText />} color="blue" onClick={() => navigate('/manager/rfcs')} />
+                <StatCard title="En attente" value={stats.pending} icon={<FiClock />} color="amber" trend={{ value: 'Evaluation', type: 'warning' }} />
+                <StatCard title="RFC Urgentes" value={stats.urgent} icon={<FiAlertCircle />} color="red" trend={{ value: 'Priorité Haute', type: 'danger' }} />
+                <StatCard title="Approuvées" value={stats.approved} icon={<FiCheckCircle />} color="green" trend={{ value: 'Prêt FSC', type: 'success' }} />
             </div>
+
 
             <div className="manager-dashboard-grid">
                 {/* Recent RFCs Section */}

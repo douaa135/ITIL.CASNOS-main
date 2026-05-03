@@ -1,14 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FiActivity, FiSearch, FiFilter, FiRefreshCw, FiUser, 
-  FiClock, FiDatabase, FiLayers, FiEye, FiArrowRight, FiX, FiTrash2 
+  FiClock, FiDatabase, FiLayers, FiEye, FiArrowRight, FiX, FiTrash2, FiCheckCircle, FiAlertTriangle, FiCalendar
 } from 'react-icons/fi';
 import auditService from '../../services/auditService';
 import userService from '../../services/userService';
 import './AuditLog.css';
 
+// ── Toast Inline (Partagé entre les modules admin) ─────────────
+const Toast = ({ msg, type, onClose }) => (
+  <div className={`toast-notification ${type}`}>
+    <div className="toast-content">
+      {type === 'success' ? <FiCheckCircle /> : <FiAlertTriangle />}
+      <span>{msg}</span>
+    </div>
+    <button onClick={onClose} className="toast-close"><FiX /></button>
+  </div>
+);
+
 const AuditLog = () => {
   const [logs, setLogs] = useState([]);
+  const [toast, setToast] = useState({ msg: '', type: '' });
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -19,6 +31,9 @@ const AuditLog = () => {
     id_user: '',
     action: ''
   });
+  const [search,     setSearch]     = useState('');
+  const [filterType, setFilterType] = useState('ALL');
+  const [filterUser, setFilterUser] = useState('ALL');
   const [selectedLog, setSelectedLog] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -27,73 +42,59 @@ const AuditLog = () => {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await auditService.getAuditLogs({ ...filters, page, limit }).catch(() => ({ data: { logs: [], total: 0 } }));
-      let fetchedLogs = response?.data?.logs || [];
-      let fetchedTotal = response?.data?.total || 0;
+      const activeFilters = {
+        page,
+        limit,
+        entite_type: filterType !== 'ALL' ? filterType : undefined,
+        id_user: filterUser !== 'ALL' ? filterUser : undefined,
+        action: search.trim() || undefined
+      };
+      
+      const response = await auditService.getAuditLogs(activeFilters);
+      console.log('Audit logs response:', response);
 
-      // Mock data if backend is empty or failed and we haven't fetched yet
-      if (fetchedLogs.length === 0 && !hasFetched) {
-        fetchedLogs = [
-          {
-            id_log: 'mock-1',
-            date_action: new Date().toISOString(),
-            action: 'CREATE',
-            entite_type: 'RFC',
-            entite_id: '12345678-abcd',
-            ancienne_val: null,
-            nouvelle_val: '{"titre": "Mise à jour serveur DB", "urgence": true}',
-            utilisateur: { prenom_user: 'Admin', nom_user: 'Système', email_user: 'admin@casnos.dz' }
-          },
-          {
-            id_log: 'mock-2',
-            date_action: new Date(Date.now() - 3600000).toISOString(),
-            action: 'APPROVE',
-            entite_type: 'CHANGEMENT',
-            entite_id: '87654321-dcba',
-            ancienne_val: '{"statut": "SOUMIS"}',
-            nouvelle_val: '{"statut": "APPROUVE"}',
-            utilisateur: { prenom_user: 'Change', nom_user: 'Manager', email_user: 'k.merabti@casnos.dz' }
-          },
-          {
-            id_log: 'mock-3',
-            date_action: new Date(Date.now() - 7200000).toISOString(),
-            action: 'UPDATE',
-            entite_type: 'USER',
-            entite_id: 'user-001',
-            ancienne_val: '{"actif": false}',
-            nouvelle_val: '{"actif": true}',
-            utilisateur: { prenom_user: 'Admin', nom_user: 'Système', email_user: 'admin@casnos.dz' }
-          }
-        ];
-        
-        // Filter mock data based on selected filters
-        if (filters.entite_type) {
-          fetchedLogs = fetchedLogs.filter(l => l.entite_type === filters.entite_type);
+      // Extraction ultra-résiliente
+      let fetchedLogs = [];
+      let fetchedTotal = 0;
+
+      if (response) {
+        // Cas 1: Structure standard { success, data: { logs, total } }
+        if (response.data && response.data.logs) {
+          fetchedLogs = response.data.logs;
+          fetchedTotal = response.data.total || fetchedLogs.length;
+        } 
+        // Cas 2: Structure plate { logs, total } (si l'intercepteur a déjà déballé .data.data)
+        else if (response.logs) {
+          fetchedLogs = response.logs;
+          fetchedTotal = response.total || fetchedLogs.length;
         }
-        if (filters.action) {
-          fetchedLogs = fetchedLogs.filter(l => l.action.toLowerCase().includes(filters.action.toLowerCase()));
+        // Cas 3: Retour direct d'un tableau
+        else if (Array.isArray(response.data)) {
+          fetchedLogs = response.data;
+          fetchedTotal = fetchedLogs.length;
         }
-        
-        fetchedTotal = fetchedLogs.length;
-        setLogs(fetchedLogs);
-        setTotal(fetchedTotal);
-      } else if (fetchedLogs.length > 0) {
-        setLogs(fetchedLogs);
-        setTotal(fetchedTotal);
+        else if (Array.isArray(response)) {
+          fetchedLogs = response;
+          fetchedTotal = fetchedLogs.length;
+        }
       }
       
-      setHasFetched(true);
+      setLogs(fetchedLogs);
+      setTotal(fetchedTotal);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
+      setToast({ msg: error.message || 'Erreur lors de la récupération des journaux d\'audit.', type: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [filters, page, limit, hasFetched]);
+  }, [filterType, filterUser, search, page, limit]);
 
   const fetchUsers = useCallback(async () => {
     try {
-      const result = await userService.getAllUsers();
-      setUsers(result.users || []);
+      const result = await userService.getAllUsers({ limit: 1000 });
+      // Structure standard : { success, data: { data: [...] } }
+      const list = result?.data?.data || result?.data || [];
+      setUsers(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -120,7 +121,7 @@ const AuditLog = () => {
 
   const handleDeleteLog = (e, id) => {
     e.stopPropagation();
-    // Suppression directe pour une réactivité maximale sur le front
+    if (!window.confirm('Voulez-vous vraiment supprimer cette entrée du journal d\'audit ?')) return;
     setLogs(currentLogs => currentLogs.filter(l => l.id_log !== id));
     setTotal(prev => Math.max(0, prev - 1));
   };
@@ -130,19 +131,19 @@ const AuditLog = () => {
     setSelectedLog(null);
   };
 
-  const getActionColor = (action) => {
+  const getActionClass = (action) => {
     switch (action?.toUpperCase()) {
-      case 'CREATE': return '#10b981';
-      case 'UPDATE': return '#3b82f6';
-      case 'DELETE': return '#ef4444';
-      case 'APPROVE': return '#10b981';
-      case 'REJECT': return '#f59e0b';
-      default: return '#64748b';
+      case 'CREATE': return 'action-create';
+      case 'UPDATE': return 'action-update';
+      case 'DELETE': return 'action-delete';
+      case 'APPROVE': return 'action-approve';
+      case 'REJECT': return 'action-reject';
+      default: return 'action-default';
     }
   };
 
   const formatValue = (val) => {
-    if (!val) return <span style={{ opacity: 0.5, fontStyle: 'italic' }}>— Aucune donnée —</span>;
+    if (!val) return <span className="audit-empty-value">— Aucune donnée —</span>;
     let data = val;
     if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
       try {
@@ -171,36 +172,63 @@ const AuditLog = () => {
 
   return (
     <div className="audit-page">
-      <div className="audit-header">
-        <div>
-          <h1><FiActivity /> Journaux d'audit</h1>
-          <p>Suivi détaillé des actions et modifications système</p>
-        </div>
-        <div className="header-stats">
-          <div className="stat-item premium-stat">
-            <FiDatabase />
-            <span>{total} entrées totales</span>
+      {toast.msg && (
+        <Toast 
+          msg={toast.msg} 
+          type={toast.type} 
+          onClose={() => setToast({ msg: '', type: '' })} 
+        />
+      )}
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiActivity /></div>
+          <div className="premium-header-text">
+            <h1>Journaux d'audit</h1>
+            <p>Consultez les journaux d'audit et supervisez les modifications effectuées sur le système ·</p>
           </div>
+        </div>
+        <div className="premium-header-actions">
+          <button 
+            className="btn-create-premium" 
+            onClick={fetchLogs} 
+            disabled={loading}
+            style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white' }}
+          >
+            <FiRefreshCw className={loading ? 'spin' : ''} /> Actualiser
+          </button>
         </div>
       </div>
 
-      <div className="audit-toolbar">
-        <div className="toolbar-filters">
-          <div className="filter-group">
-            <FiLayers className="filter-icon" />
-            <select name="entite_type" value={filters.entite_type} onChange={handleFilterChange}>
-              <option value="">Toutes les entités</option>
-              <option value="RFC">RFC</option>
-              <option value="CHANGEMENT">Changement</option>
-              <option value="TACHE">Tâche</option>
-              <option value="CI">Élément de Configuration</option>
-              <option value="USER">Utilisateur</option>
-            </select>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+            <FiSearch size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}/>
+            <input 
+              type="text" 
+              name="action" 
+              placeholder="Action (ex: CREATE...)" 
+              value={search} 
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              style={{
+                width: '100%', padding: '0.6rem 0.9rem 0.6rem 2.4rem',
+                borderRadius: '10px', border: '1.5px solid #e2e8f0',
+                fontSize: '0.9rem', boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
+              }}
+            />
           </div>
-
-          <div className="filter-group">
             <FiUser className="filter-icon" />
-            <select name="id_user" value={filters.id_user} onChange={handleFilterChange}>
+            <select 
+              name="id_user" 
+              value={filterUser} 
+              onChange={e => { setFilterUser(e.target.value); setPage(1); }}
+              style={{
+                padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
+                fontSize: '0.875rem', background: '#f8fafc', cursor: 'pointer', fontWeight: '500',
+                minWidth: '150px', appearance: 'none', WebkitAppearance: 'none',
+                backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center',
+              }}
+            >
               <option value="">Tous les utilisateurs</option>
               {users.map(u => (
                 <option key={u.id_user} value={u.id_user}>
@@ -208,24 +236,40 @@ const AuditLog = () => {
                 </option>
               ))}
             </select>
-          </div>
 
-          <div className="filter-group">
-            <FiSearch className="filter-icon" />
-            <input 
-              type="text" 
-              name="action" 
-              placeholder="Action (ex: CREATE...)" 
-              value={filters.action} 
-              onChange={handleFilterChange}
-            />
-          </div>
-
-          <button className="refresh-btn" onClick={fetchLogs} title="Actualiser">
-            <FiRefreshCw className={loading ? 'spinning' : ''} />
+            <FiLayers className="filter-icon" />
+            <select 
+              name="entite_type" 
+              value={filterType} 
+              onChange={e => { setFilterType(e.target.value); setPage(1); }}
+              style={{
+                padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
+                fontSize: '0.875rem', background: '#f8fafc', cursor: 'pointer', fontWeight: '500',
+                minWidth: '150px', appearance: 'none', WebkitAppearance: 'none',
+                backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center',
+              }}
+              >
+              <option value="">Toutes les entités</option>
+              <option value="RFC">RFC</option>
+              <option value="CHANGEMENT">Changement</option>
+              <option value="TACHE">Tâche</option>
+              <option value="CI">Élément de Configuration</option>
+              <option value="USER">Utilisateur</option>
+            </select>
+          {(search || filterType !== 'ALL' || filterUser !== 'ALL' ) && (
+          <button 
+            onClick={() => { setSearch(''); setFilterType('ALL'); setFilterUser('ALL');}}
+            style={{
+              padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid #7c3aed',
+              fontSize: '0.875rem', background: '#f5f3ff', color: '#7c3aed', 
+              cursor: 'pointer', fontWeight: '600'
+            }}
+          >
+            Réinitialiser
           </button>
+          )}
         </div>
-      </div>
 
       <div className="audit-table-container glass-card">
         {loading ? (
@@ -248,7 +292,7 @@ const AuditLog = () => {
                 <th>Entité</th>
                 <th>Ancienne Valeur</th>
                 <th className="th-new-val">Nouvelle Valeur</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -265,7 +309,7 @@ const AuditLog = () => {
                     <span>{log.utilisateur?.prenom_user} {log.utilisateur?.nom_user}</span>
                   </td>
                   <td>
-                    <span className="action-badge" style={{ backgroundColor: getActionColor(log.action) }}>
+                    <span className={`action-badge ${getActionClass(log.action)}`}>
                       {log.action}
                     </span>
                   </td>
@@ -280,7 +324,7 @@ const AuditLog = () => {
                   <td className="td-new-val">
                     <div className="audit-val-container premium-new-box">{formatValue(log.nouvelle_val)}</div>
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td className="text-right">
                     <button 
                       className="action-circle-btn delete" 
                       onClick={(e) => handleDeleteLog(e, log.id_log)}
@@ -344,7 +388,7 @@ const AuditLog = () => {
                 <div className="detail-item">
                   <label><FiActivity /> Action & Entité</label>
                   <div className="action-entite-info">
-                    <span className="action-badge" style={{ backgroundColor: getActionColor(selectedLog.action) }}>
+                    <span className={`action-badge ${getActionClass(selectedLog.action)}`}>
                       {selectedLog.action}
                     </span>
                     <span className={`entite-badge ${selectedLog.entite_type?.toLowerCase()}`}>

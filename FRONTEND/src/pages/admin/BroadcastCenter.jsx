@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   FiRadio, FiSend, FiUsers, FiClock,
-  FiInfo, FiTrash2
+  FiInfo, FiTrash2, FiCalendar
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
 import './BroadcastCenter.css';
@@ -38,10 +38,20 @@ const BroadcastCenter = () => {
   };
 
   const fetchRecentNotifs = async () => {
-    setRecentNotifs([
-      { id: 1, date: '2026-04-13T10:00:00', objet: 'Maintenance Serveur',  destinataire: 'Tous' },
-      { id: 2, date: '2026-04-12T15:30:00', objet: 'Mise à jour CRM',       destinataire: 'Direction des Prestations' },
-    ]);
+    try {
+      const res = await api.get('/notifications', { params: { page: 1, limit: 20 } });
+      // On gère plusieurs structures possibles (standard R.success, ou déballage auto)
+      let list = [];
+      if (res?.data?.notifications) list = res.data.notifications;
+      else if (res?.notifications) list = res.notifications;
+      else if (Array.isArray(res?.data)) list = res.data;
+      else if (Array.isArray(res)) list = res;
+
+      setRecentNotifs(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.error('[BroadcastCenter] fetchRecentNotifs error:', e);
+      setRecentNotifs([]);
+    }
   };
 
   /** Résoud les IDs à partir de la sélection */
@@ -52,7 +62,18 @@ const BroadcastCenter = () => {
 
   const targetCount = resolveTargetIds().length;
 
-  const handleBroadcast = async (e) => {
+  const handleDeleteRecent = async (id) => {
+    if (!window.confirm('Supprimer cette diffusion récente ?')) return;
+    try {
+      await api.delete(`/notifications/${id}`);
+      setRecentNotifs(prev => prev.filter(item => item.id !== id && item.id_notif !== id));
+    } catch (e) {
+      console.error('[BroadcastCenter] delete notification error:', e);
+      alert('Impossible de supprimer cette notification.');
+    }
+  };
+
+  const handleSendBroadcast = async (e) => {
     e.preventDefault();
     if (!message.trim() || !objet.trim()) return;
 
@@ -76,6 +97,7 @@ const BroadcastCenter = () => {
         alert(`${targetIds.length - failures.length} envoyées, ${failures.length} échec(s).\nDétail: ${errMsg}`);
       } else {
         alert(`✅ ${targetIds.length} notification(s) envoyée(s) avec succès !`);
+        fetchRecentNotifs(); // Rafraîchir la liste après envoi
       }
       setMessage('');
       setObjet('');
@@ -89,9 +111,19 @@ const BroadcastCenter = () => {
 
   return (
     <div className="broadcaster-page">
-      <div className="broadcast-header">
-        <h2><FiRadio /> Centre de Diffusion</h2>
-        <p>Envoyez des préavis de changement et des alertes de maintenance aux utilisateurs.</p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiRadio /></div>
+          <div className="premium-header-text">
+            <h1>Centre de Diffusion</h1>
+            <p>Configurez les messages de diffusion et supervisez les alertes envoyées aux utilisateurs ·</p>
+          </div>
+        </div>
+        <div className="premium-header-actions">
+          <button className="btn-create-premium" onClick={handleSendBroadcast} disabled={sending}>
+            <FiSend /> {sending ? 'Envoi...' : 'Diffuser le message'}
+          </button>
+        </div>
       </div>
 
       <div className="broadcast-grid">
@@ -102,28 +134,18 @@ const BroadcastCenter = () => {
             <p>Rédigez votre message pour les utilisateurs impactés.</p>
           </div>
 
-          <form onSubmit={handleBroadcast}>
+          <form onSubmit={handleSendBroadcast}>
 
             {/* ─ Sélection du destinataire ─ */}
             <div className="form-group">
-              <label>
-                <FiUsers style={{ marginRight: 6, verticalAlign: 'middle' }} />
+              <label className="dest-label">
+                <FiUsers className="dest-label-icon" />
                 Destinataire
               </label>
               <select
-                className="sd-input"
                 value={selectedUser}
                 onChange={e => setSelectedUser(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.65rem 1rem',
-                  borderRadius: '10px',
-                  border: '1.5px solid #e2e8f0',
-                  fontSize: '0.9rem',
-                  background: 'white',
-                  cursor: 'pointer',
-                  fontWeight: '500',
-                }}
+                className="sd-input sd-select"
               >
                 <option value="TOUS">Tous les utilisateurs</option>
                 {users.map(u => (
@@ -133,19 +155,7 @@ const BroadcastCenter = () => {
                 ))}
               </select>
               {/* Compteur dynamique */}
-              <div style={{
-                marginTop: '0.5rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                background: targetCount > 0 ? '#eff6ff' : '#f8fafc',
-                color: targetCount > 0 ? '#1d4ed8' : '#94a3b8',
-                border: `1px solid ${targetCount > 0 ? '#bfdbfe' : '#e2e8f0'}`,
-                borderRadius: '99px',
-                padding: '0.25rem 0.75rem',
-                fontSize: '0.78rem',
-                fontWeight: '700',
-              }}>
+              <div className={`target-count-pill ${targetCount > 0 ? 'is-active' : 'is-empty'}`}>
                 <FiUsers size={12} />
                 {targetCount} utilisateur{targetCount !== 1 ? 's' : ''} ciblé{targetCount !== 1 ? 's' : ''}
               </div>
@@ -181,7 +191,7 @@ const BroadcastCenter = () => {
               <p>Un préavis minimum de 24h est recommandé pour les changements normaux.</p>
             </div>
 
-            <button type="submit" className="btn-create-premium" style={{ width: '100%', justifyContent: 'center' }} disabled={sending || targetCount === 0}>
+            <button type="submit" className="btn-create-premium btn-broadcast-submit" disabled={sending || targetCount === 0}>
               {sending ? 'Diffusion en cours...' : <><FiSend /> Diffuser maintenant</>}
             </button>
           </form>
@@ -194,13 +204,17 @@ const BroadcastCenter = () => {
           </div>
           <div className="history-list">
             {recentNotifs.map(n => (
-              <div key={n.id} className="history-item">
+              <div key={n.id_notif || n.id} className="history-item">
                 <div className="history-icon"><FiRadio /></div>
-                <div className="history-info">
-                  <strong>{n.objet}</strong>
-                  <span>Dest: {n.destinataire} • {new Date(n.date).toLocaleString()}</span>
+                <div className="history-card">
+                  <div className="history-info">
+                    <strong>{n.objet}</strong>
+                    <span>
+                  Dest: {n.utilisateur ? `${n.utilisateur.prenom_user || ''} ${n.utilisateur.nom_user || ''}` : 'Utilisateur inconnu'} • {new Date(n.date_envoi || n.date || n.date_action).toLocaleString()}
+                </span>
+                  </div>
+                  <button className="del-btn" onClick={() => handleDeleteRecent(n.id_notif || n.id)}><FiTrash2 /></button>
                 </div>
-                <button className="del-btn"><FiTrash2 /></button>
               </div>
             ))}
           </div>

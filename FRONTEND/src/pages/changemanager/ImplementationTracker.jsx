@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   FiActivity, FiCheckCircle, FiClock, FiAlertCircle, 
   FiMaximize2, FiMinimize2, FiUser, FiList, FiMessageSquare,
-  FiPlus, FiX, FiCheck, FiCpu, FiTrendingUp, FiUsers, FiCheckSquare
+  FiPlus, FiX, FiCheck, FiCpu, FiTrendingUp, FiUsers, FiCheckSquare, FiCalendar
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
+import InlineEditableBadge from '../../components/common/InlineEditableBadge';
 import './ImplementationTracker.css';
 
 const ImplementationTracker = () => {
@@ -26,6 +27,7 @@ const ImplementationTracker = () => {
     const [activeTab, setActiveTab] = useState('tracking'); // 'tracking' or 'team'
     const [filterType, setFilterType] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
+    const [taskStatuses, setTaskStatuses] = useState([]);
     const [newTask, setNewTask] = useState({
         titre_tache: '',
         description: '',
@@ -39,9 +41,10 @@ const ImplementationTracker = () => {
             setLoading(true);
             try {
                 // Fetch changes and implementers in parallel
-                const [changesRes, impsRes] = await Promise.all([
+                const [changesRes, impsRes, taskStatusRes] = await Promise.all([
                     api.get('/changements'),
-                    api.get('/users?nom_role=IMPLEMENTEUR&limit=100')
+                    api.get('/users?nom_role=IMPLEMENTEUR&limit=100'),
+                    api.get('/statuts?contexte=TACHE')
                 ]);
 
                 if (changesRes.data) {
@@ -68,6 +71,12 @@ const ImplementationTracker = () => {
                         }
                     }
                     setImplementerStats(stats);
+                }
+
+                if (taskStatusRes?.data?.statuts) {
+                    setTaskStatuses(taskStatusRes.data.statuts);
+                } else if (taskStatusRes?.statuts) {
+                    setTaskStatuses(taskStatusRes.statuts);
                 }
             } catch (error) {
                 console.error('Tracker Init Error:', error);
@@ -133,20 +142,33 @@ const ImplementationTracker = () => {
         }
     };
 
-    const fetchImplementerTasks = async (implementer) => {
-        if (!implementer) return;
-        setSelectedImplementer(implementer);
-        setLoadingImplementerTasks(true);
-        setShowTasksModal(true);
+    const fetchTasks = async (idChangement) => {
         try {
-            const res = await api.get(`/taches/implementeur/${implementer.id_user}`);
+            const res = await api.get(`/changements/${idChangement}/taches`);
             const tasks = res.data?.taches || res.taches || [];
-            setImplementerTasks(tasks);
+            setTasksData(prev => ({ ...prev, [idChangement]: tasks }));
         } catch (error) {
-            console.error('Fetch Implementer Tasks Error:', error);
-            setImplementerTasks([]);
-        } finally {
-            setLoadingImplementerTasks(false);
+            console.error('Fetch Tasks Error:', error);
+        }
+    };
+
+    const handleTaskStatusUpdate = async (taskId, newStatusId, idChangement) => {
+        try {
+            await api.patch(`/taches/${taskId}/statut`, { id_statut: newStatusId });
+            await fetchTasks(idChangement);
+        } catch (error) {
+            console.error('Erreur statut tâche', error);
+            alert('Erreur lors du changement de statut de la tâche.');
+        }
+    };
+
+    const handleTaskUpdate = async (taskId, payload, idChangement) => {
+        try {
+            await api.put(`/taches/${taskId}`, payload);
+            await fetchTasks(idChangement);
+        } catch (error) {
+            console.error('Erreur mise à jour tâche', error);
+            alert('Erreur lors de la mise à jour de la tâche.');
         }
     };
 
@@ -194,41 +216,66 @@ const ImplementationTracker = () => {
 
     return (
         <div className="tracker-page">
-            <div className="tracker-header-box">
-                <div className="header-info">
-                    <h1>Suivi de l'Implémentation</h1>
-                    <p>Surveillez en temps réel l'avancement technique et les tâches des implémenteurs.</p>
+            <div className="premium-header-card">
+                <div className="premium-header-left">
+                    <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}>
+                        <FiActivity />
+                    </div>
+                    <div className="premium-header-text">
+                        <h1>Suivi de l'Implémentation</h1>
+                        <p>
+                            Surveillez en temps réel l'avancement technique et les tâches des implémenteurs · 
+                            <span style={{ marginLeft: '8px', color: '#7c3aed', fontWeight: '600' }}>
+                                <FiCalendar style={{ verticalAlign: 'middle', marginRight: '4px', marginBottom: '2px' }} /> 
+                                {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </span>
+                        </p>
+                    </div>
                 </div>
-                <div className="tab-controls-premium">
+                <div className="premium-header-actions" style={{ display: 'flex', gap: '0.75rem' }}>
                     <button 
-                        className={`tab-btn ${activeTab === 'tracking' ? 'active' : ''}`}
+                        className={`btn-secondary-cab ${activeTab === 'tracking' ? 'active-tab' : ''}`}
                         onClick={() => setActiveTab('tracking')}
+                        style={{ border: activeTab === 'tracking' ? '1.5px solid #6366f1' : '1.5px solid #e2e8f0', color: activeTab === 'tracking' ? '#6366f1' : '#475569', background: activeTab === 'tracking' ? '#f5f3ff' : 'white' }}
                     >
                         <FiActivity /> Suivi Flux
                     </button>
                     <button 
-                        className={`tab-btn ${activeTab === 'team' ? 'active' : ''}`}
+                        className={`btn-secondary-cab ${activeTab === 'team' ? 'active-tab' : ''}`}
                         onClick={() => setActiveTab('team')}
+                        style={{ border: activeTab === 'team' ? '1.5px solid #6366f1' : '1.5px solid #e2e8f0', color: activeTab === 'team' ? '#6366f1' : '#475569', background: activeTab === 'team' ? '#f5f3ff' : 'white' }}
                     >
                         <FiUsers /> Équipe Technique
                     </button>
                 </div>
             </div>
 
+            {/* Task Statuses State (Local simulation or fetch if needed) */}
+            {/* For simplicity in this view, we'll use a hardcoded or derived list if not fetched */}
+
             {activeTab === 'tracking' ? (
                 <>
-                    <div className="tracker-stats-row">
-                        <div className="stat-card">
-                            <span className="stat-label">En Cours</span>
-                            <span className="stat-value">{changements.filter(c => c.statut?.code_statut === 'EN_COURS').length}</span>
+                    <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                        <div className="stat-card blue">
+                            <div className="stat-icon-wrapper"><FiActivity size={24} /></div>
+                            <div className="stat-info">
+                                <div className="stat-value">{changements.filter(c => c.statut?.code_statut === 'EN_COURS').length}</div>
+                                <div className="stat-label">En Cours</div>
+                            </div>
                         </div>
-                        <div className="stat-card">
-                            <span className="stat-label">Terminés</span>
-                            <span className="stat-value">{changements.filter(c => c.statut?.code_statut === 'CLOTURE' || c.statut?.code_statut === 'IMPLEMENTE').length}</span>
+                        <div className="stat-card green">
+                            <div className="stat-icon-wrapper"><FiCheckCircle size={24} /></div>
+                            <div className="stat-info">
+                                <div className="stat-value">{changements.filter(c => c.statut?.code_statut === 'CLOTURE' || c.statut?.code_statut === 'IMPLEMENTE').length}</div>
+                                <div className="stat-label">Terminés</div>
+                            </div>
                         </div>
-                        <div className="stat-card urgent">
-                            <span className="stat-label">En Échec</span>
-                            <span className="stat-value">{changements.filter(c => c.statut?.code_statut === 'EN_ECHEC').length}</span>
+                        <div className="stat-card red" style={{ borderLeft: '3px solid #ef4444' }}>
+                            <div className="stat-icon-wrapper" style={{ background: '#fef2f2', color: '#dc2626' }}><FiAlertCircle size={24} /></div>
+                            <div className="stat-info">
+                                <div className="stat-value">{changements.filter(c => c.statut?.code_statut === 'EN_ECHEC').length}</div>
+                                <div className="stat-label">En Échec</div>
+                            </div>
                         </div>
                     </div>
 
@@ -247,6 +294,7 @@ const ImplementationTracker = () => {
                                                     <span className="change-id">#{change.code_changement}</span>
                                                     <h3>{change.rfc?.titre_rfc || 'Changement Standard'}</h3>
                                                     <div className="tracker-meta">
+                                                        <span className="meta-item"><FiUser /> Demandeur: {change.rfc ? `${change.rfc.demandeur?.prenom_user || ''} ${change.rfc.demandeur?.nom_user || ''}` : `${change.changeManager?.prenom_user || ''} ${change.changeManager?.nom_user || ''}`}</span>
                                                         <span className="meta-item"><FiUser /> Resp: {change.changeManager?.nom_user}</span>
                                                         <span className="meta-item"><FiClock /> Début: {change.date_debut ? new Date(change.date_debut).toLocaleDateString() : '—'}</span>
                                                         <span className="meta-item">Type: {change.rfc?.typeRfc?.type || change.type || 'Standard'}</span>
@@ -293,36 +341,54 @@ const ImplementationTracker = () => {
                                             
                                             {isExpanded && (
                                                 <div className="tracker-expanded-area">
-                                                    <h4 className="expanded-title"><FiList /> Tâches assignées</h4>
+                                                    <h4 className="expanded-title"><FiList /> Tâches techniques</h4>
                                                     {tasks.length === 0 ? (
                                                         <p className="no-tasks-msg">Aucune tâche planifiée pour l'instant.</p>
                                                     ) : (
-                                                        <div className="tasks-inner-list">
-                                                            {tasks.map(task => (
-                                                                <div key={task.id_tache} className="inner-task-item">
-                                                                    <div className="task-basic-info">
-                                                                        <div className="task-header-row">
-                                                                            <span className="inner-task-code">{task.code_tache}</span>
-                                                                            <span className={`inner-task-status ${task.statut?.code_statut?.toLowerCase()}`}>
-                                                                                {task.statut?.libelle}
-                                                                            </span>
-                                                                        </div>
-                                                                        <h5 className="inner-task-title">{task.titre_tache}</h5>
-                                                                        <div className="inner-task-meta">
-                                                                            <span className="imp-name"><FiUser /> {task.implementeur?.nom_user || 'Non assigné'}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    
-                                                                    <div className="task-logs-preview">
-                                                                        <h6><FiMessageSquare /> Dernier rapport :</h6>
-                                                                        {task.journaux?.length > 0 ? (
-                                                                            <p className="log-text">"{task.journaux[0].description}" - <span className="log-date">{new Date(task.journaux[0].date_entree).toLocaleDateString()}</span></p>
-                                                                        ) : (
-                                                                            <p className="no-log-text">Aucun journal soumis.</p>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            ))}
+                                                        <div className="tasks-table-mini-wrapper">
+                                                            <table className="tasks-table-mini">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Code</th>
+                                                                        <th>Titre</th>
+                                                                        <th>Statut</th>
+                                                                        <th>Implémenteur</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {tasks.map(task => (
+                                                                        <tr key={task.id_tache}>
+                                                                            <td className="mini-code">{task.code_tache}</td>
+                                                                            <td className="mini-title">{task.titre_tache}</td>
+                                                                            <td>
+                                                                                <InlineEditableBadge 
+                                                                                    currentValue={task.id_statut || task.statut?.id_statut} 
+                                                                                    currentCode={task.statut?.code_statut}
+                                                                                    options={taskStatuses.map(s => ({ value: s.id_statut, label: s.libelle, code: s.code_statut }))}
+                                                                                    getVariant={(val) => {
+                                                                                        const s = taskStatuses.find(st => st.id_statut == val);
+                                                                                        return s?.code_statut?.toLowerCase() || 'default';
+                                                                                    }}
+                                                                                    onUpdate={(newId) => handleTaskStatusUpdate(task.id_tache, newId, change.id_changement)}
+                                                                                    isEditable={true}
+                                                                                    dropdownPosition="up"
+                                                                                />
+                                                                            </td>
+                                                                            <td>
+                                                                                <InlineEditableBadge
+                                                                                    currentValue={task.id_user || task.implementeur?.id_user}
+                                                                                    options={implementers.map(imp => ({ value: imp.id_user, label: `${imp.prenom_user} ${imp.nom_user}` }))}
+                                                                                    getVariant={() => 'info'}
+                                                                                    onUpdate={(newId) => handleTaskUpdate(task.id_tache, { id_user: newId }, change.id_changement)}
+                                                                                    isEditable={true}
+                                                                                    dropdownPosition="up"
+                                                                                    label={task.implementeur ? `${task.implementeur.prenom_user} ${task.implementeur.nom_user}` : 'Non assigné'}
+                                                                                />
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
                                                         </div>
                                                     )}
                                                 </div>

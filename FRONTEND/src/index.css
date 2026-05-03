@@ -4,6 +4,7 @@
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
+@import './pages/admin/AdminUnified.css';
 
 /* ── Design Tokens ──────────────────────────────────────────── */
 :root {
@@ -79,7 +80,7 @@
   --glass-bg:       rgba(255, 255, 255, 0.82);
   --glass-border:   rgba(255, 255, 255, 0.45);
   --glass-shadow:   0 8px 32px rgba(0, 51, 102, 0.12);
-  --card-bg:        #ffffff;
+  --card-bg:        transparent;
   --surface-bg:     var(--slate-50);
 
   /* Typography */
@@ -106,13 +107,13 @@
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
-  --shadow-lg:  0 10px 28px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.04);
-  --shadow-xl:  0 20px 48px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.06);
-  --shadow-blue: 0 8px 24px rgba(0, 51, 102, 0.2);
-  --shadow-blue-lg: 0 16px 48px rgba(0, 51, 102, 0.28);
+  --shadow-xs:  none;
+  --shadow-sm:  none;
+  --shadow-md:  none;
+  --shadow-lg:  none;
+  --shadow-xl:  none;
+  --shadow-blue: none;
+  --shadow-blue-lg: none;
 
   /* Transitions */
   --transition-fast:   all 0.15s ease;
@@ -326,8 +327,10 @@ a, button, input, select, textarea {
 }
 
 .stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 32px rgba(0, 51, 102, 0.12), 0 4px 8px rgba(0, 0, 0, 0.04);
+  border-color: var(--casnos-blue-200);
+  z-index: 2;
 }
 
 .stat-card:hover::after { opacity: 1; }
@@ -336,11 +339,13 @@ a, button, input, select, textarea {
 .stat-card.purple::after { background: #8b5cf6; }
 .stat-card.amber::after { background: var(--warning-base); }
 .stat-card.green::after { background: var(--success-base); }
+.stat-card.red::after   { background: #ef4444; }
 
 .stat-card.blue   { border-left: 3px solid var(--info-base); }
 .stat-card.purple { border-left: 3px solid #8b5cf6; }
 .stat-card.amber  { border-left: 3px solid var(--warning-base); }
 .stat-card.green  { border-left: 3px solid var(--success-base); }
+.stat-card.red    { border-left: 3px solid #ef4444; }
 
 .stat-icon-wrapper {
   padding: 10px;
@@ -354,6 +359,7 @@ a, button, input, select, textarea {
 .stat-card.purple .stat-icon-wrapper { background: #f5f3ff;           color: #6d28d9; }
 .stat-card.amber  .stat-icon-wrapper { background: var(--warning-bg); color: #b45309; }
 .stat-card.green  .stat-icon-wrapper { background: var(--success-bg); color: var(--success-dark); }
+.stat-card.red    .stat-icon-wrapper { background: #fef2f2;           color: #dc2626; }
 
 .stat-info { display: flex; flex-direction: column; }
 .stat-value {
@@ -379,8 +385,9 @@ a, button, input, select, textarea {
 }
 
 .selected-active {
-  background-color: #eef6ff !important;
-  border-left: 3px solid var(--info-base) !important;
+  background-color: #f0f4ff !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4) inset !important;
+  transform: translateY(-2px);
 }
 
 /* ── Skeleton Loading ────────────────────────────────────────── */
@@ -404,7 +411,7 @@ a, button, input, select, textarea {
   align-items: center;
   gap: 0.6rem;
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
   color: white;
   border: none;
   border-radius: 12px;
@@ -413,14 +420,14 @@ a, button, input, select, textarea {
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
   white-space: nowrap;
 }
 
 .btn-create-premium:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
-  background: linear-gradient(135deg, #6d70ff 0%, #5a51ff 100%);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
 }
 
 .btn-create-premium:active:not(:disabled) {
@@ -432,4 +439,25 @@ a, button, input, select, textarea {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* ── Global Responsive Tables & Overflow ──────────────────────── */
+.table-responsive,
+.table-container,
+.card-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Ensure no direct children of layout blowout */
+.card, .panel, .dashboard-card {
+  max-width: 100%;
+  overflow-x: auto;
 }

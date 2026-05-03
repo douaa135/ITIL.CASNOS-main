@@ -16,7 +16,7 @@ const ProfileField = ({ label, value, icon }) => (
   <div className="info-field-premium">
     <label>{label}</label>
     <div className="value-box">
-      <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <span className="profile-inline-icon-text">
         {icon} {value || '—'}
       </span>
     </div>
@@ -83,7 +83,7 @@ const Profile = () => {
         <div className="profile-title-box">
           <h1>{user?.prenom_user} {user?.nom_user}</h1>
           <div className="profile-role-badge">
-            <FiShield size={14} style={{ marginRight: '6px' }} />
+            <FiShield size={14} className="profile-role-icon" />
             {user?.roles?.[0] || 'Utilisateur'}
           </div>
         </div>
@@ -105,7 +105,7 @@ const Profile = () => {
             ].map((f) => (
               <div className="input-group-premium" key={f.name}>
                 <label>{f.label}</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="profile-input-with-icon">
                   {f.icon}
                   <input
                     type={f.type}
@@ -126,19 +126,13 @@ const Profile = () => {
             />
 
             <button type="submit" className="save-btn-premium" disabled={loading}>
-              <FiSave size={16} style={{ marginRight: '8px' }} />
+              <FiSave size={16} className="profile-save-icon" />
               {loading ? 'Mise à jour...' : 'Mettre à jour le profil'}
             </button>
 
             {status.message && (
-              <div style={{
-                marginTop: '15px', padding: '10px', borderRadius: '8px',
-                background: status.type === 'success' ? '#d1fae5' : '#fee2e2',
-                color: status.type === 'success' ? '#065f46' : '#991b1b',
-                border: `1px solid ${status.type === 'success' ? '#a7f3d0' : '#fecaca'}`,
-                fontSize: '0.85rem',
-              }}>
-                {status.type === 'success' ? <FiCheckCircle style={{ marginRight: '8px' }} /> : <FiAlertCircle style={{ marginRight: '8px' }} />}
+              <div className={`profile-status-message ${status.type}`}>
+                {status.type === 'success' ? <FiCheckCircle className="profile-status-icon" /> : <FiAlertCircle className="profile-status-icon" />}
                 {status.message}
               </div>
             )}

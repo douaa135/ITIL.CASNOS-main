@@ -1,5 +1,7 @@
+@import './AdminUnified.css';
+
 .audit-page {
-  padding: 1rem;
+  padding: 0;
   max-width: 1400px;
   margin: 0 auto;
   animation: fadeIn 0.4s ease;
@@ -228,6 +230,36 @@
   color: white;
   font-size: 0.65rem;
   font-weight: 700;
+}
+
+.action-badge.action-create,
+.action-badge.action-approve {
+  background-color: #10b981;
+}
+
+.action-badge.action-update {
+  background-color: #3b82f6;
+}
+
+.action-badge.action-delete {
+  background-color: #ef4444;
+}
+
+.action-badge.action-reject {
+  background-color: #f59e0b;
+}
+
+.action-badge.action-default {
+  background-color: #64748b;
+}
+
+.audit-empty-value {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.text-right {
+  text-align: right;
 }
 
 .td-entite {

@@ -87,9 +87,24 @@ const Broadcaster = () => {
 
   return (
     <div className="broadcaster-page">
-      <div className="broadcast-header">
-         <h2><FiRadio /> Centre de Diffusion</h2>
-         <p>Envoyez des préavis de changement et des alertes de maintenance aux utilisateurs.</p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiRadio /></div>
+          <div className="premium-header-text">
+            <h1>Centre de Diffusion</h1>
+            <p>Envoyez des préavis de changement et des alertes de maintenance aux utilisateurs.</p>
+          </div>
+        </div>
+        <div className="premium-header-actions">
+           <button 
+             className="btn-create-premium" 
+             onClick={handleBroadcast} 
+             disabled={sending}
+             style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}
+           >
+              {sending ? 'Diffusion en cours...' : <><FiSend /> Diffuser maintenant</>}
+           </button>
+        </div>
       </div>
 
       <div className="broadcast-grid">
@@ -101,15 +116,14 @@ const Broadcaster = () => {
             
             <form onSubmit={handleBroadcast}>
                <div className="form-group">
-                  <label>
-                    <FiUsers style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                  <label className="broadcast-destination-label">
+                    <FiUsers className="broadcast-destination-icon" />
                     Destinataire
                   </label>
                   <select
                     value={selectedUser}
                     onChange={e => setSelectedUser(e.target.value)}
-                    className="sd-input"
-                    style={{ width: '100%', padding: '0.65rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', background: 'white', cursor: 'pointer', fontWeight: '500' }}
+                    className="sd-input sd-select-input"
                   >
                     <option value="ALL">📢 Tous les utilisateurs</option>
                     
@@ -120,19 +134,7 @@ const Broadcaster = () => {
                     ))}
                   </select>
                   {/* Compteur dynamique */}
-                  <div style={{
-                    marginTop: '0.5rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                    background: selectedUser === 'ALL' ? '#eff6ff' : '#f0fdf4',
-                    color: selectedUser === 'ALL' ? '#1d4ed8' : '#15803d',
-                    border: `1px solid ${selectedUser === 'ALL' ? '#bfdbfe' : '#bbf7d0'}`,
-                    borderRadius: '99px',
-                    padding: '0.25rem 0.75rem',
-                    fontSize: '0.78rem',
-                    fontWeight: '700',
-                  }}>
+                  <div className={`broadcast-target-pill ${selectedUser === 'ALL' ? 'all-targets' : 'single-target'}`}>
                     <FiUsers size={12} />
                     {selectedUser === 'ALL' 
                       ? `${users.length} utilisateur${users.length !== 1 ? 's' : ''} ciblé${users.length !== 1 ? 's' : ''}`
@@ -168,10 +170,6 @@ const Broadcaster = () => {
                   <FiInfo />
                   <p>Un préavis minimum de 24h est recommandé pour les changements normaux.</p>
                </div>
-
-               <button type="submit" className="btn-broadcast" disabled={sending}>
-                  {sending ? 'Diffusion en cours...' : <><FiSend /> Diffuser maintenant</>}
-               </button>
             </form>
          </div>
 

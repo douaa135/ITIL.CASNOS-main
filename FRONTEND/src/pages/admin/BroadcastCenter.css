@@ -1,3 +1,5 @@
+@import './AdminUnified.css';
+
 .broadcaster-page {
   animation: fadeIn 0.4s ease-out;
 }
@@ -64,6 +66,16 @@
   margin-bottom: 0.5rem;
 }
 
+.dest-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dest-label-icon {
+  vertical-align: middle;
+}
+
 .sd-input, .sd-textarea {
   width: 100%;
   padding: 0.85rem 1rem;
@@ -74,6 +86,44 @@
   font-size: 0.95rem;
   outline: none;
   transition: all 0.2s;
+}
+
+.sd-select {
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  font-size: 0.9rem;
+  background: white;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.target-count-pill {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 99px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.target-count-pill.is-active {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.target-count-pill.is-empty {
+  background: #f8fafc;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-broadcast-submit {
+  width: 100%;
+  justify-content: center;
 }
 
 .sd-input:focus, .sd-textarea:focus {
@@ -141,11 +191,22 @@
 
 .history-item {
   display: flex;
-  align-items: center;
-  padding: 1rem;
-  background: #f8fafc;
-  border-radius: 12px;
+  align-items: flex-start;
   gap: 1rem;
+}
+
+.history-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
 }
 
 .history-icon {
@@ -157,31 +218,34 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .history-info {
-  flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .history-info strong {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: #1e293b;
+  line-height: 1.3;
 }
 
 .history-info span {
-  font-size: 0.7rem;
-  color: #94a3b8;
-  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 0.2rem;
 }
 
 .del-btn {
   background: none;
   border: none;
-  color: #cbd5e1;
+  color: #94a3b8;
   cursor: pointer;
   padding: 0.5rem;
+  flex-shrink: 0;
 }
 
 .del-btn:hover {

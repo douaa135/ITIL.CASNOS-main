@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../api/axiosClient';
 import Card from '../../components/common/Card';
+import Toast from '../../components/common/Toast';
+import StatCard from '../../components/common/StatCard';
 import {
   FiUsers, FiUserPlus, FiTrash2, FiEdit2, FiCheck,
   FiX, FiSearch, FiShield, FiToggleLeft, FiToggleRight,
-  FiAlertTriangle, FiCheckCircle, FiLoader, FiEye, FiEyeOff, FiBell
+  FiAlertTriangle, FiCheckCircle, FiLoader, FiEye, FiEyeOff, FiBell, FiCalendar, FiClock
 } from 'react-icons/fi';
 import './AdminCabManagement.css';
 
@@ -17,7 +19,6 @@ const ROLE_META = {
   MEMBRE_CAB:     { color: '#b45309', bg: '#fef3c7', label: 'Membre CAB' },
   DEMANDEUR:      { color: '#6b7280', bg: '#f3f4f6', label: 'Demandeur' },
   SERVICE_DESK:   { color: '#0e7490', bg: '#cffafe', label: 'Service Desk' },
-  ADMIN_SYSTEME:  { color: '#dc2626', bg: '#fee2e2', label: 'Admin Système' },
 };
 
 const RoleBadge = ({ role }) => {
@@ -62,53 +63,9 @@ const DirectionBadge = ({ name }) => {
   );
 };
 
-// ── Toast notifications ───────────────────────────────────────
-const Toast = ({ msg, type, onClose }) => (
-  <div style={{
-    position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999,
-    display: 'flex', alignItems: 'center', gap: '0.75rem',
-    padding: '1rem 1.5rem', borderRadius: '12px',
-    background: type === 'success' ? '#064e3b' : '#7f1d1d',
-    color: 'white', boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-    animation: 'slideInUp 0.3s ease',
-    minWidth: '280px',
-  }}>
-    {type === 'success' ? <FiCheckCircle size={18} /> : <FiAlertTriangle size={18} />}
-    <span style={{ flex: 1, fontSize: '0.9rem' }}>{msg}</span>
-    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'white', padding: '2px' }}>
-      <FiX size={16} />
-    </button>
-  </div>
-);
+// ── Toast component removed (using shared one) ─────────────
 
-// ── Modal de confirmation ─────────────────────────────────────
-const ConfirmModal = ({ title, message, onConfirm, onCancel, danger }) => (
-  <div className="modal-backdrop-cab" onClick={onCancel}>
-    <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
-      <div className="modal-top-rfc-style">
-        <div className="rfc-style-icon-wrapper" style={{ background: danger ? '#fee2e2' : '#dbeafe', color: danger ? '#dc2626' : '#2563eb', borderColor: danger ? '#fecaca' : '#bfdbfe' }}>
-          <FiAlertTriangle size={22} />
-        </div>
-        <div className="rfc-style-header-text">
-          <h2>{title}</h2>
-          <div className="rfc-style-subtitle">Confirmation requise</div>
-        </div>
-        <button className="close-btn-rfc-style" onClick={onCancel}><FiX size={24} /></button>
-      </div>
-
-      <div className="modal-body-rfc-style">
-        <p style={{ color: '#475569', marginBottom: '1.75rem', lineHeight: 1.6 }}>{message}</p>
-      </div>
-
-      <div className="modal-footer-rfc-style">
-        <button type="button" className="btn-cancel-rfc-style" onClick={onCancel}>Annuler</button>
-        <button type="button" className="btn-submit-rfc-style" onClick={onConfirm} style={{ background: danger ? '#dc2626' : undefined }}>
-          Confirmer
-        </button>
-      </div>
-    </div>
-  </div>
-);
+import ConfirmModal from '../../components/common/ConfirmModal';
 
 // ── Modal Envoi Notification ──────────────────────────────────
 const SendNotifModal = ({ user, onClose, onSent }) => {
@@ -129,7 +86,7 @@ const SendNotifModal = ({ user, onClose, onSent }) => {
       onSent();
       onClose();
     } catch (err) {
-      alert("Erreur lors de l'envoi de la notification.");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -379,10 +336,10 @@ const EditUserModal = ({ user, roles, directions, onClose, onUpdated }) => {
         onUpdated(updatedData);
         onClose();
       } else {
-        alert(res.message || 'Erreur lors de la mise à jour.');
+        console.error(res.message);
       }
     } catch (err) {
-      alert(err?.message || err?.error?.message || 'Erreur réseau.');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -554,6 +511,7 @@ const UserManagement = () => {
   const [search,     setSearch]     = useState('');
   const [filterRole,      setFilterRole]      = useState('ALL');
   const [filterDirection, setFilterDirection] = useState('ALL');
+  const [kpiFilter, setKpiFilter] = useState(''); // '' | 'ACTIF' | 'INACTIF' | role
 
   // Modals
   const [showCreate,  setShowCreate]  = useState(false);
@@ -567,7 +525,6 @@ const UserManagement = () => {
   const [toast, setToast] = useState(null);
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 4000);
   };
 
   const fetchData = useCallback(async () => {
@@ -575,12 +532,19 @@ const UserManagement = () => {
       const [uRes, rRes, dRes] = await Promise.all([
         api.get('/users'),
         api.get('/users/roles'),
-        api.get('/users/directions'),
+        api.get('/directions'),
       ]);
-      if (uRes.success) setUsers(uRes.data.data || []);
-      if (rRes.success) setRoles(rRes.data.roles || rRes.data || []);
+      if (uRes.success) {
+        const list = uRes.data?.users || uRes.data?.data || uRes.data || [];
+        setUsers(Array.isArray(list) ? list : []);
+      }
+      if (rRes.success) {
+        const list = rRes.data?.roles || rRes.data || [];
+        setRoles(Array.isArray(list) ? list : []);
+      }
       if (dRes.success) {
-        setDirections(dRes.data.directions || dRes.data || []);
+        const list = dRes.data?.directions || dRes.data || [];
+        setDirections(Array.isArray(list) ? list : []);
       }
     } catch (err) {
       showToast('Erreur lors du chargement des données depuis le backend.', 'error');
@@ -640,7 +604,7 @@ const UserManagement = () => {
       const res = await api.delete(`/users/${user.id_user}`);
       if (res.success) {
         setUsers(prev => prev.filter(u => u.id_user !== user.id_user));
-        showToast('Compte supprimé avec succès.');
+        showToast('Compte supprimé avec succès.', 'error');
         setDetailUser(null);
       } else showToast(res.message || 'Erreur.', 'error');
     } catch (err) {
@@ -653,11 +617,17 @@ const UserManagement = () => {
     const matchSearch = !search || (
       `${u.prenom_user} ${u.nom_user} ${u.email_user}`.toLowerCase().includes(search.toLowerCase())
     );
-    const matchRole = filterRole === 'ALL' || (u.roles && u.roles.includes(filterRole));
+    let matchRole = filterRole === 'ALL' || (u.roles && u.roles.includes(filterRole));
+    let matchActif = true;
+    if (kpiFilter === 'ACTIF') matchActif = u.actif === true;
+    else if (kpiFilter === 'INACTIF') matchActif = u.actif === false;
+    else if (kpiFilter && kpiFilter !== 'ALL') {
+      matchRole = u.roles && u.roles.includes(kpiFilter);
+    }
     const matchDir  = filterDirection === 'ALL' 
       ? true 
       : (filterDirection === 'NONE' ? !u.direction?.nom_direction : u.direction?.nom_direction === filterDirection);
-    return matchSearch && matchRole && matchDir;
+    return matchSearch && matchRole && matchActif && matchDir;
   });
 
   // ── Stats ──────────────────────────────────────────────────
@@ -682,7 +652,7 @@ const UserManagement = () => {
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
       <style>{`
         @keyframes slideInUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -732,19 +702,19 @@ const UserManagement = () => {
 
         /* Style du scrollbar horizontal premium */
         .table-scroll-container::-webkit-scrollbar {
-          height: 8px;
+          height: 10px;
         }
         .table-scroll-container::-webkit-scrollbar-track {
-          background: #f1f5f9;
+          background: #f8fafc;
           border-radius: 10px;
         }
         .table-scroll-container::-webkit-scrollbar-thumb {
           background: #cbd5e1;
           border-radius: 10px;
-          border: 2px solid #f1f5f9;
+          border: 2px solid #f8fafc;
         }
         .table-scroll-container::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
+          background: #7c3aed;
         }
 
         /* Colonnes collantes (Sticky) pour l'effet de glissement */
@@ -772,58 +742,50 @@ const UserManagement = () => {
       `}</style>
 
       {/* ── Header ─────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-          <div>
-            <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <FiUsers size={28} color="#7c3aed" /> Gestion des Comptes & RBAC
-            </h1>
-            <p style={{ color: '#64748b', margin: 0 }}>Gérer les accès, les rôles et les permissions des utilisateurs CASNOS.</p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiUsers /></div>
+          <div className="premium-header-text">
+            <h1>Gestion des Comptes</h1>
+            <p>Configurez les comptes utilisateurs et supervisez les accès et permissions du système ·</p>
           </div>
+        </div>
+        <div className="premium-header-actions">
           <button onClick={() => setShowCreate(true)} className="btn-create-premium">
             <FiUserPlus size={16} /> Créer un compte
           </button>
         </div>
       </div>
 
-      {/* ── KPI Cards ──────────────────────────────────────── */}
-      <div style={{ 
-        display: 'grid', 
-        gridAutoFlow: 'column', 
-        gridAutoColumns: 'minmax(110px, 1fr)', 
-        gap: '0.6rem', 
-        marginBottom: '1.25rem', 
-        overflowX: 'auto', 
-        paddingBottom: '0.5rem',
-        scrollbarWidth: 'thin'
-      }}>
-        {/* Totaux de base */}
-        <Card style={{ textAlign: 'center', borderTop: '3px solid #64748b', padding: '0.75rem' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1e293b' }}>{total}</div>
-          <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Total</div>
-        </Card>
-        <Card style={{ textAlign: 'center', borderTop: '3px solid #10b981', padding: '0.75rem' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#10b981' }}>{actifs}</div>
-          <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Actifs</div>
-        </Card>
-        <Card style={{ textAlign: 'center', borderTop: '3px solid #f59e0b', padding: '0.75rem' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#f59e0b' }}>{inactifs}</div>
-          <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Inactifs</div>
-        </Card>
-        
-        {/* Rôles spécifiques - On boucle sur ROLE_META pour garantir l'ordre et la présence */}
-        {Object.keys(ROLE_META).map(role => {
-          const count = roleCounts[role] || 0;
-          const meta = ROLE_META[role];
-          return (
-            <Card key={role} style={{ textAlign: 'center', borderTop: `3px solid ${meta.color}`, padding: '0.75rem' }}>
-              <div style={{ fontSize: '1.2rem', fontWeight: '800', color: meta.color }}>{count}</div>
-              <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {meta.label}
-              </div>
-            </Card>
-          );
-        })}
+      {/* ── KPI Cards — Coherent with Global System ─────────── */}
+      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+        <StatCard
+          title="Total Utilisateurs"
+          value={total}
+          icon={<FiUsers size={22} />}
+          color="blue"
+          active={kpiFilter === '' && filterRole === 'ALL'}
+          onClick={() => { setKpiFilter(''); setFilterRole('ALL'); }}
+          trend={{ value: `${actifs} actifs / ${inactifs} inactifs`, type: 'info' }}
+        />
+        <StatCard
+          title="Actifs"
+          value={actifs}
+          icon={<FiCheckCircle size={22} />}
+          color="green"
+          active={kpiFilter === 'ACTIF'}
+          onClick={() => setKpiFilter(k => k === 'ACTIF' ? '' : 'ACTIF')}
+          trend={{ value: `${Math.round((actifs / (total || 1)) * 100)}% du total`, type: 'success' }}
+        />
+        <StatCard
+          title="Inactifs"
+          value={inactifs}
+          icon={<FiClock size={22} />}
+          color="amber"
+          active={kpiFilter === 'INACTIF'}
+          onClick={() => setKpiFilter(k => k === 'INACTIF' ? '' : 'INACTIF')}
+          trend={{ value: 'Cliquer pour filtrer', type: 'warning' }}
+        />
       </div>
 
       {/* ── Filters Bar ────────────────────────────────────── */}
@@ -845,11 +807,13 @@ const UserManagement = () => {
         </div>
         <select
           value={filterRole}
-          onChange={e => setFilterRole(e.target.value)}
+          onChange={e => { setFilterRole(e.target.value); setKpiFilter(''); }}
           style={{
-            padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
-            fontSize: '0.875rem', background: 'white', cursor: 'pointer', fontWeight: '500',
-            minWidth: '150px'
+            padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
+            fontSize: '0.875rem', background: '#f8fafc', cursor: 'pointer', fontWeight: '500',
+            minWidth: '150px', appearance: 'none', WebkitAppearance: 'none',
+            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center',
           }}
         >
           <option value="ALL">Tous les rôles</option>
@@ -860,9 +824,11 @@ const UserManagement = () => {
           value={filterDirection}
           onChange={e => setFilterDirection(e.target.value)}
           style={{
-            padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
-            fontSize: '0.875rem', background: 'white', cursor: 'pointer', fontWeight: '500',
-            minWidth: '150px'
+            padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
+            fontSize: '0.875rem', background: '#f8fafc', cursor: 'pointer', fontWeight: '500',
+            minWidth: '150px', appearance: 'none', WebkitAppearance: 'none',
+            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center',
           }}
         >
           <option value="ALL">Toutes les directions</option>
@@ -870,9 +836,9 @@ const UserManagement = () => {
           {directions.map(d => <option key={d.id_direction} value={d.nom_direction}>{d.nom_direction}</option>)}
         </select>
 
-        {(search || filterRole !== 'ALL' || filterDirection !== 'ALL') && (
+        {(search || filterRole !== 'ALL' || filterDirection !== 'ALL' || kpiFilter) && (
           <button 
-            onClick={() => { setSearch(''); setFilterRole('ALL'); setFilterDirection('ALL'); }}
+            onClick={() => { setSearch(''); setFilterRole('ALL'); setFilterDirection('ALL'); setKpiFilter(''); }}
             style={{
               padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid #7c3aed',
               fontSize: '0.875rem', background: '#f5f3ff', color: '#7c3aed', 
@@ -882,22 +848,23 @@ const UserManagement = () => {
             Réinitialiser
           </button>
         )}
+      
       </div>
 
       {/* ── Table ──────────────────────────────────────────── */}
       <Card className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-scroll-container" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <table style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', minWidth: '1300px', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'linear-gradient(to right, #f8fafc, #f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
-                <th className="sticky-col-first" style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '16%' }}>Utilisateur</th>
-                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '16%' }}>Email</th>
-                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '10%' }}>Rôle</th>
-                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '18%' }}>Direction</th>
-                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '10%' }}>Téléphone</th>
-                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '8%' }}>Statut</th>
-                <th style={{ padding: '0.4rem 0.3rem', textAlign: 'left', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '10%' }}>Création</th>
-                <th className="sticky-col-last" style={{ padding: '0.4rem 0.3rem', textAlign: 'center', fontSize: '0.6rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', width: '12%' }}>Actions</th>
+                <th className="sticky-col-first" style={{ padding: '1rem 0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Utilisateur</th>
+                <th style={{ padding: '1rem 0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Email</th>
+                <th style={{ padding: '1rem 0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Rôle</th>
+                <th style={{ padding: '1rem 0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Direction</th>
+                <th style={{ padding: '1rem 0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Téléphone</th>
+                <th style={{ padding: '1rem 0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Statut</th>
+                <th style={{ padding: '1rem 0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Création</th>
+                <th className="sticky-col-last" style={{ padding: '1rem 0.75rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -920,52 +887,52 @@ const UserManagement = () => {
                     cursor: 'pointer'
                   }}>
                   {/* 1. Utilisateur */}
-                  <td className="sticky-col-first" style={{ padding: '0.4rem 0.3rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <td className="sticky-col-first" style={{ padding: '1.25rem 1.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <div style={{
-                        width: '24px', height: '24px', borderRadius: '6px',
+                        width: '32px', height: '32px', borderRadius: '8px',
                         background: ROLE_META[u.roles?.[0]]?.bg || '#f1f5f9',
                         color: ROLE_META[u.roles?.[0]]?.color || '#64748b',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: '800', fontSize: '0.6rem',
+                        fontWeight: '800', fontSize: '0.75rem',
                       }}>
                         {(u.prenom_user?.[0] || '') + (u.nom_user?.[0] || '')}
                       </div>
                       <div>
-                        <div style={{ fontWeight: '700', fontSize: '0.75rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+                        <div style={{ fontWeight: '700', fontSize: '0.85rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
                           {u.prenom_user} {u.nom_user}
                         </div>
-                        <div style={{ fontSize: '0.6rem', color: '#94a3b8' }}>{u.code_metier}</div>
+                        <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{u.code_metier}</div>
                       </div>
                     </div>
                   </td>
 
                   {/* 2. Email */}
-                  <td style={{ padding: '0.4rem 0.3rem' }}>
-                    <div style={{ fontSize: '0.7rem', color: '#475569', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>{u.email_user}</div>
+                  <td style={{ padding: '1.25rem 1.5rem' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#475569', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{u.email_user}</div>
                   </td>
 
                   {/* 3. Rôle */}
-                  <td style={{ padding: '0.4rem 0.3rem' }}>
+                  <td style={{ padding: '1.25rem 1.5rem' }}>
                     {u.roles?.length > 0
                       ? <RoleBadge role={u.roles[0]} />
                       : <span style={{ color: '#cbd5e1', fontSize: '0.7rem', fontStyle: 'italic' }}>—</span>}
                   </td>
 
                   {/* 4. Direction */}
-                  <td style={{ padding: '0.4rem 0.3rem' }}>
+                  <td style={{ padding: '1.25rem 1.5rem' }}>
                     <DirectionBadge name={u.direction?.nom_direction} />
                   </td>
 
                   {/* 5. Téléphone */}
-                  <td style={{ padding: '0.4rem 0.3rem', fontSize: '0.7rem', color: '#64748b' }}>
+                  <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.85rem', color: '#64748b' }}>
                     {u.phone || <span style={{ color: '#cbd5e1' }}>—</span>}
                   </td>
 
                   {/* 6. Statut */}
-                  <td style={{ padding: '0.4rem 0.3rem' }}>
+                  <td style={{ padding: '1.25rem 1.5rem' }}>
                     <span style={{
-                      padding: '0.1rem 0.4rem', borderRadius: '99px', fontSize: '0.55rem', fontWeight: '700',
+                      padding: '0.2rem 0.6rem', borderRadius: '99px', fontSize: '0.65rem', fontWeight: '700',
                       color: u.actif ? '#065f46' : '#7f1d1d',
                       background: u.actif ? '#d1fae5' : '#fee2e2',
                       whiteSpace: 'nowrap'
@@ -975,21 +942,21 @@ const UserManagement = () => {
                   </td>
 
                   {/* 7. Création */}
-                  <td style={{ padding: '0.4rem 0.3rem', fontSize: '0.7rem', color: '#94a3b8' }}>
+                  <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.75rem', color: '#94a3b8' }}>
                     {u.date_creation ? new Date(u.date_creation).toLocaleDateString('fr-DZ', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
                   </td>
 
                   {/* 8. Actions */}
-                  <td className="sticky-col-last" style={{ padding: '0.4rem 0.3rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                    <div style={{ display: 'flex', gap: '0.2rem', justifyContent: 'center' }}>
-                      <button className="action-btn" style={{ padding: '4px' }} title="Modifier" onClick={() => setEditUser(u)}>
-                        <FiEdit2 size={12} color="#3b82f6" />
+                  <td className="sticky-col-last" style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                      <button className="action-btn" style={{ padding: '6px' }} title="Modifier" onClick={() => setEditUser(u)}>
+                        <FiEdit2 size={14} color="#3b82f6" />
                       </button>
-                      <button className="action-btn" style={{ padding: '4px' }} title={u.actif ? 'Désactiver' : 'Activer'} onClick={() => setConfirmTog({ user: u })}>
-                        {u.actif ? <FiToggleRight size={14} color="#10b981" /> : <FiToggleLeft size={14} color="#94a3b8" />}
+                      <button className="action-btn" style={{ padding: '6px' }} title={u.actif ? 'Désactiver' : 'Activer'} onClick={() => setConfirmTog({ user: u })}>
+                        {u.actif ? <FiToggleRight size={16} color="#10b981" /> : <FiToggleLeft size={16} color="#94a3b8" />}
                       </button>
-                      <button className="action-btn" style={{ padding: '4px' }} title="Supprimer" onClick={() => setConfirmDel({ user: u })}>
-                        <FiTrash2 size={12} color="#ef4444" />
+                      <button className="action-btn" style={{ padding: '6px' }} title="Supprimer" onClick={() => setConfirmDel({ user: u })}>
+                        <FiTrash2 size={14} color="#ef4444" />
                       </button>
                     </div>
                   </td>

@@ -76,11 +76,22 @@ const RfcEvaluation = () => {
 
     return (
         <div className="evaluation-page">
-            <div className="evaluation-header">
-                <button className="back-btn" onClick={() => navigate('/manager/rfcs')}>
-                    <FiArrowLeft /> Retour au backlog
-                </button>
-                <h1>Analyse de Risque et Évaluation</h1>
+            <div className="premium-header-card">
+                <div className="premium-header-left">
+                    <div className="premium-header-icon" style={{ background: '#fffbeb', color: '#b45309', borderColor: '#fde68a' }}><FiAlertTriangle /></div>
+                    <div className="premium-header-text">
+                        <h1>Analyse de Risque et Évaluation</h1>
+                        <p>Évaluez l'impact et la probabilité des risques pour la RFC #{rfc.code_rfc}.</p>
+                    </div>
+                </div>
+                <div className="premium-header-actions">
+                    <button className="btn-secondary-cab" onClick={() => navigate('/manager/rfcs')} style={{ marginRight: '0.75rem' }}>
+                        <FiArrowLeft /> Retour au backlog
+                    </button>
+                    <button onClick={handleSubmit} className="btn-create-premium" disabled={submitting}>
+                        {submitting ? 'Enregistrement...' : <><FiCheckCircle /> Valider l'évaluation</>}
+                    </button>
+                </div>
             </div>
 
             <div className="evaluation-grid">
@@ -122,7 +133,7 @@ const RfcEvaluation = () => {
                             </div>
 
                             <div className="control-group">
-                                <label>Probabilité (1-5)</label>
+                                <label>Proba (1-5)</label>
                                 <p className="control-hint">Risque de survenance d'un incident.</p>
                                 <div className="range-input">
                                     <input type="range" min="1" max="5" value={probability} onChange={(e) => setProbability(parseInt(e.target.value))} />

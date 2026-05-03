@@ -109,7 +109,7 @@ const Login = () => {
                   <span
                     onClick={() => setShowPassword((v) => !v)}
                     title={showPassword ? 'Masquer' : 'Afficher'}
-                    style={{ cursor: 'pointer' }}
+                    className="password-toggle"
                   >
                     {showPassword ? <FiEyeOff /> : <FiEye />}
                   </span>

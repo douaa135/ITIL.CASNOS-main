@@ -41,11 +41,19 @@ const RfcEvaluationList = () => {
   );
 
   return (
-    <div className="cab-dashboard">
-      <div className="dashboard-header">
-        <div>
-          <h1>Évaluation des RFCs</h1>
-          <p>Consultez et évaluez les changements à haut risque nécessitant l'expertise du CAB.</p>
+    <div className="cab-dashboard" style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiTarget /></div>
+          <div className="premium-header-text">
+            <h1>Évaluation des RFCs</h1>
+            <p>Consultez et évaluez les changements à haut risque nécessitant l'expertise du CAB.</p>
+          </div>
+        </div>
+        <div className="premium-header-actions">
+           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.5rem 0.85rem', fontSize: '0.85rem', color: '#64748b', fontWeight: '500' }}>
+            <FiTarget /> {filteredRfcs.length} RFCs en attente
+          </div>
         </div>
       </div>
 

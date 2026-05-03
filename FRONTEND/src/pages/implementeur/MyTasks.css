@@ -180,6 +180,23 @@
   font-weight: 600;
 }
 
+.status-badge-sm {
+  font-size: 0.65rem;
+}
+
+.status-badge-md {
+  font-size: 0.7rem;
+}
+
+.pir-textarea {
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.btn-icon-gap {
+  margin-right: 6px;
+}
+
 .status-badge.EN_ATTENTE { background: #fef3c7; color: #d97706; }
 .status-badge.EN_COURS { background: #dbeafe; color: #2563eb; }
 .status-badge.TERMINEE { background: #d1fae5; color: #059669; }

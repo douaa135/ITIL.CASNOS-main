@@ -4,7 +4,19 @@
 
 import api from '../api/axiosClient';
 
-const extract = (result, key, fallback = []) => result?.data?.[key] ?? fallback;
+const extract = (result, key, fallback = []) => {
+  if (!result) return fallback;
+  // The backend R.success wraps everything in a 'data' property.
+  // result is the body: { success: true, message: "...", data: { [key]: ... } }
+  // OR result is the body: { success: true, message: "...", data: [...] }
+  
+  if (result.data && result.data[key]) return result.data[key];
+  if (result[key]) return result[key];
+  if (key === 'data' && result.data) return result.data;
+  if (Array.isArray(result.data)) return result.data;
+  
+  return fallback;
+};
 
 // ── RFC CRUD ──────────────────────────────────────────────────
 
@@ -58,12 +70,17 @@ export const updateRfc = async (id, data) => {
 
 export const updateRfcStatus = async (id, id_statut, extra = {}) => {
   const result = await api.patch(`/rfc/${id}/status`, { id_statut, ...extra });
-  return result?.data ?? null;
+  return result?.data ?? null; // Retourne { rfc, changement }
 };
 
 export const cancelRfc = async (id) => {
   const result = await api.delete(`/rfc/${id}`);
   return extract(result, 'rfc', null);
+};
+
+export const deleteRfc = async (id) => {
+  const result = await api.delete(`/rfc/${id}`);
+  return result?.data ?? null;
 };
 
 // ── Référentiels ──────────────────────────────────────────────
@@ -104,8 +121,8 @@ export const getConfigurationItems = async (filters = {}) => {
 };
 
 export const getUsersByRole = async (nom_role) => {
-  const result = await api.get('/users', { params: { nom_role } });
-  return result?.data?.data ?? [];
+  const userRes = await api.get('/users', { params: { nom_role } });
+  return userRes?.data?.data?.data || userRes?.data?.data || userRes?.data?.users || [];
 };
 
 export const getChangeManagers = async () => getUsersByRole('CHANGE_MANAGER');
@@ -135,7 +152,7 @@ export const upsertEvaluationRisque = async (id_rfc, data) => {
 const rfcService = {
   getAllRfcs, getMesRfcs, getRfcById,
   createRfc, submitRfc, createAndSubmitRfc,
-  updateRfc, updateRfcStatus, cancelRfc,
+  updateRfc, updateRfcStatus, cancelRfc, deleteRfc,
   getStatuts, getStatutByCode,
   getTypesRfc, getPriorites, getDirections,
   getEnvironnements, getConfigurationItems,

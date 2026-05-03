@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FiCheckCircle, FiClock, FiAlertCircle, 
-  FiArrowRight, FiPlay, FiFileText, FiTrendingUp
+  FiArrowRight, FiPlay, FiFileText, FiTrendingUp, FiCheckSquare
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
 import './Dashboard.css';
@@ -53,9 +53,16 @@ const ImplementerDashboard = () => {
 
   return (
     <div className="impl-dashboard">
-      <div className="impl-welcome-section">
-        <h1>Bon retour !</h1>
-        <p>Vous avez <strong>{stats.pending + stats.inProgress}</strong> tâches actives sur votre liste d'assignations.</p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiCheckSquare /></div>
+          <div className="premium-header-text">
+            <h1>Bon retour !</h1>
+            <p>Vous avez <strong>{stats.pending + stats.inProgress}</strong> tâches actives sur votre liste d'assignations.</p>
+          </div>
+        </div>
+        <div className="premium-header-actions">
+        </div>
       </div>
 
       <div className="impl-stats-grid">

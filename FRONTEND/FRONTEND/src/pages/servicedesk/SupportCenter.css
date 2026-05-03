@@ -1,0 +1,303 @@
+/* ============================================================
+   servicedesk/SupportCenter.css — CASNOS ITIL v2
+   ============================================================ */
+
+.support-center {
+  display: flex;
+  height: calc(100vh - 130px);
+  gap: 1.5rem;
+  animation: fadeIn 0.35s ease-out;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.support-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  background: white;
+  border-radius: 18px;
+  border: 1px solid var(--slate-100, #f1f5f9);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04);
+}
+
+.search-box {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--slate-100, #f1f5f9);
+  position: relative;
+}
+
+.search-box svg {
+  position: absolute;
+  left: 2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--slate-400, #94a3b8);
+  pointer-events: none;
+  font-size: 0.9rem;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 0.7rem 1rem 0.7rem 2.4rem;
+  border-radius: 11px;
+  border: 1.5px solid var(--slate-200, #e2e8f0);
+  outline: none;
+  font-size: 0.875rem;
+  background: var(--slate-50, #f8fafc);
+  color: var(--slate-800, #1e293b);
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.search-box input:focus {
+  border-color: var(--casnos-blue-400, #1a6fc4);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(26, 111, 196, 0.1);
+}
+
+.guides-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.875rem;
+}
+
+.guides-nav::-webkit-scrollbar { width: 3px; }
+.guides-nav::-webkit-scrollbar-thumb { background: var(--slate-200); border-radius: 99px; }
+
+.guides-nav h3 {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: var(--slate-400, #94a3b8);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+  padding: 0 0.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.guide-nav-item {
+  display: flex;
+  align-items: center;
+  padding: 0.875rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 0.35rem;
+  border: 1.5px solid transparent;
+  gap: 0.875rem;
+}
+
+.guide-nav-item:hover {
+  background: var(--slate-50, #f8fafc);
+  border-color: var(--slate-200, #e2e8f0);
+}
+
+.guide-nav-item.active {
+  background: var(--casnos-blue-50, #eff6ff);
+  border-color: var(--casnos-blue-100, #dbeafe);
+}
+
+.guide-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--slate-100, #f1f5f9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--slate-500, #64748b);
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.guide-nav-item.active .guide-icon {
+  background: var(--casnos-blue-700, #003366);
+  color: white;
+  box-shadow: 0 4px 10px rgba(0, 51, 102, 0.25);
+}
+
+.guide-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.guide-info strong {
+  font-size: 0.875rem;
+  color: #1e293b;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.guide-info span {
+  font-size: 0.72rem;
+  color: var(--slate-400, #94a3b8);
+  margin-top: 1px;
+}
+
+.arrow {
+  color: var(--slate-300, #cbd5e1);
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  transition: color 0.2s;
+}
+
+.guide-nav-item:hover .arrow,
+.guide-nav-item.active .arrow {
+  color: var(--casnos-blue-400, #1a6fc4);
+}
+
+/* ── Main View ───────────────────────────────────────────── */
+.support-view {
+  flex: 1;
+  background: white;
+  border-radius: 18px;
+  border: 1px solid var(--slate-100, #f1f5f9);
+  overflow-y: auto;
+  padding: 2.5rem 3rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04);
+}
+
+.guide-header { margin-bottom: 2rem; }
+
+.cat-badge {
+  background: var(--casnos-blue-50, #eff6ff);
+  color: #1e40af;
+  border: 1px solid var(--casnos-blue-100, #dbeafe);
+  padding: 0.25rem 0.875rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.guide-header h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 0.6rem;
+  letter-spacing: -0.02em;
+}
+
+.guide-meta {
+  color: var(--slate-400, #94a3b8);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.alert-box-blue {
+  background: var(--casnos-blue-50, #eff6ff);
+  border: 1px solid var(--casnos-blue-100, #dbeafe);
+  border-left: 3px solid #3b82f6;
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  gap: 0.875rem;
+  color: #1e40af;
+  margin-bottom: 2rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.alert-box-blue svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 1rem;
+}
+
+.text-content p {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--slate-600, #475569);
+  margin-bottom: 1.5rem;
+}
+
+.technical-steps h4 {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 1.25rem;
+}
+
+.step-item {
+  display: flex;
+  gap: 1.1rem;
+  margin-bottom: 1.25rem;
+  align-items: flex-start;
+}
+
+.step-num {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #003366, #003d80);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  box-shadow: 0 3px 8px rgba(0, 51, 102, 0.2);
+  margin-top: 1px;
+}
+
+.step-item p {
+  font-size: 0.95rem;
+  color: var(--slate-600, #475569);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Placeholder ─────────────────────────────────────────── */
+.support-placeholder {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--slate-400, #94a3b8);
+}
+
+.support-placeholder-icon {
+  width: 80px; height: 80px;
+  border-radius: 20px;
+  background: var(--casnos-blue-50, #eff6ff);
+  color: var(--casnos-blue-600, #003d80);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.support-placeholder h3 {
+  color: #1e293b;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.support-placeholder p {
+  font-size: 0.9rem;
+  max-width: 320px;
+}
+
+@media (max-width: 768px) {
+  .support-center { flex-direction: column; height: auto; }
+  .support-sidebar { width: 100%; height: 280px; }
+}

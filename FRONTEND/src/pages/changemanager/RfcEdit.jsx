@@ -132,12 +132,22 @@ const RfcEdit = () => {
 
     return (
         <div className="rfc-edit-page">
-            <div className="edit-header">
-                <button className="back-link" onClick={() => navigate('/manager/rfcs')}>
-                    <FiChevronLeft /> Retour au backlog
-                </button>
-                <h1>Édition Technique de la RFC #{rfc?.code_rfc}</h1>
-                <p>Correction des informations avant évaluation ou approbation.</p>
+            <div className="premium-header-card">
+                <div className="premium-header-left">
+                    <div className="premium-header-icon" style={{ background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' }}><FiInfo /></div>
+                    <div className="premium-header-text">
+                        <h1>Édition Technique de la RFC #{rfc?.code_rfc}</h1>
+                        <p>Correction des informations avant évaluation ou approbation.</p>
+                    </div>
+                </div>
+                <div className="premium-header-actions">
+                    <button className="btn-secondary-cab" onClick={() => navigate('/manager/rfcs')} style={{ marginRight: '0.75rem' }}>
+                        <FiChevronLeft /> Retour au backlog
+                    </button>
+                    <button onClick={handleSubmit} className="btn-create-premium" disabled={saving}>
+                        {saving ? 'Enregistrement...' : <><FiSave /> Enregistrer</>}
+                    </button>
+                </div>
             </div>
 
             <form className="edit-form-card" onSubmit={handleSubmit}>

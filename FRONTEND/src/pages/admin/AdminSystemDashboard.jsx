@@ -4,406 +4,400 @@ import dashboardService from '../../services/dashboardService';
 import userService from '../../services/userService';
 import systemService from '../../services/systemService';
 import Card from '../../components/common/Card';
-import Badge from '../../components/common/Badge';
-import { 
-    FiUsers, FiClipboard, FiRefreshCw, FiCheckSquare, 
+import {
+    FiUsers, FiClipboard, FiRefreshCw, FiCheckSquare,
     FiActivity, FiArrowRight, FiPieChart, FiTrendingUp,
-    FiPlus, FiLayers, FiAlertCircle, FiUserPlus, FiShield, FiServer
+    FiPlus, FiLayers, FiAlertCircle, FiUserPlus, FiShield, FiServer, FiCalendar
 } from 'react-icons/fi';
+import api from '../../api/axiosClient';
+import StatCard from '../../components/common/StatCard';
+import './AdminSystemDashboard.css';
 
 const AdminSystemDashboard = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
-    
-    // User Stats
-    const [userStats, setUserStats] = useState({
-        totalUsers: 0,
-        activeUsers: 0
-    });
 
-    // Env Stats
+    const [userStats, setUserStats] = useState({ totalUsers: 0, activeUsers: 0 });
     const [envCount, setEnvCount] = useState(0);
-
-    // KPI Stats from Backend
     const [kpi, setKpi] = useState({
-        rfc: { total: 0, par_statut: [] },
+        rfc:         { total: 0, par_statut: [] },
         changements: { total: 0, par_statut: [], taux_reussite: 'N/A' },
-        taches: { total: 0, par_statut: [] }
+        taches:      { total: 0, par_statut: [] },
     });
-
-    // Detailed KPIs
     const [detailedKpi, setDetailedKpi] = useState({
-        rfc: { urgentes: 0, approuvees: 0, par_type: [], par_priorite: [] },
+        rfc:         { urgentes: 0, approuvees: 0, par_type: [], par_priorite: [] },
         changements: { en_cours: 0, reussis: 0, echecs: 0, par_environnement: [] },
-        taches: { en_cours: 0, terminees: 0, annulees: 0, taux_completion: '0%' }
+        taches:      { en_cours: 0, terminees: 0, annulees: 0, taux_completion: '0%' },
+    });
+    const [systemHealth, setSystemHealth] = useState({
+        db: 'Connectée',
+        audit: 'Actif',
+        workflow: 'Synchronisé',
+        notifications: 'Opérationnel',
+        lastCheck: null
     });
 
     useEffect(() => {
         const fetchAllData = async () => {
             setLoading(true);
             try {
-                // Fetch Users
                 const userRes = await userService.getAllUsers();
-                if (userRes.success && userRes.users) {
-                    const allUsers = userRes.users;
-                    setUserStats({
-                        totalUsers: allUsers.length,
-                        activeUsers: allUsers.filter(u => u.actif).length
-                    });
-                }
+                const allUsers = Array.isArray(userRes.users) ? userRes.users : [];
+                setUserStats({
+                    totalUsers:  allUsers.length,
+                    activeUsers: allUsers.filter(u => u.actif).length,
+                });
 
-                // Fetch Environments
                 const envRes = await systemService.getEnvironnements();
                 if (envRes.success) {
                     const envs = envRes.data?.data || envRes.data?.environnements || envRes.data || [];
                     setEnvCount(envs.length);
                 }
 
-                // Fetch real KPIs
                 const kpiRes = await dashboardService.getDashboardStats();
-                if (kpiRes && kpiRes.data) {
+                if (kpiRes?.data) {
                     const kpiData = kpiRes.data.data || kpiRes.data;
                     setKpi({
-                        rfc: kpiData.rfc || { total: 0, par_statut: [] },
+                        rfc:         kpiData.rfc         || { total: 0, par_statut: [] },
                         changements: kpiData.changements || { total: 0, par_statut: [], taux_reussite: 'N/A' },
-                        taches: kpiData.taches || { total: 0, par_statut: [] }
+                        taches:      kpiData.taches      || { total: 0, par_statut: [] },
                     });
                 }
 
-                // Fetch Detailed KPIs
                 const [rfcRes, chgRes, tchRes] = await Promise.all([
                     dashboardService.getKpiRfc(),
                     dashboardService.getKpiChangements(),
-                    dashboardService.getKpiTaches()
+                    dashboardService.getKpiTaches(),
                 ]);
-
                 setDetailedKpi({
-                    rfc: rfcRes?.data?.data || rfcRes?.data || { urgentes: 0, approuvees: 0, par_type: [], par_priorite: [] },
+                    rfc:         rfcRes?.data?.data || rfcRes?.data || { urgentes: 0, approuvees: 0, par_type: [], par_priorite: [] },
                     changements: chgRes?.data?.data || chgRes?.data || { en_cours: 0, reussis: 0, echecs: 0, par_environnement: [] },
-                    taches: tchRes?.data?.data || tchRes?.data || { en_cours: 0, terminees: 0, annulees: 0, taux_completion: '0%' }
+                    taches:      tchRes?.data?.data || tchRes?.data || { en_cours: 0, terminees: 0, annulees: 0, taux_completion: '0%' },
                 });
+
+                // Fetch real system health
+                const healthRes = await api.get('/health').catch(() => null);
+                if (healthRes) {
+                    setSystemHealth({
+                        db: 'Connectée', // Prisma call success implies DB is OK
+                        audit: healthRes.modules?.includes('audit-logs') ? 'Actif' : 'Indisponible',
+                        workflow: healthRes.modules?.includes('workflow') ? 'Synchronisé' : 'En attente',
+                        notifications: healthRes.modules?.includes('notifications') ? 'Opérationnel' : 'Service réduit',
+                        lastCheck: healthRes.timestamp
+                    });
+                }
             } catch (error) {
-                console.error("Erreur lors de la récupération des données du dashboard", error);
+                console.error('Erreur dashboard', error);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchAllData();
-        
-        // Auto-refresh every 30 seconds to keep KPIs live
         const interval = setInterval(fetchAllData, 30000);
         return () => clearInterval(interval);
     }, []);
 
     const getStatusColor = (statut) => {
         const s = (statut || '').toUpperCase();
-        if (s.includes('APPROUV') || s.includes('CLOTURE') || s.includes('REUSSI') || s.includes('TERMINE')) return '#10b981'; // Green
-        if (s.includes('REJET') || s.includes('ECHEC') || s.includes('ANNULE')) return '#ef4444'; // Red
-        if (s.includes('EVALU') || s.includes('PLANIFI') || s.includes('COURS')) return '#3b82f6'; // Blue
-        if (s.includes('SOUMIS') || s.includes('ATTENTE') || s.includes('URGENCE')) return '#f59e0b'; // Orange
-        return '#64748b'; // Gray for BROUILLON and others
+        const STATUS_COLORS = {
+            'BROUILLON':        '#94a3b8',
+            'SOUMIS':           '#3b82f6',
+            'PRE_APPROUVEE':    '#f59e0b',
+            'EN_EVALUATION':    '#8b5cf6',
+            'EVALUEE':          '#a855f7',
+            'EN_ATTENTE_CAB':   '#d97706',
+            'APPROUVEE':        '#10b981',
+            'CLOTUREE':         '#059669',
+            'REJETEE':          '#ef4444',
+            'ANNULEE':          '#dc2626',
+            'EN_PLANIFICATION': '#6366f1',
+            'EN_ATTENTE':       '#f97316',
+            'EN_COURS':         '#0ea5e9',
+            'IMPLEMENTE':       '#14b8a6',
+            'TESTE':            '#22c55e',
+            'EN_ECHEC':         '#e11d48',
+            'CLOTURE':          '#059669',
+            'TERMINEE':         '#10b981',
+        };
+        // Exact match first
+        if (STATUS_COLORS[s]) return STATUS_COLORS[s];
+        // Fallback fuzzy match
+        if (s.includes('APPROUV') || s.includes('REUSSI') || s.includes('TERMINE') || s.includes('TESTE') || s.includes('IMPLEMENTE')) return '#10b981';
+        if (s.includes('REJET') || s.includes('ECHEC') || s.includes('ANNULE')) return '#ef4444';
+        if (s.includes('EVALU') || s.includes('PLANIFI') || s.includes('COURS')) return '#3b82f6';
+        if (s.includes('SOUMIS') || s.includes('ATTENTE') || s.includes('PRE_APPROUV')) return '#f59e0b';
+        return '#64748b';
     };
 
     const calcPercent = (part, total) => total > 0 ? Math.round((part / total) * 100) + '%' : '0%';
+    const getSegmentStyle = (statut, count) => ({ flex: count, background: getStatusColor(statut), transition: 'flex 0.4s ease' });
+    const getDotStyle = (statut) => ({ background: getStatusColor(statut) });
+    const getProgressStyle = (statut, pct) => ({ width: `${pct}%`, background: getStatusColor(statut) });
+    const getActionIconStyle = (item) => ({ background: item.iconBg, color: item.iconColor });
 
     if (loading && userStats.totalUsers === 0) {
-        return <div className="loading"><FiRefreshCw className="spinning" style={{marginRight: '10px'}} /> Chargement des métriques ITIL...</div>;
+        return (
+            <div className="asd-loading">
+                <FiRefreshCw className="spinning" /> Chargement des métriques ITIL…
+            </div>
+        );
     }
 
     return (
-        <div className="admin-system-dashboard" style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
-            {/* Header Area */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', margin: '0 0 0.5rem 0' }}>Cockpit ITIL</h1>
-                        <p style={{ color: '#64748b', margin: 0 }}>Vue d'ensemble et métriques globales du système (Temps réel).</p>
+        <div className="asd-page">
+
+            {/* ── Header ─────────────────────────────────────────────── */}
+            <div className="premium-header-card">
+                <div className="premium-header-left">
+                    <div className="premium-header-icon" style={{ background: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }}>
+                        <FiActivity />
                     </div>
+                    <div className="premium-header-text">
+                        <h1>Cockpit ITIL</h1>
+                        <p>Vue d'ensemble et métriques globales du système · Temps réel ·</p>
+                    </div>
+                </div>
+                <div className="premium-header-actions">
                     <button 
-                        onClick={() => window.print()}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '0.6rem',
-                            padding: '0.75rem 1.5rem', borderRadius: '12px', border: '1px solid #cbd5e1',
-                            background: 'white', color: '#475569', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem',
-                            transition: 'all 0.2s',
-                        }}
-                        className="hover-card"
+                        className="btn-create-premium" 
+                        onClick={() => window.location.reload()}
+                        style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}
                     >
-                        <FiClipboard /> Générer Rapport
+                        <FiRefreshCw /> Actualiser
                     </button>
-                    <button 
-                        onClick={() => navigate('/admin-system/users', { state: { openCreate: true } })}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '0.6rem',
-                            padding: '0.75rem 1.5rem', borderRadius: '12px', border: '1px solid #7c3aed',
-                            background: '#f5f3ff', color: '#7c3aed', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem',
-                            transition: 'all 0.2s',
-                        }}
-                        className="hover-card"
-                    >
-                        <FiUserPlus /> Nouveau compte
-                    </button>
-                </div>
-            </div>
-
-            {/* Top Cards - Global Totals (Standardized Style) */}
-            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem', overflowX: 'auto', marginBottom: '2rem' }}>
-                <div className="stat-card blue">
-                    <div className="stat-icon-wrapper">
-                        <FiUsers size={24} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-value">{userStats.totalUsers}</div>
-                        <div className="stat-label">Utilisateurs</div>
-                        <div style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '700', marginTop: '2px' }}>
-                            {userStats.activeUsers} Actifs ({calcPercent(userStats.activeUsers, userStats.totalUsers)})
-                        </div>
-                    </div>
-                </div>
-
-                <div className="stat-card amber">
-                    <div className="stat-icon-wrapper">
-                        <FiClipboard size={24} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-value">{kpi.rfc.total}</div>
-                        <div className="stat-label">Total RFC</div>
-                        <div style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: '700', marginTop: '2px' }}>
-                            {detailedKpi.rfc.urgentes} Urgentes
-                        </div>
-                    </div>
-                </div>
-
-                <div className="stat-card green">
-                    <div className="stat-icon-wrapper">
-                        <FiRefreshCw size={24} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-value">{kpi.changements.total}</div>
-                        <div className="stat-label">Changements</div>
-                        <div style={{ fontSize: '0.7rem', color: '#3b82f6', fontWeight: '700', marginTop: '2px' }}>
-                            {detailedKpi.changements.en_cours} En cours
-                        </div>
-                    </div>
-                </div>
-
-                <div className="stat-card purple">
-                    <div className="stat-icon-wrapper">
-                        <FiServer size={24} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-value">{envCount}</div>
-                        <div className="stat-label">Environnements</div>
-                    </div>
-                </div>
-
-                <div className="stat-card purple" style={{ borderLeftColor: '#d946ef' }}>
-                    <div className="stat-icon-wrapper" style={{ background: '#fdf4ff', color: '#d946ef' }}>
-                        <FiCheckSquare size={24} />
-                    </div>
-                    <div className="stat-info">
-                        <div className="stat-value">{kpi.taches.total}</div>
-                        <div className="stat-label">Tâches</div>
-                        <div style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '700', marginTop: '2px' }}>
-                            {detailedKpi.taches.taux_completion} Complétées
-                        </div>
+                    <div className="header-date-badge-cab">
+                        <FiCalendar style={{ color: '#7c3aed' }} /> 
+                        {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </div>
                 </div>
             </div>
 
+            {/* ── KPI Cards — Coherent with Global System ── */}
+            <div className="stats-grid asd-stats-grid">
+                <StatCard 
+                    title="Utilisateurs" 
+                    value={userStats.totalUsers} 
+                    icon={<FiUsers />} 
+                    color="blue" 
+                    onClick={() => navigate('/admin/users')}
+                    trend={{ value: `${userStats.activeUsers} actifs (${calcPercent(userStats.activeUsers, userStats.totalUsers)})`, type: 'info' }}
+                />
 
-            {/* Main Content - Distributions */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
-                <div>
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#1e293b' }}>
-                        <FiPieChart /> Répartition par Statut
-                    </h3>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        {/* RFC Distribution */}
-                        <Card style={{ padding: '1.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                                <div style={{ background: '#eff6ff', color: '#3b82f6', padding: '0.5rem', borderRadius: '8px' }}>
-                                    <FiClipboard size={20} />
-                                </div>
-                                <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>RFCs</h4>
+                <StatCard 
+                    title="Total RFC" 
+                    value={kpi.rfc.total} 
+                    icon={<FiClipboard />} 
+                    color="amber" 
+                    onClick={() => navigate('/admin/rfcs')}
+                    trend={{ value: `${detailedKpi.rfc.urgentes} urgentes`, type: 'danger' }}
+                />
+
+                <StatCard 
+                    title="Changements" 
+                    value={kpi.changements.total} 
+                    icon={<FiRefreshCw />} 
+                    color="green" 
+                    onClick={() => navigate('/admin/changes')}
+                    trend={{ value: `${detailedKpi.changements.en_cours} en cours`, type: 'success' }}
+                />
+
+                <StatCard 
+                    title="Environnements" 
+                    value={envCount} 
+                    icon={<FiServer />} 
+                    color="purple" 
+                    trend={{ value: `${kpi.taches.total} tâches au total`, type: 'purple' }}
+                />
+            </div>
+
+
+            {/* ── Contenu principal ───────────────────────────────────── */}
+            <div className="asd-main-grid">
+
+                {/* Gauche : distributions */}
+                <div className="asd-left-col">
+
+                    {/* RFC */}
+                    <div className="dash-section-card">
+                        <div className="dash-section-header">
+                            <div className="asd-chip asd-chip-blue">
+                                <FiClipboard size={18} />
                             </div>
-                            
-                            {kpi.rfc.par_statut.length === 0 ? (
-                                <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Aucune donnée disponible.</p>
+                            <h4 className="asd-section-title">
+                                RFCs <span className="asd-section-subtitle">— répartition par statut</span>
+                            </h4>
+                        </div>
+                        {kpi.rfc.par_statut.length === 0 ? (
+                            <p className="asd-empty-text">Aucune donnée.</p>
+                        ) : (
+                            <>
+                                {/* Barre visuelle */}
+                                <div className="asd-bar-wrap">
+                                    {kpi.rfc.par_statut.map((item, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="bar-segment"
+                                            style={getSegmentStyle(item.statut, item.count)}
+                                            title={`${item.libelle} : ${item.count}`}
+                                        />
+                                    ))}
+                                </div>
+                                {/* Légende */}
+                                <div className="asd-legend-wrap">
+                                    {kpi.rfc.par_statut.map((item, idx) => (
+                                        <div key={idx} className="asd-legend-item">
+                                            <div className="asd-legend-dot" style={getDotStyle(item.statut)} />
+                                            <span>{item.libelle} <strong>({item.count})</strong></span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Changements + Tâches côte à côte */}
+                    <div className="asd-split-grid">
+
+                        {/* Changements */}
+                        <div className="dash-section-card">
+                            <div className="dash-section-header">
+                                <div className="asd-chip asd-chip-green">
+                                    <FiRefreshCw size={18} />
+                                </div>
+                                <h4 className="asd-section-title">Changements</h4>
+                            </div>
+                            {kpi.changements.par_statut.length === 0 ? (
+                                <p className="asd-empty-text">Aucun changement.</p>
                             ) : (
-                                <div>
-                                    {/* Visual Bar */}
-                                    <div style={{ display: 'flex', width: '100%', height: '12px', borderRadius: '6px', overflow: 'hidden', marginBottom: '1rem' }}>
-                                        {kpi.rfc.par_statut.map((item, idx) => {
-                                            const percent = (item.count / kpi.rfc.total) * 100;
-                                            return (
-                                                <div key={idx} style={{ width: `${percent}%`, height: '100%', backgroundColor: getStatusColor(item.statut) }} title={`${item.libelle} : ${item.count}`} />
-                                            );
-                                        })}
-                                    </div>
-                                    {/* Legend */}
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                                        {kpi.rfc.par_statut.map((item, idx) => (
-                                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#475569' }}>
-                                                <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: getStatusColor(item.statut) }} />
-                                                <span>{item.libelle} <strong>({item.count})</strong></span>
+                                <div className="asd-list-stack">
+                                    {kpi.changements.par_statut.map((item, idx) => {
+                                        const pct = kpi.changements.total > 0 ? Math.round((item.count / kpi.changements.total) * 100) : 0;
+                                        return (
+                                            <div key={idx}>
+                                                <div className="asd-row-between">
+                                                    <span className="asd-inline-dot-label">
+                                                        <span className="asd-inline-dot" style={getDotStyle(item.statut)} />
+                                                        {item.libelle}
+                                                    </span>
+                                                    <strong className="asd-strong">{item.count}</strong>
+                                                </div>
+                                                <div className="asd-progress-track">
+                                                    <div className="asd-progress-fill" style={getProgressStyle(item.statut, pct)} />
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                        );
+                                    })}
                                 </div>
                             )}
-                        </Card>
+                        </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                            {/* Changements Distribution */}
-                            <Card style={{ padding: '1.5rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                                    <div style={{ background: '#f0fdf4', color: '#10b981', padding: '0.5rem', borderRadius: '8px' }}>
-                                        <FiRefreshCw size={20} />
-                                    </div>
-                                    <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Changements</h4>
+                        {/* Tâches */}
+                        <div className="dash-section-card">
+                            <div className="dash-section-header">
+                                <div className="asd-chip asd-chip-magenta">
+                                    <FiCheckSquare size={18} />
                                 </div>
-                                {kpi.changements.par_statut.length === 0 ? (
-                                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Aucun changement.</p>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                        {kpi.changements.par_statut.map((item, idx) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#475569' }}>
-                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: getStatusColor(item.statut) }} />
-                                                    {item.libelle}
-                                                </div>
-                                                <span style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.9rem' }}>{item.count}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </Card>
-
-                            {/* Taches Distribution */}
-                            <Card style={{ padding: '1.5rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                                    <div style={{ background: '#fdf4ff', color: '#d946ef', padding: '0.5rem', borderRadius: '8px' }}>
-                                        <FiCheckSquare size={20} />
-                                    </div>
-                                    <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Tâches</h4>
+                                <h4 className="asd-section-title">Tâches</h4>
+                            </div>
+                            <div className="asd-triplet">
+                                <div className="asd-triplet-item">
+                                    <div className="asd-triplet-value asd-triplet-blue">{detailedKpi.taches.en_cours || 0}</div>
+                                    <div className="asd-triplet-label">En cours</div>
                                 </div>
-                                {kpi.taches.par_statut.length === 0 ? (
-                                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Aucune tâche.</p>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                        {kpi.taches.par_statut.map((item, idx) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#475569' }}>
-                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: getStatusColor(item.statut) }} />
-                                                    {item.libelle}
-                                                </div>
-                                                <span style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.9rem' }}>{item.count}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </Card>
+                                <div className="asd-triplet-item">
+                                    <div className="asd-triplet-value asd-triplet-green">{detailedKpi.taches.terminees || 0}</div>
+                                    <div className="asd-triplet-label">Terminées</div>
+                                </div>
+                                <div className="asd-triplet-item">
+                                    <div className="asd-triplet-value asd-triplet-red">{detailedKpi.taches.annulees || 0}</div>
+                                    <div className="asd-triplet-label">Annulées</div>
+                                </div>
+                            </div>
+                            {kpi.taches.par_statut.length === 0 ? (
+                                <p className="asd-empty-text">Aucune tâche.</p>
+                            ) : (
+                                <div className="asd-list-stack-sm">
+                                    {kpi.taches.par_statut.map((item, idx) => (
+                                        <div key={idx} className="asd-row-between asd-row-sm">
+                                            <span className="asd-inline-dot-label">
+                                                <span className="asd-inline-dot" style={getDotStyle(item.statut)} />
+                                                {item.libelle}
+                                            </span>
+                                            <strong className="asd-strong">{item.count}</strong>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
 
-                {/* Right Sidebar */}
-                <div>
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#1e293b' }}>
-                        <FiActivity /> Actions Rapides
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <Card 
-                            onClick={() => navigate('/admin-system/users')}
-                            style={{ padding: '1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}
-                            className="hover-card"
-                        >
-                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                <div style={{ background: '#eff6ff', color: '#3b82f6', padding: '0.5rem', borderRadius: '8px' }}>
-                                    <FiUsers />
-                                </div>
-                                <span style={{ fontWeight: '600', color: '#1e293b' }}>Gestion Utilisateurs</span>
-                            </div>
-                            <FiArrowRight color="#94a3b8" />
-                        </Card>
+                {/* Droite : Actions rapides + état système */}
+                <div className="asd-right-col">
 
-                        <Card 
-                            onClick={() => navigate('/admin-system/cis')}
-                            style={{ padding: '1.25rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}
-                            className="hover-card"
-                        >
-                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                <div style={{ background: '#f0fdfa', color: '#0d9488', padding: '0.5rem', borderRadius: '8px' }}>
-                                    <FiLayers />
-                                </div>
-                                <span style={{ fontWeight: '600', color: '#1e293b' }}>Gestion CIs</span>
+                    {/* Actions rapides */}
+                    <div className="dash-section-card">
+                        <div className="dash-section-header asd-mb-1">
+                            <div className="asd-chip asd-chip-violet">
+                                <FiActivity size={18} />
                             </div>
-                            <FiArrowRight color="#94a3b8" />
-                        </Card>
-                    </div>
+                            <h4 className="asd-section-title">Actions rapides</h4>
+                        </div>
 
-                    <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(241, 245, 249, 0.5)', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                        <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#475569', fontSize: '1rem' }}>
-                            <FiAlertCircle /> État du Système
-                        </h4>
-                        <div style={{ fontSize: '0.9rem', color: '#64748b', lineHeight: '1.6' }}>
-                            <p style={{ margin: '0 0 0.5rem 0' }}>✓ <strong>Base de données :</strong> Connectée</p>
-                            <p style={{ margin: '0 0 0.5rem 0' }}>✓ <strong>Service d'Audit :</strong> Actif</p>
-                            <p style={{ margin: '0 0 0.5rem 0' }}>✓ <strong>Moteur Workflow :</strong> Synchronisé</p>
-                            <p style={{ margin: 0 }}>✓ <strong>Notifications :</strong> Opérationnel</p>
+                        <div className="asd-list-stack">
+                            {[
+                                { icon: <FiUsers size={16} />, label: 'Gestion Utilisateurs', path: '/admin/users',      iconBg: '#eff6ff', iconColor: '#3b82f6' },
+                                { icon: <FiLayers size={16} />, label: 'Gestion CIs',          path: '/admin/cis',       iconBg: '#f0fdfa', iconColor: '#0d9488' },
+                                { icon: <FiClipboard size={16} />, label: 'RFCs',              path: '/admin/rfcs',      iconBg: '#fef3c7', iconColor: '#b45309' },
+                                { icon: <FiRefreshCw size={16} />, label: 'Changements',       path: '/admin/changes',   iconBg: '#f0fdf4', iconColor: '#10b981' },
+                                { icon: <FiCheckSquare size={16} />, label: 'Tâches',          path: '/admin/tasks',     iconBg: '#fdf4ff', iconColor: '#d946ef' },
+                            ].map((item) => (
+                                <div
+                                    key={item.path}
+                                    className="action-nav-card"
+                                    onClick={() => navigate(item.path)}
+                                >
+                                    <div className="asd-action-left">
+                                        <div className="asd-action-icon" style={getActionIconStyle(item)}>
+                                            {item.icon}
+                                        </div>
+                                        <span className="asd-action-label">{item.label}</span>
+                                    </div>
+                                    <FiArrowRight className="nav-arrow" size={16} />
+                                </div>
+                            ))}
                         </div>
                     </div>
+
+                        <div className="asd-system-box">
+                            <h4 className="asd-system-title">
+                                <FiAlertCircle size={16} /> État du Système
+                            </h4>
+                            <div className="asd-system-line">
+                                <span className="asd-system-check">✓</span>
+                                <strong>Base de données</strong> : {systemHealth.db}
+                            </div>
+                            <div className="asd-system-line">
+                                <span className="asd-system-check">✓</span>
+                                <strong>Service d'Audit</strong> : {systemHealth.audit}
+                            </div>
+                            <div className="asd-system-line">
+                                <span className="asd-system-check">✓</span>
+                                <strong>Moteur Workflow</strong> : {systemHealth.workflow}
+                            </div>
+                            <div className="asd-system-line">
+                                <span className="asd-system-check">✓</span>
+                                <strong>Notifications</strong> : {systemHealth.notifications}
+                            </div>
+                            {systemHealth.lastCheck && (
+                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.5rem', textAlign: 'right' }}>
+                                    Dernière vérification : {new Date(systemHealth.lastCheck).toLocaleTimeString()}
+                                </div>
+                            )}
+                        </div>
                 </div>
             </div>
-
-            <style>{`
-                .loading {
-                    height: 80vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 1.2rem;
-                    color: #64748b;
-                    font-weight: 500;
-                }
-                .hover-card:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-                    border-color: #cbd5e1;
-                }
-                .spinning { animation: spin 1s linear infinite; }
-                @keyframes spin { to { transform: rotate(360deg); } }
-                
-                @media print {
-                    /* Cacher le menu latéral et le header global de l'appli */
-                    nav, aside, header, .sidebar, button {
-                        display: none !important;
-                    }
-                    /* Ajuster le dashboard pour qu'il prenne toute la page */
-                    .admin-system-dashboard {
-                        padding: 0 !important;
-                        margin: 0 !important;
-                        max-width: 100% !important;
-                    }
-                    body {
-                        background: white !important;
-                    }
-                    /* Empêcher les coupures au milieu des cartes */
-                    div[style*="grid"] > div, .hover-card {
-                        break-inside: avoid;
-                        border: 1px solid #e2e8f0 !important;
-                        box-shadow: none !important;
-                    }
-                    /* Forcer les couleurs de fond à s'imprimer */
-                    * {
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                }
-            `}</style>
         </div>
     );
 };

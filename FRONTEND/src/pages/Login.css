@@ -408,6 +408,10 @@
   cursor: not-allowed !important;
 }
 
+.password-toggle {
+  cursor: pointer;
+}
+
 /* ── Divider ──────────────────────────────────────────────── */
 .login-divider {
   display: flex;

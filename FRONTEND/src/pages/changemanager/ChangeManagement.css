@@ -1,8 +1,9 @@
+@import '../admin/AdminChangementList.css';
+
 .change-management-page {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 1.5rem;
-  padding: 1.5rem;
 }
 
 .changes-list-section {
@@ -554,4 +555,108 @@ button.btn-danger {
   .split-row {
     grid-template-columns: 1fr;
   }
+}
+/* Tâches Table V2 */
+.tasks-table-container {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  margin-bottom: 1.5rem;
+}
+
+.tasks-table-v2 {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.tasks-table-v2 th,
+.tasks-table-v2 td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.tasks-table-v2 th {
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+
+.task-code-cell {
+  font-weight: 700;
+  color: #2563eb;
+  white-space: nowrap;
+}
+
+.task-title-cell {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.task-desc-cell {
+  color: #64748b;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-status-select {
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: white;
+}
+
+.task-status-select.en_attente { color: #f59e0b; border-color: #f59e0b; }
+.task-status-select.en_cours { color: #3b82f6; border-color: #3b82f6; }
+.task-status-select.terminee { color: #10b981; border-color: #10b981; }
+.task-status-select.annulee { color: #ef4444; border-color: #ef4444; }
+
+.task-imp-select {
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.8rem;
+  background: white;
+  width: 100%;
+}
+
+.btn-icon-danger {
+  background: #fee2e2;
+  color: #ef4444;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon-danger:hover {
+  background: #fca5a5;
+  color: white;
+}
+
+.task-loading-spin {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
 }

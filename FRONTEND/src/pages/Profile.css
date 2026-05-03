@@ -98,6 +98,51 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+.profile-role-icon {
+  margin-right: 6px;
+}
+
+.profile-inline-icon-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-input-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-save-icon {
+  margin-right: 8px;
+}
+
+.profile-status-message {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+}
+
+.profile-status-message.success {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.profile-status-message.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.profile-status-icon {
+  margin-right: 8px;
+}
+
 .profile-role-badge::before {
   content: '';
   width: 6px;

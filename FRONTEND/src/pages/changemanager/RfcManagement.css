@@ -5,6 +5,8 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
 
+@import '../admin/AdminChangementList.css';
+
 .rfc-mgr-page {
   display: flex;
   flex-direction: column;
@@ -803,3 +805,21 @@
 }
 .modal-btn-approve:hover:not(:disabled) { background: #059669; transform: translateY(-1px); }
 .modal-btn-approve:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── KPI Active state (clicked filter) ──────────────────────── */
+.kpi-active .kpi-icon { background: #6366f1; color: white; }
+.kpi-active .kpi-value { color: #4338ca; }
+.kpi-active { border-color: #6366f1 !important; background: #f0f0ff !important; box-shadow: 0 0 0 2px #c7d2fe !important; }
+
+/* ── Toolbar select improved style ───────────────────────────── */
+.toolbar-filters select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.2rem !important;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.toolbar-filters select:hover { border-color: #a5b4fc; }

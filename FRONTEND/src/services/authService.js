@@ -4,6 +4,7 @@
 
 import api from '../api/axiosClient';
 
+// ─── Login ────────────────────────────────────────────────────
 const login = async (email, password) => {
   const result = await api.post('/auth/login', { email, password });
   if (result.success) {
@@ -13,6 +14,25 @@ const login = async (email, password) => {
   return result;
 };
 
+// ─── Refresh token ────────────────────────────────────────────
+// Appelé manuellement si besoin (ex: au démarrage de l'app).
+// L'axiosClient gère le refresh automatique sur 401 — cette
+// fonction sert pour un refresh proactif (avant expiration).
+const refresh = async () => {
+  try {
+    // withCredentials est déjà activé dans l'instance api
+    const result = await api.post('/auth/refresh');
+    if (result.success && result.accessToken) {
+      localStorage.setItem('accessToken', result.accessToken);
+      return result.accessToken;
+    }
+  } catch {
+    // Refresh échoué → laisser l'intercepteur gérer
+  }
+  return null;
+};
+
+// ─── Logout ───────────────────────────────────────────────────
 const logout = async () => {
   try {
     await api.post('/auth/logout');
@@ -25,6 +45,7 @@ const logout = async () => {
   }
 };
 
+// ─── Profil courant ───────────────────────────────────────────
 const getCurrentUser = () => {
   try {
     const raw = localStorage.getItem('user');
@@ -34,14 +55,12 @@ const getCurrentUser = () => {
   }
 };
 
-// Réponse : { success, message, data: { user } }
 const refreshProfile = async () => {
   try {
     const result = await api.get('/auth/me');
-    // Le backend renvoie { success, user } et non { success, data: { user } }
-    if (result.success && result.user) {
-      localStorage.setItem('user', JSON.stringify(result.user));
-      return result.user;
+    if (result.success && result.data?.user) {
+      localStorage.setItem('user', JSON.stringify(result.data.user));
+      return result.data.user;
     }
   } catch {
     // Silencieux — retourne l'utilisateur en cache
@@ -49,6 +68,7 @@ const refreshProfile = async () => {
   return getCurrentUser();
 };
 
+// ─── Helpers ──────────────────────────────────────────────────
 const isAuthenticated = () =>
   !!(localStorage.getItem('accessToken') && getCurrentUser());
 
@@ -64,6 +84,7 @@ const hasPermission = (permission) => {
 
 const authService = {
   login,
+  refresh,
   logout,
   getCurrentUser,
   refreshProfile,

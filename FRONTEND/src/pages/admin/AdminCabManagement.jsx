@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  FiUsers, FiLayers, FiCalendar, FiSearch, FiRefreshCw, FiPlus, 
+  FiUsers, FiLayers, FiCalendar, FiSearch, FiPlus, 
   FiCheckCircle, FiClock, FiTrash2, FiEdit3, FiInfo, FiX, FiHash,
-  FiUserPlus, FiUserMinus
+  FiUserPlus, FiUserMinus, FiAlertTriangle
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
 import Card from '../../components/common/Card';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import Toast from '../../components/common/Toast';
 import { useAuth } from '../../context/AuthContext';
 import './AdminCabManagement.css';
 
@@ -46,76 +48,49 @@ const AdminCabManagement = () => {
   const [selectedCabForMembers, setSelectedCabForMembers] = useState(null);
 
   const [createForm, setCreateForm] = useState({ 
-    nom_cab: '', 
+    nom_cab: '',
     type_cab: 'NORMAL',
     id_president: '',
     member_ids: []
   });
   const [editForm, setEditForm] = useState({ 
-    nom_cab: '', 
+    nom_cab: '',
     type_cab: 'NORMAL',
     id_president: '',
     member_ids: []
   });
 
+  const [inlineEdit, setInlineEdit] = useState({ id_cab: null, field: null, value: '' });
+
 
   const [createLoading, setCreateLoading] = useState(false);
-
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [toast, setToast] = useState(null);
   const [hasFetched, setHasFetched] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // axios interceptor returns response.data directly
       const [cabRes, userRes] = await Promise.all([
-        api.get('/cab').catch(() => ({ data: { cabs: [] } })),
+        api.get('/cab').catch(() => ({ cabs: [] })),
         api.get('/users').catch(() => ({ data: { data: [] } }))
       ]);
-      
-      let cabData = cabRes?.data?.cabs || cabRes?.cabs || cabRes?.data || [];
-      const userData = userRes?.data?.data || userRes?.data || [];
-      
-      setUsers(userData);
 
-      // Si on a déjà des données (peut-être des mocks locaux), on ne les écrase pas si le backend est vide
-      if (cabData.length === 0 && !hasFetched) {
-        cabData = [
-          {
-            id_cab: 'mock-cab-1',
-            code_metier: 'CAB-INFRA',
-            nom_cab: 'CAB Infrastructure IT',
-            type_cab: 'NORMAL',
-            date_creation: '2026-01-15T10:00:00Z',
-            president: userData[0] || { prenom_user: 'Admin', nom_user: 'Système' },
-            membres: [
-              { role: 'PRESIDENT', utilisateur: userData[0] || { id_user: 'u1', prenom_user: 'Admin', nom_user: 'Système' } },
-              { role: 'MEMBRE', utilisateur: userData[1] || { id_user: 'u2', prenom_user: 'Jean', nom_user: 'Dupont' } }
-            ]
-          },
-          {
-            id_cab: 'mock-cab-2',
-            code_metier: 'CAB-APP',
-            nom_cab: 'CAB Applications Métier',
-            type_cab: 'URGENT',
-            date_creation: '2026-02-20T14:30:00Z',
-            president: userData[2] || { prenom_user: 'Kader', nom_user: 'Merabti' },
-            membres: [
-              { role: 'PRESIDENT', utilisateur: userData[2] || { id_user: 'u3', prenom_user: 'Kader', nom_user: 'Merabti' } },
-              { role: 'MEMBRE', utilisateur: userData[3] || { id_user: 'u4', prenom_user: 'Sarah', nom_user: 'Rahmani' } }
-            ]
-          }
-        ];
-        setCabs(cabData);
-      } else if (cabData.length > 0) {
-        setCabs(cabData);
-      }
+      // cabRes format: { success: true, data: { cabs: [...], total: 5 } }
+      const cabData = cabRes?.data?.cabs || cabRes?.cabs || cabRes?.data || [];
       
-      setHasFetched(true);
+      // userRes format: { success: true, data: { data: [...], total: ... } }
+      const rawUsers = userRes?.data?.data || userRes?.data?.users || userRes?.data || userRes?.users || [];
+
+      setUsers(Array.isArray(rawUsers) ? rawUsers : []);
+      setCabs(Array.isArray(cabData) ? cabData : []);
     } catch (e) {
       console.error('Fetch error', e);
     } finally {
       setLoading(false);
     }
-  }, [hasFetched]);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -124,61 +99,31 @@ const AdminCabManagement = () => {
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
-    if (!createForm.nom_cab) return alert('Nom du CAB requis.');
+    if (!createForm.nom_cab) return setToast({ msg: 'Nom du CAB requis.', type: 'error' });
+    if (!createForm.type_cab) return setToast({ msg: 'Type du CAB requis.', type: 'error' });
     setCreateLoading(true);
     try {
-      // 1. Essayer de créer le CAB sur le backend
-      const res = await api.post('/cab', { 
-        nom_cab: createForm.nom_cab, 
-        type_cab: createForm.type_cab 
-      }).catch(err => {
-        console.warn('Backend creation failed, falling back to local creation:', err);
-        // Simulation d'une réponse backend réussie pour le fallback
-        const mockId = `mock-cab-${Date.now()}`;
-        return { data: { cab: { id_cab: mockId, code_metier: `CAB-NEW-${Math.floor(Math.random()*1000)}` } } };
-      });
+      // On prépare le payload
+      const payload = {
+        nom_cab: createForm.nom_cab.trim() || `CAB ${createForm.type_cab} ${new Date().toLocaleDateString()}`,
+        type_cab: createForm.type_cab,
+        member_ids: createForm.member_ids.filter(id => id && id.trim() !== '')
+      };
       
-      const newCabId = res.data?.cab?.id_cab || res.cab?.id_cab || res.data?.id_cab;
-      
-      if (newCabId) {
-        // 2. Préparer les membres et le président
-        const membresOps = [];
-        if (createForm.id_president) {
-          membresOps.push({ action: 'ADD', id_user: createForm.id_president, role: 'PRESIDENT' });
-        }
-        createForm.member_ids.forEach(id_user => {
-          if (id_user !== createForm.id_president) {
-            membresOps.push({ action: 'ADD', id_user, role: 'MEMBRE' });
-          }
-        });
-
-        // 3. Envoyer les membres via l'update si possible
-        if (membresOps.length > 0) {
-          await api.put(`/cab/${newCabId}`, { membres: membresOps }).catch(err => {
-            console.warn('Backend member update failed, will simulate locally:', err);
-          });
-        }
-
-        // 4. Mise à jour locale pour garantir que l'utilisateur voit son changement
-        if (String(newCabId).startsWith('mock-')) {
-          const newCab = {
-            id_cab: newCabId,
-            code_metier: res.data?.cab?.code_metier || 'CAB-LOCAL',
-            nom_cab: createForm.nom_cab,
-            type_cab: createForm.type_cab,
-            date_creation: new Date().toISOString(),
-            president: users.find(u => u.id_user === createForm.id_president),
-            membres: membresOps.map(op => ({
-              role: op.role,
-              utilisateur: users.find(u => u.id_user === op.id_user)
-            }))
-          };
-          setCabs(prev => [newCab, ...prev]);
-        } else {
-          fetchData();
-        }
+      if (createForm.id_president) {
+        payload.id_president = createForm.id_president;
       }
 
+      const res = await api.post('/cab', payload);
+      
+      // Extraction sécurisée de l'ID
+      const newCabId = res?.data?.cab?.id_cab || res?.cab?.id_cab || res?.id_cab;
+      if (!newCabId) {
+        console.error('Unexpected response structure:', res);
+        throw new Error('Aucun identifiant de CAB renvoyé par le backend.');
+      }
+
+      await fetchData();
       setShowCreate(false);
       setCreateForm({ 
         nom_cab: '', 
@@ -186,10 +131,11 @@ const AdminCabManagement = () => {
         id_president: '',
         member_ids: []
       });
-      alert('CAB créé avec succès.');
+      setToast({ msg: 'CAB créé avec succès.', type: 'success' });
     } catch (err) {
-      alert('Erreur lors de la création du CAB.');
-      console.error(err);
+      const msg = err?.error?.message || err?.message || 'Erreur lors de la création du CAB.';
+      setToast({ msg: msg, type: 'error' });
+      console.error('CAB create error:', err);
     } finally {
       setCreateLoading(false);
     }
@@ -244,34 +190,78 @@ const AdminCabManagement = () => {
         }
       });
 
-      // 2. Appel au backend (uniquement type_cab et membres sont supportés par le service original)
+      // 2. Appel au backend
       await api.put(`/cab/${editCab.id_cab}`, {
         type_cab: editForm.type_cab,
         membres: membresOps
       });
 
-      alert('CAB mis à jour avec succès.');
+      setToast({ msg: 'CAB mis à jour avec succès.', type: 'success' });
       setShowEdit(false);
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la mise à jour');
+      const msg = err?.error?.message || err.response?.data?.message || err?.message || 'Erreur lors de la mise à jour';
+      setToast({ msg: msg, type: 'error' });
     } finally {
       setCreateLoading(false);
     }
   };
 
-  const handleDeleteCab = async (cab) => {
-    // Suppression directe pour une réactivité maximale sur le front
+  const handleInlineSubmit = async (cab, field, value) => {
     try {
-      if (String(cab.id_cab).startsWith('mock-')) {
-        setCabs(prev => prev.filter(c => c.id_cab !== cab.id_cab));
-        return;
-      }
-      await api.delete(`/cab/${cab.id_cab}`);
+      await api.put(`/cab/${cab.id_cab}`, {
+        [field]: value
+      });
+      setInlineEdit({ id_cab: null, field: null, value: '' });
       fetchData();
     } catch (err) {
-      console.warn('Backend delete failed, falling back to local delete:', err);
-      setCabs(prev => prev.filter(c => c.id_cab !== cab.id_cab));
+      console.error('Inline edit error:', err);
+    }
+  };
+
+  const handleDeleteCab = (cab) => {
+    setConfirmDel({
+      title: 'Supprimer le CAB',
+      message: `Voulez-vous vraiment supprimer définitivement le CAB "${cab.nom_cab || cab.code_metier}" ? Toutes les réunions associées devront être supprimées au préalable.`,
+      cab
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmDel) return;
+    const { cab, onConfirm } = confirmDel;
+    
+    if (onConfirm) {
+      await onConfirm();
+      return;
+    }
+
+    // Default CAB deletion logic
+    // Sauvegarde pour rollback en cas d'échec
+    const originalCabs = [...cabs];
+    
+    // Mise à jour optimiste : on retire immédiatement du tableau
+    setCabs(prev => prev.filter(c => c.id_cab !== cab.id_cab));
+    setConfirmDel(null);
+    setCreateLoading(true);
+
+    try {
+      await api.delete(`/cab/${cab.id_cab}`);
+      setToast({ msg: 'CAB supprimé avec succès.', type: 'error' });
+      // Fermer les modals ouverts sur ce CAB
+      if (detailCab?.id_cab === cab.id_cab) setDetailCab(null);
+      if (editCab?.id_cab  === cab.id_cab) { setEditCab(null); setShowEdit(false); }
+      
+      // On ne rappelle pas forcément fetchData ici car l'UI est déjà à jour
+      // Mais on peut le faire en arrière-plan si on veut être sûr
+      // await fetchData(); 
+    } catch (err) {
+      // Rollback si erreur (ex: CAB_IN_USE)
+      setCabs(originalCabs);
+      const msg = err?.error?.message || err.response?.data?.message || err?.message || 'Erreur lors de la suppression';
+      setToast({ msg: msg, type: 'error' });
+    } finally {
+      setCreateLoading(false);
     }
   };
 
@@ -289,23 +279,34 @@ const AdminCabManagement = () => {
 
 
 
-  const handleRemoveMemberDirect = async (cab, id_user) => {
-    if (!window.confirm('Retirer ce membre du comité ?')) return;
-    try {
-      await api.delete(`/cab/${cab.id_cab}/membres/${id_user}`);
-      // Mettre à jour l'état local pour rafraîchir la modale
-      const updatedCabs = cabs.map(c => {
-        if (c.id_cab === cab.id_cab) {
-          return { ...c, membres: c.membres.filter(m => (m.id_user || m.utilisateur?.id_user) !== id_user) };
+  const handleRemoveMemberDirect = (cab, id_user) => {
+    const user = users.find(u => u.id_user === id_user);
+    const userName = user ? `${user.prenom_user} ${user.nom_user}` : 'ce membre';
+    
+    setConfirmDel({
+      title: 'Retirer le membre',
+      message: `Voulez-vous vraiment retirer ${userName} du comité "${cab.nom_cab}" ?`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/cab/${cab.id_cab}/membres/${id_user}`);
+          // Mettre à jour l'état local pour rafraîchir la modale
+          const updatedCabs = cabs.map(c => {
+            if (c.id_cab === cab.id_cab) {
+              return { ...c, membres: c.membres.filter(m => (m.id_user || m.utilisateur?.id_user) !== id_user) };
+            }
+            return c;
+          });
+          setCabs(updatedCabs);
+          setSelectedCabForMembers(updatedCabs.find(c => c.id_cab === cab.id_cab));
+          fetchData(); // Sync complète
+          setToast({ msg: 'Membre retiré avec succès.', type: 'success' });
+        } catch (err) {
+          setToast({ msg: err.response?.data?.message || 'Erreur lors du retrait du membre', type: 'error' });
+        } finally {
+          setConfirmDel(null);
         }
-        return c;
-      });
-      setCabs(updatedCabs);
-      setSelectedCabForMembers(updatedCabs.find(c => c.id_cab === cab.id_cab));
-      fetchData(); // Sync complète
-    } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors du retrait du membre');
-    }
+      }
+    });
   };
 
   const handleAddMemberDirect = async (cab, id_user) => {
@@ -314,9 +315,9 @@ const AdminCabManagement = () => {
       await api.post(`/cab/${cab.id_cab}/membres`, { id_user });
       fetchData(); // On recharge tout pour avoir les infos complètes de l'utilisateur ajouté
       setShowMembersList(false); // On ferme pour forcer le rafraîchissement propre au prochain clic
-      alert('Membre ajouté avec succès.');
+      setToast({ msg: 'Membre ajouté avec succès.', type: 'success' });
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de l\'ajout du membre');
+      setToast({ msg: err.response?.data?.message || 'Erreur lors de l\'ajout du membre', type: 'error' });
     }
   };
 
@@ -327,11 +328,11 @@ const AdminCabManagement = () => {
       await api.put(`/cab/${cabId}`, { 
         membres: [{ action: 'ADD', id_user: id_president, role: 'PRESIDENT' }]
       });
-      alert('Président du CAB mis à jour avec succès.');
+      setToast({ msg: 'Président du CAB mis à jour avec succès.', type: 'success' });
       fetchData();
       setShowMembersList(false);
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la mise à jour du président');
+      setToast({ msg: err.response?.data?.message || 'Erreur lors de la mise à jour du président', type: 'error' });
     }
   };
 
@@ -348,71 +349,127 @@ const AdminCabManagement = () => {
   return (
     <div className="cab-admin-page">
       {/* HEADER */}
-      <div className="cab-admin-header">
-        <div>
-          <h1><FiLayers /> Gestion des CAB</h1>
-          <p>Administration et supervision des comités consultatifs de changement.</p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiLayers /></div>
+          <div className="premium-header-text">
+            <h1>Gestion des CAB</h1>
+            <p>Configurez les comités de changement et supervisez les membres et types de CAB ·</p>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="premium-header-actions">
           <button onClick={() => setShowCreate(true)} className="btn-create-premium">
             <FiPlus /> Nouveau CAB
           </button>
-          <div className="header-date-badge-cab">
-            <FiCalendar /> {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </div>
         </div>
       </div>
 
       {/* KPI ROW */}
-      <div className="kpi-row-cab">
-        <KpiCard label="Total CAB" value={cabs.length} icon={<FiLayers />} color="blue" />
-        <KpiCard label="Normal" value={cabs.filter(c => c.type_cab === 'NORMAL').length} icon={<FiCheckCircle />} color="orange" />
-        <KpiCard label="Urgent" value={cabs.filter(c => c.type_cab === 'URGENT').length} icon={<FiClock />} color="danger" />
-        <KpiCard label="Membres" value={cabs.reduce((acc, c) => acc + (c.membres?.length || 0), 0)} icon={<FiUsers />} color="green" />
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+        <div className="stat-card blue">
+          <div className="stat-icon-wrapper"><FiLayers size={24} /></div>
+          <div className="stat-info">
+            <div className="stat-value">{cabs.length}</div>
+            <div className="stat-label">Total CAB</div>
+          </div>
+        </div>
+        <div className="stat-card green">
+          <div className="stat-icon-wrapper"><FiCheckCircle size={24} /></div>
+          <div className="stat-info">
+            <div className="stat-value">{cabs.filter(c => c.type_cab === 'STANDARD').length}</div>
+            <div className="stat-label">Standard</div>
+          </div>
+        </div>
+        <div className="stat-card amber">
+          <div className="stat-icon-wrapper"><FiCheckCircle size={24} /></div>
+          <div className="stat-info">
+            <div className="stat-value">{cabs.filter(c => c.type_cab === 'NORMAL').length}</div>
+            <div className="stat-label">Normal</div>
+          </div>
+        </div>
+        <div className="stat-card purple">
+          <div className="stat-icon-wrapper"><FiClock size={24} /></div>
+          <div className="stat-info">
+            <div className="stat-value">{cabs.filter(c => c.type_cab === 'URGENT').length}</div>
+            <div className="stat-label">Urgent</div>
+          </div>
+        </div>
       </div>
 
       {/* TOOLBAR */}
-      <div className="cab-admin-toolbar">
-        <div className="search-wrapper-cab">
-          <FiSearch className="search-ico-cab" />
-          <input type="text" placeholder="Rechercher un CAB..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+          <FiSearch size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <input
+            className="search-input"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher par nom "
+            style={{
+              width: '100%', padding: '0.6rem 0.9rem 0.6rem 2.4rem',
+              borderRadius: '10px', border: '1.5px solid #e2e8f0',
+              fontSize: '0.9rem', boxSizing: 'border-box',
+              transition: 'border-color 0.2s',
+            }}
+          />
         </div>
         <div className="filter-wrapper-cab">
-          <select value={filterType} onChange={e => setFilterType(e.target.value)} className="filter-select-cab">
+          <select value={filterType} onChange={e => setFilterType(e.target.value)}
+          style={{
+            padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
+            fontSize: '0.875rem', background: '#f8fafc', cursor: 'pointer', fontWeight: '500',
+            minWidth: '150px', appearance: 'none', WebkitAppearance: 'none',
+            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center',
+          }}
+          >
             <option value="ALL">Tous les types</option>
             <option value="NORMAL">Normal</option>
             <option value="URGENT">Urgent</option>
             <option value="STANDARD">Standard</option>
           </select>
         </div>
-        <button className="refresh-btn-cab" onClick={fetchData}><FiRefreshCw /></button>
+          
+        {(search || filterType !== 'ALL' ) && (
+          <button 
+            onClick={() => { setSearch(''); setFilterType('ALL');}}
+          style={{
+              padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid #7c3aed',
+              fontSize: '0.875rem', background: '#f5f3ff', color: '#7c3aed', 
+              cursor: 'pointer', fontWeight: '600'
+            }}
+          >
+            Réinitialiser
+          </button>
+        )}
 
       </div>
 
       {/* TABLE */}
       <Card className="table-card-cab">
-        <div className="table-container-cab">
-          <table>
+        <div className="table-container-cab table-scroll-container">
+          <table style={{ minWidth: '1000px' }}>
             <thead>
               <tr>
                 <th>Code CAB</th>
                 <th>Nom CAB</th>
+                <th>Président</th>
                 <th>Type</th>
+                <th>Score</th>
                 <th>Membres</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="loading-cell-cab">Chargement...</td></tr>
+                <tr><td colSpan={7} className="loading-cell-cab">Chargement...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={5} className="empty-cell-cab">Aucun CAB trouvé.</td></tr>
+                <tr><td colSpan={7} className="empty-cell-cab">Aucun CAB trouvé.</td></tr>
               ) : filtered.map((cab, index) => (
                 <tr 
                   key={cab.id_cab} 
-                  className="hover-row-cab" 
                   onClick={() => handleDetailClick(cab)}
-                  style={{ cursor: 'pointer' }}
+                  className="hover-row-cab clickable-row-cab"
                 >
                   <td>
                     <div className="cab-code-cell">#{cab.code_metier}</div>
@@ -421,51 +478,61 @@ const AdminCabManagement = () => {
                     <div className="cab-name-cell">{cab.nom_cab || 'Comité de Changement'}</div>
                   </td>
                   <td>
-                    <span className={`type-badge ${getCabTypeClass(cab.type_cab)}`}>
-                      {cab.type_cab}
-                    </span>
+                    <div className="cab-president-cell">
+                      {(() => {
+                        const p = cab.membres?.find(m => m.role === 'PRESIDENT')?.utilisateur;
+                        return p ? `${p.prenom_user} ${p.nom_user}` : 'Non défini';
+                      })()}
+                    </div>
+                  </td>
+                  <td onClick={(e) => {
+                    e.stopPropagation();
+                    setInlineEdit({ id_cab: cab.id_cab, field: 'type_cab', value: cab.type_cab });
+                  }}>
+                    {inlineEdit.id_cab === cab.id_cab && inlineEdit.field === 'type_cab' ? (
+                      <select 
+                        className="inline-edit-select"
+                        autoFocus
+                        value={inlineEdit.value}
+                        onChange={e => setInlineEdit({ ...inlineEdit, value: e.target.value })}
+                        onBlur={() => handleInlineSubmit(cab, 'type_cab', inlineEdit.value)}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <option value="NORMAL">NORMAL</option>
+                        <option value="URGENT">URGENT</option>
+                        <option value="STANDARD">STANDARD</option>
+                      </select>
+                    ) : (
+                      <span className={`type-badge ${getCabTypeClass(cab.type_cab)}`}>
+                        {cab.type_cab}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="cab-score-cell">—</div>
                   </td>
                   <td onClick={(e) => { 
                     e.stopPropagation(); 
                     setSelectedCabForMembers(cab);
                     setShowMembersList(true);
                   }}>
-                    <div className="members-count" style={{ 
-                      cursor: 'pointer', 
-                      background: '#eff6ff', 
-                      padding: '0.4rem 0.8rem', 
-                      borderRadius: '8px',
-                      color: '#2563eb',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      fontWeight: '600',
-                      transition: 'all 0.2s'
-                    }}>
+                    <div className="members-count members-count-pill">
                       <FiUsers /> {cab.membres?.length || 0} membres
                     </div>
                   </td>
-
-                  <td style={{ textAlign: 'right' }}>
-
-                    <button 
-                      className="action-btn-cab edit" 
-                      title="Modifier" 
-                      onClick={(e) => { e.stopPropagation(); handleEditClick(cab); }}
-                    >
-                      <FiEdit3 size={16} />
-                    </button>
-                    <button 
-                      className="action-btn-cab delete" 
-                      title="Supprimer"
-                      onClick={(e) => { e.stopPropagation(); handleDeleteCab(cab); }}
-                    >
-                      <FiTrash2 size={16} />
-                    </button>
+                  <td onClick={(e) => { e.stopPropagation(); }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                      <button onClick={(e) => { e.stopPropagation(); handleEditClick(cab); }} style={{ background: '#f1f5f9', color: '#3b82f6', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier">
+                        <FiEdit3 size={16} />
+                      </button>
+                      <button onClick={(e) => { 
+                        e.stopPropagation(); 
+                        handleDeleteCab(cab);
+                      }} style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Supprimer">
+                        <FiTrash2 size={16} />
+                      </button>
+                    </div>
                   </td>
-
-
-
                 </tr>
               ))}
             </tbody>
@@ -475,8 +542,8 @@ const AdminCabManagement = () => {
 
       {/* CREATE MODAL */}
       {showCreate && (
-        <div className="modal-backdrop-cab" onClick={() => setShowCreate(false)}>
-          <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '550px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => setShowCreate(false)}>
+          <div className="modal-box glass-card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
 
             <div className="modal-top-rfc-style">
               <div className="rfc-style-icon-wrapper"><FiPlus /></div>
@@ -519,27 +586,51 @@ const AdminCabManagement = () => {
                   </div>
                 </div>
 
-                {/* SECTION PRÉSIDENT (Style Jaune) */}
                 <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fef3c7', borderRadius: '12px', border: '1px solid #fde68a' }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: '800', color: '#92400e', marginBottom: '0.5rem', display: 'block', textTransform: 'uppercase' }}>
                     Président du CAB
                   </label>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <div style={{ background: '#f59e0b', color: 'white', padding: '0.6rem', borderRadius: '8px', display: 'flex' }}>
-                      <FiCheckCircle size={18} />
+                  {!createForm.id_president ? (
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <div style={{ background: '#f59e0b', color: 'white', padding: '0.6rem', borderRadius: '8px', display: 'flex' }}>
+                        <FiCheckCircle size={18} />
+                      </div>
+                      <select 
+                        value=""
+                        onChange={e => {
+                          if (e.target.value) setCreateForm({...createForm, id_president: e.target.value});
+                        }}
+                        className="modal-select-cab"
+                        style={{ flex: 1, padding: '0.5rem', borderColor: '#fde68a' }}
+                      >
+                        <option value="">Sélectionner un président...</option>
+                        {users.filter(u => u.roles?.some(r => r === 'CHANGE_MANAGER' || r.nom_role === 'CHANGE_MANAGER')).filter(u => u.id_user !== createForm.id_president).map(u => (
+                          <option key={u.id_user} value={u.id_user}>{u.prenom_user} {u.nom_user}</option>
+                        ))}
+                      </select>
                     </div>
-                    <select 
-                      value={createForm.id_president}
-                      onChange={e => setCreateForm({...createForm, id_president: e.target.value})}
-                      className="modal-select-cab"
-                      style={{ flex: 1, padding: '0.5rem', borderColor: '#fde68a' }}
-                    >
-                      <option value="">Sélectionner un président...</option>
-                      {users.filter(u => u.roles?.includes('CHANGE_MANAGER')).map(u => (
-                        <option key={u.id_user} value={u.id_user}>{u.prenom_user} {u.nom_user}</option>
-                      ))}
-                    </select>
-                  </div>
+                  ) : (() => {
+                    const u = users.find(user => user.id_user === createForm.id_president);
+                    if (!u) return null;
+                    return (
+                      <div style={{ background: 'white', padding: '0.5rem 0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #fde68a' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{ width: '28px', height: '28px', background: '#f59e0b', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                            {u.prenom_user[0]}{u.nom_user[0]}
+                          </div>
+                          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#92400e' }}>{u.prenom_user} {u.nom_user}</span>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setCreateForm({...createForm, id_president: ''})}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                          title="Retirer ce président"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* SECTION MEMBRES (Style Bleu) */}
@@ -564,7 +655,7 @@ const AdminCabManagement = () => {
                     >
                       <option value="">Ajouter un membre...</option>
                       {users
-                        .filter(u => u.roles?.includes('MEMBRE_CAB'))
+                        .filter(u => u.roles?.some(r => r === 'MEMBRE_CAB' || r.nom_role === 'MEMBRE_CAB'))
                         .filter(u => !createForm.member_ids.includes(u.id_user))
                         .map(u => (
                           <option key={u.id_user} value={u.id_user}>{u.prenom_user} {u.nom_user}</option>
@@ -600,6 +691,7 @@ const AdminCabManagement = () => {
                 </div>
               </div>
 
+
               <div className="modal-footer-rfc-style">
                 <button type="button" className="btn-cancel-rfc-style" onClick={() => setShowCreate(false)}>Annuler</button>
                 <button type="submit" className="btn-submit-rfc-style" disabled={createLoading}>
@@ -614,8 +706,8 @@ const AdminCabManagement = () => {
 
       {/* DETAIL MODAL */}
       {showDetail && detailCab && (
-        <div className="modal-backdrop-cab" onClick={() => setShowDetail(false)}>
-          <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => setShowDetail(false)}>
+          <div className="modal-box glass-card" style={{ maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
 
             <div className="modal-top-rfc-style">
               <div className="rfc-style-icon-wrapper"><FiInfo /></div>
@@ -631,7 +723,7 @@ const AdminCabManagement = () => {
                   <FiTrash2 /> Supprimer
                 </button>
               </div>
-              <button className="close-btn-rfc-style" onClick={() => setShowDetail(false)} style={{ marginLeft: '1rem' }}><FiX size={24} /></button>
+              <button className="close-btn-rfc-style close-btn-offset" onClick={() => setShowDetail(false)}><FiX size={24} /></button>
             </div>
 
             <div className="modal-body-rfc-style">
@@ -639,7 +731,7 @@ const AdminCabManagement = () => {
                 <div className="detail-item-rfc-style">
                   <label>Type de Comité</label>
                   <div className="detail-value-box">
-                    <span className={`type-badge ${getCabTypeClass(detailCab.type_cab)}`} style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
+                    <span className={`type-badge type-badge-compact ${getCabTypeClass(detailCab.type_cab)}`}>
                       {detailCab.type_cab}
                     </span>
                   </div>
@@ -647,14 +739,14 @@ const AdminCabManagement = () => {
                 <div className="detail-item-rfc-style">
                   <label>Date de Création</label>
                   <div className="detail-value-box">
-                    <FiCalendar style={{ marginRight: '8px', color: '#64748b' }} />
+                    <FiCalendar className="detail-icon-muted" />
                     {new Date(detailCab.date_creation).toLocaleDateString()}
                   </div>
                 </div>
                 <div className="detail-item-rfc-style">
                   <label>Président du Comité</label>
                   <div className="detail-value-box">
-                    <div className="rfc-avatar" style={{ width: '28px', height: '28px', fontSize: '0.7rem', marginRight: '10px' }}>
+                    <div className="rfc-avatar rfc-avatar-small-inline">
                       {detailCab.president?.prenom_user?.[0]}{detailCab.president?.nom_user?.[0]}
                     </div>
                     {detailCab.president ? `${detailCab.president.prenom_user} ${detailCab.president.nom_user}` : 'Non assigné'}
@@ -663,7 +755,7 @@ const AdminCabManagement = () => {
                 <div className="detail-item-rfc-style">
                   <label>Total Membres</label>
                   <div className="detail-value-box">
-                    <FiUsers style={{ marginRight: '8px', color: '#64748b' }} />
+                    <FiUsers className="detail-icon-muted" />
                     {detailCab.membres?.length || 0} Membres actifs
                   </div>
                 </div>
@@ -698,8 +790,8 @@ const AdminCabManagement = () => {
 
       {/* EDIT MODAL */}
       {showEdit && (
-        <div className="modal-backdrop-cab" onClick={() => setShowEdit(false)}>
-          <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '550px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => setShowEdit(false)}>
+          <div className="modal-box glass-card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
 
             <div className="modal-top-rfc-style">
               <div className="rfc-style-icon-wrapper edit"><FiEdit3 /></div>
@@ -744,22 +836,47 @@ const AdminCabManagement = () => {
                   <label style={{ fontSize: '0.75rem', fontWeight: '800', color: '#92400e', marginBottom: '0.5rem', display: 'block', textTransform: 'uppercase' }}>
                     Président du CAB
                   </label>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <div style={{ background: '#f59e0b', color: 'white', padding: '0.6rem', borderRadius: '8px', display: 'flex' }}>
-                      <FiCheckCircle size={18} />
+                  {!editForm.id_president ? (
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <div style={{ background: '#f59e0b', color: 'white', padding: '0.6rem', borderRadius: '8px', display: 'flex' }}>
+                        <FiCheckCircle size={18} />
+                      </div>
+                      <select 
+                        value=""
+                        onChange={e => {
+                          if (e.target.value) setEditForm({...editForm, id_president: e.target.value});
+                        }}
+                        className="modal-select-cab"
+                        style={{ flex: 1, padding: '0.5rem', borderColor: '#fde68a' }}
+                      >
+                        <option value="">Sélectionner un président...</option>
+                        {users.filter(u => u.roles?.some(r => r === 'CHANGE_MANAGER' || r.nom_role === 'CHANGE_MANAGER')).filter(u => u.id_user !== editForm.id_president).map(u => (
+                          <option key={u.id_user} value={u.id_user}>{u.prenom_user} {u.nom_user}</option>
+                        ))}
+                      </select>
                     </div>
-                    <select 
-                      value={editForm.id_president}
-                      onChange={e => setEditForm({...editForm, id_president: e.target.value})}
-                      className="modal-select-cab"
-                      style={{ flex: 1, padding: '0.5rem', borderColor: '#fde68a' }}
-                    >
-                      <option value="">Sélectionner un président...</option>
-                      {users.filter(u => u.roles?.includes('CHANGE_MANAGER')).map(u => (
-                        <option key={u.id_user} value={u.id_user}>{u.prenom_user} {u.nom_user}</option>
-                      ))}
-                    </select>
-                  </div>
+                  ) : (() => {
+                    const u = users.find(user => user.id_user === editForm.id_president);
+                    if (!u) return null;
+                    return (
+                      <div style={{ background: 'white', padding: '0.5rem 0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #fde68a' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{ width: '28px', height: '28px', background: '#f59e0b', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                            {u.prenom_user[0]}{u.nom_user[0]}
+                          </div>
+                          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#92400e' }}>{u.prenom_user} {u.nom_user}</span>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setEditForm({...editForm, id_president: ''})}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                          title="Retirer ce président"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* SECTION MEMBRES (Style Bleu) */}
@@ -784,7 +901,7 @@ const AdminCabManagement = () => {
                     >
                       <option value="">Ajouter un membre...</option>
                       {users
-                        .filter(u => u.roles?.includes('MEMBRE_CAB'))
+                        .filter(u => u.roles?.some(r => r === 'MEMBRE_CAB' || r.nom_role === 'MEMBRE_CAB'))
                         .filter(u => !editForm.member_ids.includes(u.id_user))
                         .map(u => (
                           <option key={u.id_user} value={u.id_user}>{u.prenom_user} {u.nom_user}</option>
@@ -820,6 +937,7 @@ const AdminCabManagement = () => {
                 </div>
               </div>
 
+
               <div className="modal-footer-rfc-style">
                 <button type="button" className="btn-cancel-rfc-style" onClick={() => setShowEdit(false)}>Annuler</button>
                 <button type="submit" className="btn-submit-rfc-style" disabled={createLoading}>
@@ -833,8 +951,8 @@ const AdminCabManagement = () => {
       
       {/* MEMBERS LIST MODAL */}
       {showMembersList && selectedCabForMembers && (
-        <div className="modal-backdrop-cab" onClick={() => setShowMembersList(false)}>
-          <div className="modal-box-cab glass-card-cab" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => setShowMembersList(false)}>
+          <div className="modal-box glass-card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div className="modal-top-rfc-style">
               <div className="rfc-style-icon-wrapper"><FiUsers /></div>
               <div className="rfc-style-header-text">
@@ -844,47 +962,62 @@ const AdminCabManagement = () => {
               <button className="close-btn-rfc-style" onClick={() => setShowMembersList(false)}><FiX size={24} /></button>
             </div>
             
-            <div className="modal-body-rfc-style" style={{ maxHeight: '450px', overflowY: 'auto' }}>
+            <div className="modal-body-rfc-style modal-body-scrollable">
               {/* Changement de président */}
               <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#fef3c7', borderRadius: '12px', border: '1px solid #fde68a' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '800', color: '#92400e', marginBottom: '0.5rem', display: 'block', textTransform: 'uppercase' }}>
-                  Ajouter un nouveau président
+                  Président du CAB
                 </label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <div style={{ background: '#f59e0b', color: 'white', padding: '0.6rem', borderRadius: '8px', display: 'flex' }}>
-                    <FiCheckCircle size={18} />
+                {!selectedCabForMembers.membres?.some(m => m.role === 'PRESIDENT') ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div style={{ background: '#f59e0b', color: 'white', padding: '0.6rem', borderRadius: '8px', display: 'flex' }}>
+                      <FiCheckCircle size={18} />
+                    </div>
+                    <select 
+                      className="modal-select-cab"
+                      style={{ flex: 1, padding: '0.5rem', borderColor: '#fde68a' }}
+                      onChange={(e) => handleUpdatePresident(selectedCabForMembers.id_cab, e.target.value)}
+                      value=""
+                    >
+                      <option value="">Sélectionner un nouveau président...</option>
+                      {users
+                        .filter(u => u.roles?.some(r => r === 'CHANGE_MANAGER' || r.nom_role === 'CHANGE_MANAGER'))
+                        .map(u => (
+                          <option key={u.id_user} value={u.id_user}>{u.prenom_user} {u.nom_user}</option>
+                        ))
+                      }
+                    </select>
                   </div>
-                  <select 
-                    className="modal-select-cab"
-                    style={{ flex: 1, padding: '0.5rem', borderColor: '#fde68a' }}
-                    onChange={(e) => handleUpdatePresident(selectedCabForMembers.id_cab, e.target.value)}
-                    value={selectedCabForMembers.membres?.find(m => m.role === 'PRESIDENT')?.utilisateur?.id_user || ""}
-                  >
-                    <option value="">Sélectionner un nouveau président...</option>
-                    {users
-                      .filter(u => u.roles?.includes('CHANGE_MANAGER'))
-                      .map(u => (
-                        <option key={u.id_user} value={u.id_user}>{u.prenom_user} {u.nom_user}</option>
-                      ))
-                    }
-                  </select>
-                </div>
-                {selectedCabForMembers.membres?.some(m => m.role === 'PRESIDENT') && (
-                  <div style={{ marginTop: '0.6rem', fontSize: '0.75rem', color: '#b45309', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    Président actuel : {(() => {
-                      const p = selectedCabForMembers.membres.find(m => m.role === 'PRESIDENT')?.utilisateur;
-                      return p ? `${p.prenom_user} ${p.nom_user}` : 'Inconnu';
-                    })()}
-                  </div>
-                )}
+                ) : (() => {
+                  const p = selectedCabForMembers.membres.find(m => m.role === 'PRESIDENT');
+                  const u = p.utilisateur || p;
+                  return (
+                    <div style={{ background: 'white', padding: '0.5rem 0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #fde68a' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{ width: '28px', height: '28px', background: '#f59e0b', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                          {u.prenom_user?.[0]}{u.nom_user?.[0]}
+                        </div>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#92400e' }}>{u.prenom_user} {u.nom_user}</span>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => handleRemoveMemberDirect(selectedCabForMembers, u.id_user)}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                        title="Retirer ce président"
+                      >
+                        <FiTrash2 size={14} />
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
 
-              {/* Formulaire d'ajout rapide */}
+              {/* Formulaire d'ajout rapide et liste des membres */}
               <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f1f5f9', borderRadius: '12px' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: '800', color: '#475569', marginBottom: '0.5rem', display: 'block', textTransform: 'uppercase' }}>
-                  Ajouter un nouveau membre
+                  Membres du Comité
                 </label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
                   <div style={{ background: '#3b82f6', color: 'white', padding: '0.6rem', borderRadius: '8px', display: 'flex' }}>
                     <FiUserPlus size={18} />
                   </div>
@@ -894,7 +1027,7 @@ const AdminCabManagement = () => {
                     onChange={(e) => handleAddMemberDirect(selectedCabForMembers, e.target.value)}
                     value=""
                   >
-                    <option value="">Sélectionner un utilisateur à ajouter...</option>
+                    <option value="">Ajouter un membre...</option>
                     {users
                       .filter(u => u.roles?.includes('MEMBRE_CAB'))
                       .filter(u => !selectedCabForMembers.membres?.some(m => (m.id_user || m.utilisateur?.id_user) === u.id_user))
@@ -904,56 +1037,41 @@ const AdminCabManagement = () => {
                     }
                   </select>
                 </div>
-              </div>
 
-              <div className="rfc-members-grid" style={{ gridTemplateColumns: '1fr', gap: '0.75rem' }}>
-                {selectedCabForMembers.membres?.length > 0 ? selectedCabForMembers.membres.map(m => {
-                  const u = m.utilisateur || m;
-                  const isPresident = m.role === 'PRESIDENT';
-                  return (
-                    <div key={u.id_user} className="rfc-member-card" style={{ 
-                      background: isPresident ? '#fffbeb' : 'white', 
-                      border: isPresident ? '1px solid #fde68a' : '1px solid #e2e8f0', 
-                      display: 'flex', alignItems: 'center', padding: '0.75rem', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' 
-                    }}>
-                      <div className="rfc-avatar" style={{ 
-                        background: isPresident ? '#f59e0b' : '#3b82f6', 
-                        width: '35px', height: '35px', borderRadius: '50%', 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'white', fontWeight: 'bold', marginRight: '1rem', fontSize: '0.8rem'
-                      }}>
-                        {u.prenom_user?.[0]}{u.nom_user?.[0]}
-                      </div>
-                      <div className="rfc-member-info" style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {u.prenom_user} {u.nom_user}
-                          {isPresident && <span style={{ fontSize: '0.65rem', background: '#f59e0b', color: 'white', padding: '1px 6px', borderRadius: '4px' }}>PRESIDENT</span>}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {(() => {
+                    const membres = selectedCabForMembers.membres?.filter(m => m.role !== 'PRESIDENT') || [];
+                    if (membres.length === 0) {
+                      return (
+                        <div style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', padding: '0.5rem', textAlign: 'center' }}>
+                          Aucun membre dans ce comité.
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                          {u.email_user || 'Membre actif'}
+                      );
+                    }
+                    return membres.map(m => {
+                      const u = m.utilisateur || m;
+                      return (
+                        <div key={u.id_user} style={{ background: 'white', padding: '0.5rem 0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{ width: '28px', height: '28px', background: '#3b82f6', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                              {u.prenom_user?.[0]}{u.nom_user?.[0]}
+                            </div>
+                            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#1e293b' }}>
+                              {u.prenom_user} {u.nom_user}
+                            </span>
+                          </div>
+                          <button 
+                            onClick={() => handleRemoveMemberDirect(selectedCabForMembers, u.id_user)}
+                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                            title="Retirer ce membre"
+                          >
+                            <FiTrash2 size={14} />
+                          </button>
                         </div>
-                      </div>
-                      {!isPresident && (
-                        <button 
-                          onClick={() => handleRemoveMemberDirect(selectedCabForMembers, u.id_user)}
-                          style={{ 
-                            background: '#fee2e2', color: '#ef4444', border: 'none', 
-                            width: '32px', height: '32px', borderRadius: '8px',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', transition: 'all 0.2s'
-                          }}
-                          title="Retirer ce membre"
-                        >
-                          <FiUserMinus size={16} />
-                        </button>
-                      )}
-                    </div>
-                  );
-                }) : (
-                  <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
-                    Aucun membre dans ce comité.
-                  </div>
-                )}
+                      );
+                    });
+                  })()}
+                </div>
               </div>
             </div>
             
@@ -964,6 +1082,19 @@ const AdminCabManagement = () => {
         </div>
       )}
 
+      {/* Confirm Delete Modal */}
+      {confirmDel && (
+        <ConfirmModal
+          title={confirmDel.title}
+          message={confirmDel.message}
+          danger={true}
+          loading={createLoading}
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDel(null)}
+        />
+      )}
+
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 };

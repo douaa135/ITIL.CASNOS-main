@@ -1,5 +1,7 @@
+@import './AdminUnified.css';
+
 .cab-admin-page {
-  padding: 2rem;
+  padding: 0;
   max-width: 1400px;
   margin: 0 auto;
   color: #1e293b;
@@ -13,15 +15,13 @@
 }
 
 .cab-admin-header h1 {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 0.4rem;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #1e293b, #3b82f6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .cab-admin-header p {
@@ -35,13 +35,13 @@
   align-items: center;
   gap: 8px;
   padding: 0.6rem 1rem;
-  background: white;
+  background: transparent;
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  border: none;
   font-size: 0.85rem;
   font-weight: 600;
   color: #64748b;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  box-shadow: none;
 }
 
 /* KPIs */
@@ -53,15 +53,15 @@
 }
 
 .kpi-card {
-  background: white;
+  background: transparent;
   padding: 0.75rem 1rem;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: none;
   display: flex;
   align-items: center;
   gap: 0.75rem;
   transition: transform 0.2s;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  box-shadow: none;
   flex: 1;
   min-width: 150px;
 }
@@ -110,35 +110,34 @@
 /* Toolbar */
 .cab-admin-toolbar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
   gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .search-wrapper-cab {
   position: relative;
   flex: 1;
-  max-width: 400px;
+  min-width: 300px;
 }
 
 .search-ico-cab {
   position: absolute;
-  left: 14px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
   color: #94a3b8;
 }
 
 .search-wrapper-cab input {
-  width: 100%;
-  padding: 0.75rem 1rem 0.75rem 2.75rem;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  outline: none;
-  font-weight: 500;
-  transition: all 0.2s;
+width: '100%'; 
+padding: '0.6rem 0.9rem 0.6rem 2.4rem';
+border-Radius: '10px';
+border: '1.5px solid #e2e8f0';
+font-Size: '0.9rem';
+box-Sizing: 'border-box';
+transition: 'border-color 0.2s';
 }
 
 .search-wrapper-cab input:focus {
@@ -149,21 +148,24 @@
 .filter-wrapper-cab {
   display: flex;
   align-items: center;
-  flex: 0 0 350px;
+  flex: 0 0 auto;
 }
 
 .filter-select-cab {
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  outline: none;
-  font-weight: 500;
-  color: #1e293b;
-  cursor: pointer;
-  transition: all 0.2s;
-  width: 100%;
-  min-width: 200px;
+  padding: 0.6rem 2.2rem 0.6rem 1rem; 
+  border-Radius: 10px; 
+  border: 1.5px solid #e2e8f0;
+  font-Size: 0.875rem; 
+  background: #f8fafc; 
+  cursor: pointer; 
+  font-Weight: 500;
+  min-width: 170px;
+  max-width: 220px;
+  appearance: none; 
+  -webkit-appearance: none;
+  background-Image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-Repeat: no-repeat;
+  background-Position: right 0.75rem center;
 }
 
 .filter-select-cab:focus {
@@ -192,9 +194,9 @@
 .table-card-cab {
   padding: 0;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 14px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.04);
+  box-shadow: 0 6px 16px rgba(15,23,42,0.05);
 }
 
 .table-container-cab {
@@ -207,7 +209,7 @@
 }
 
 .table-container-cab th {
-  padding: 1rem 1.5rem;
+  padding: 0.7rem 0.8rem;
   text-align: left;
   font-size: 0.7rem;
   font-weight: 700;
@@ -219,7 +221,7 @@
 }
 
 .table-container-cab td {
-  padding: 1.25rem 1.5rem;
+  padding: 0.65rem 0.8rem;
   border-bottom: 1px solid #f1f5f9;
 }
 
@@ -229,6 +231,10 @@
 
 .hover-row-cab:hover {
   background: #f8fafc;
+}
+
+.clickable-row-cab {
+  cursor: pointer;
 }
 
 .cab-name-cell {
@@ -771,6 +777,17 @@
   gap: 1rem;
 }
 
+.cab-member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.01);
+}
+
 .rfc-member-card {
   display: flex;
   align-items: center;
@@ -816,7 +833,7 @@
   padding: 1rem 2rem 1.25rem;
   background: #f8fafc;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 1rem;
   border-top: 1px solid #e2e8f0;
 }
@@ -875,3 +892,92 @@
 
 
 
+/* Inline Editing */
+.inline-edit-input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #3b82f6;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.inline-edit-select {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #3b82f6;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.hover-row-cab:hover .cab-name-cell, 
+.hover-row-cab:hover .type-badge {
+  text-decoration: underline dotted #3b82f6;
+}
+
+/* --- Style Jaune pour la Select du President du CAB --- */
+.cab-panel-president {
+  /* Inherit default panel styling */
+}
+
+.cab-panel-icon-president {
+  /* Inherit default panel styling */
+}
+
+.cab-panel-label-president {
+  /* Inherit default panel styling */
+}
+
+.panel-select-president {
+  border-color: #fde047 !important;
+  background-color: #fffbeb !important;
+  color: #92400e !important;
+}
+
+.panel-select-president:focus {
+  border-color: #eab308 !important;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.2) !important;
+}
+
+/* --- Style Bleu clair pour la Select des Membres --- */
+.cab-panel-members select.panel-select-flex {
+  background-color: #f0f9ff !important;
+  color: #0369a1 !important;
+  border-color: #7dd3fc !important;
+}
+
+.cab-panel-members select.panel-select-flex:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
+}
+
+/* President card & badge styles */
+.rfc-member-card-president {
+  border-color: #fef08a !important;
+  background-color: #fefce8 !important;
+}
+
+.rfc-avatar-president {
+  background: #fef08a !important;
+  color: #a16207 !important;
+}
+
+.president-badge {
+  background: #fef08a !important;
+  color: #854d0e !important;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  margin-left: 0.5rem;
+}

@@ -3,12 +3,34 @@ import changeService from '../../services/changeService';
 import dashboardService from '../../services/dashboardService';
 import { 
     FiRefreshCw, FiTrendingUp, FiActivity, FiXCircle, 
-    FiSearch, FiFilter, FiEye, FiClock, FiCheckCircle, FiFileText, FiX, FiInfo, FiEdit3, FiShield, FiPlus, FiTrash2, FiEdit
+    FiSearch, FiFilter, FiEye, FiClock, FiCheckCircle, FiFileText, FiX, FiInfo, FiEdit3, FiShield, FiPlus, FiTrash2, FiEdit, FiUser, FiCalendar
 } from 'react-icons/fi';
 import Badge from '../../components/common/Badge';
+import InlineEditableBadge from '../../components/common/InlineEditableBadge';
+import rfcService from '../../services/rfcService';
+// Machine à états synchronisée avec le backend
+const CHANGE_TRANSITIONS = {
+    EN_PLANIFICATION: ['EN_COURS', 'EN_ATTENTE', 'CLOTURE'],
+    EN_ATTENTE:       ['EN_COURS', 'CLOTURE'],
+    EN_COURS:         ['IMPLEMENTE', 'EN_ECHEC', 'CLOTURE'],
+    IMPLEMENTE:       ['TESTE',      'EN_ECHEC'],
+    TESTE:            ['CLOTURE'],
+    EN_ECHEC:         ['EN_PLANIFICATION', 'CLOTURE'],
+    CLOTURE:          [],
+};
+
+const TASK_TRANSITIONS = {
+    EN_ATTENTE: ['EN_COURS', 'ANNULEE'],
+    EN_COURS:   ['TERMINEE', 'ANNULEE'],
+    TERMINEE:   [],
+    ANNULEE:    [],
+};
 import api from '../../api/axiosClient';
 import Card from '../../components/common/Card';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import Toast from '../../components/common/Toast';
 import '../changemanager/RfcManagement.css';
+import './AdminChangementList.css';
 
 const AdminChangementList = () => {
     const [changements, setChangements] = useState([]);
@@ -18,7 +40,10 @@ const AdminChangementList = () => {
     const [filterStatut, setFilterStatut] = useState('');
     const [filterEnv, setFilterEnv] = useState('');
     const [environments, setEnvironments] = useState([]);
-    const [managers, setManagers] = useState([]);
+    const [changeManagers, setChangeManagers] = useState([]);
+    const [demandeurs, setDemandeurs] = useState([]);
+    const [implementeurs, setImplementeurs] = useState([]);
+    const [priorities, setPriorities] = useState([]);
     const [saving, setSaving] = useState(false);
 
     const [showCreateChange, setShowCreateChange] = useState(false);
@@ -38,6 +63,7 @@ const AdminChangementList = () => {
     const [reportForm, setReportForm] = useState({ titre_rapport: '', type_rapport: 'Audit', contenu_rapport: '' });
     const [editMode, setEditMode] = useState(false);
     const [changeStatuses, setChangeStatuses] = useState([]);
+    const [taskStatuses, setTaskStatuses] = useState([]);
     const [newStatutId, setNewStatutId] = useState('');
     const [editForm, setEditForm] = useState({
         titre: '',
@@ -47,6 +73,20 @@ const AdminChangementList = () => {
         date_fin: '',
         environnement: '',
         id_manager: ''
+    });
+    const [confirmDel, setConfirmDel] = useState(null);
+    const [toast, setToast] = useState(null);
+    const [showTasksModal, setShowTasksModal] = useState(false);
+    const [tasksToShow, setTasksToShow] = useState([]);
+    const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+    const [newTaskForm, setNewTaskForm] = useState({
+        titre_tache: '',
+        description: '',
+        priorite: 'MOYENNE',
+        id_user: '',
+        id_statut: '',
+        date_debut_prevue: '',
+        date_fin_prevue: ''
     });
 
     const handleOpenProcess = (c) => {
@@ -61,18 +101,113 @@ const AdminChangementList = () => {
         setShowReportForm(false);
         setEditMode(false);
         setShowCreateChange(false);
+        setShowTasksModal(false);
+        setShowNewTaskForm(false);
     };
 
-    const handleDeleteChangement = async (id) => {
-        if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce changement ?')) return;
+    const handleShowTasks = async (changement) => {
         try {
-            await changeService.deleteChangement(id);
-            alert('Changement supprimé avec succès !');
-            setChangements(prev => prev.filter(c => c.id_changement !== id));
+            setSelectedChangement(changement);
+            const tasks = await changeService.getTasksByChange(changement.id_changement);
+            setTasksToShow(Array.isArray(tasks) ? tasks : []);
+            setTasksToShow(Array.isArray(tasks) ? tasks : []);
+            setShowTasksModal(true);
         } catch (err) {
-            console.warn("Backend error during changement deletion, falling back to local state removal", err);
-            setChangements(prev => prev.filter(c => c.id_changement !== id));
-            alert('Changement supprimé (Simulation)');
+            setToast({ msg: 'Erreur lors du chargement des tâches.', type: 'error' });
+            console.error(err);
+        }
+    };
+
+    const handleCreateTask = async (e) => {
+        e.preventDefault();
+        if (!selectedChangement) return;
+        setSaving(true);
+        try {
+            if (!newTaskForm.titre_tache) throw new Error("Le titre est obligatoire.");
+            if (!newTaskForm.id_user) throw new Error("Veuillez sélectionner un utilisateur.");
+
+            // Le backend Prisma initialise id_statut à EN_ATTENTE automatiquement via le service.
+            // On envoie le strict minimum pour éviter les erreurs de validation middleware.
+            const payload = {
+                titre_tache: newTaskForm.titre_tache.trim(),
+                description: newTaskForm.description || '',
+                id_user: newTaskForm.id_user,
+                ordre_tache: Number(tasksToShow.length + 1)
+            };
+
+            await changeService.createTache(selectedChangement.id_changement, payload);
+            setToast({ msg: 'Tâche créée avec succès !', type: 'success' });
+            const tasks = await changeService.getTasksByChange(selectedChangement.id_changement);
+            setTasksToShow(Array.isArray(tasks) ? tasks : []);
+            setShowNewTaskForm(false);
+            setNewTaskForm({ titre_tache: '', description: '', priorite: 'MOYENNE', id_user: '', id_statut: '', date_debut_prevue: '', date_fin_prevue: '' });
+            
+            // Refresh changes list to update task count
+            const updated = await changeService.getAllChangements();
+            setChangements(updated);
+        } catch (err) {
+            console.error(err);
+            setToast({ msg: 'Erreur lors de la création de la tâche.', type: 'error' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDeleteTask = (idTache) => {
+        setConfirmDel({
+            title: 'Supprimer la tâche',
+            message: 'Êtes-vous sûr de vouloir supprimer cette tâche ? Cette action est irréversible.',
+            id: idTache,
+            isTask: true
+        });
+    };
+
+    const handleUpdateTaskStatus = async (idTache, idStatut) => {
+        try {
+            await changeService.updateTacheStatut(idTache, idStatut);
+            if (selectedChangement) {
+                const tasks = await changeService.getTasksByChange(selectedChangement.id_changement);
+                setTasksToShow(Array.isArray(tasks) ? tasks : []);
+            }
+            setToast({ msg: 'Statut de la tâche mis à jour.', type: 'success' });
+        } catch (err) {
+            console.error(err);
+            setToast({ msg: 'Erreur lors de la mise à jour du statut de la tâche.', type: 'error' });
+        }
+    };
+
+    const handleDeleteChangement = (id) => {
+        setConfirmDel({
+            title: 'Supprimer le changement',
+            message: 'Êtes-vous sûr de vouloir supprimer ce changement ? Cette action est irréversible.',
+            id,
+            isTask: false
+        });
+    };
+
+    const confirmDelete = async () => {
+        if (!confirmDel) return;
+        const { id, isTask } = confirmDel;
+        setSaving(true);
+        try {
+            if (isTask) {
+                await changeService.deleteTache(id);
+                setToast({ msg: 'Tâche supprimée avec succès !', type: 'error' });
+                setTasksToShow(prev => prev.filter(t => t.id_tache !== id));
+            } else {
+                await changeService.deleteChangement(id);
+                setChangements(prev => prev.filter(c => c.id_changement !== id));
+                setToast({ msg: 'Changement supprimé avec succès !', type: 'error' });
+            }
+            // Update counts/list
+            const updated = await changeService.getAllChangements();
+            setChangements(updated);
+        } catch (err) {
+            console.error('Delete error:', err);
+            setToast({ msg: err?.response?.data?.message || err.message || 'Impossible de supprimer.', type: 'error' });
+        } finally {
+            setSaving(false);
+            setConfirmDel(null);
         }
     };
 
@@ -110,50 +245,33 @@ const AdminChangementList = () => {
         if (!selectedChangement) return;
         setSaving(true);
         try {
-            // Simulation locale immédiate pour le feeling premium
-            const updatedData = {
-                ...selectedChangement,
-                date_debut: editForm.date_debut,
-                date_fin_prevu: editForm.date_fin,
+            // Appel au backend obligatoire
+            await changeService.updateChangement(selectedChangement.id_changement, {
+                date_debut: editForm.date_debut || null,
+                date_fin_prevue: editForm.date_fin || null,
+                id_env: editForm.environnement || undefined,
+                id_user: editForm.id_manager || undefined,
                 priorite: editForm.priorite,
-                environnement: environments.find(e => String(e.id_env) === String(editForm.environnement)) || selectedChangement.environnement,
-                implementeur: managers.find(m => String(m.id_user) === String(editForm.id_manager)) || selectedChangement.implementeur,
-                planChangement: {
-                    ...selectedChangement.planChangement,
-                    titre_plan: editForm.titre,
-                    etapes_plan: editForm.description
-                },
-                statut: changeStatuses.find(s => String(s.id_statut) === String(newStatutId)) || selectedChangement.statut
-            };
-
-            // On tente le backend
-            try {
-                await changeService.updateChangement(selectedChangement.id_changement, {
-                    date_debut: editForm.date_debut || null,
-                    date_fin_prevu: editForm.date_fin || null,
-                    id_env: editForm.environnement || undefined,
-                    id_user: editForm.id_manager || undefined,
-                    priorite: editForm.priorite,
-                    plan_changement: {
-                        titre_plan: editForm.titre || 'Changement Standard',
-                        etapes_plan: editForm.description || ''
-                    }
-                });
-
-                if (newStatutId && String(newStatutId) !== String(selectedChangement.statut?.id_statut)) {
-                    await changeService.updateChangementStatus(selectedChangement.id_changement, newStatutId);
+                plan_changement: {
+                    titre_plan: editForm.titre || 'Changement Standard',
+                    etapes_plan: editForm.description || ''
                 }
-            } catch (apiErr) {
-                console.warn("Backend update failed, staying in local mode", apiErr);
+            });
+
+            if (newStatutId && String(newStatutId) !== String(selectedChangement.statut?.id_statut)) {
+                await changeService.updateChangementStatus(selectedChangement.id_changement, newStatutId);
             }
 
-            setChangements(prev => prev.map(c => c.id_changement === selectedChangement.id_changement ? updatedData : c));
-            setSelectedChangement(updatedData);
+            // Recharger les données pour être sûr d'avoir la version backend
+            const updatedChangements = await changeService.getAllChangements();
+            setChangements(updatedChangements);
+            
             setEditMode(false);
-            alert('Changement modifié avec succès !');
+            setShowProcess(false);
+            setToast({ msg: 'Changement modifié avec succès !', type: 'success' });
         } catch (error) {
             console.error("Erreur critique modification:", error);
-            alert("Erreur lors de la sauvegarde.");
+            setToast({ msg: error.message || "Erreur lors de la sauvegarde.", type: 'error' });
         } finally {
             setSaving(false);
         }
@@ -161,36 +279,43 @@ const AdminChangementList = () => {
 
     const handleCreateChangement = async (e) => {
         e.preventDefault();
+        if (!createForm.id_env) {
+            setToast({ msg: 'Veuillez sélectionner un environnement.', type: 'error' });
+            return;
+        }
+        setSaving(true);
         try {
-            // Simulation Frontend-Only pour garantir que ça "marche"
-            const mockId = Date.now();
-            const newChg = {
-                id_changement: mockId,
-                code_changement: `CHG-${String(mockId).slice(-4)}`,
-                date_debut: createForm.date_debut_prevue,
-                date_fin_prevu: createForm.date_fin_prevue,
-                statut: { libelle: 'Soumis', code_statut: 'SOUMIS' },
-                environnement: environments.find(env => String(env.id_env) === String(createForm.id_env)) || { nom_env: 'N/A' },
-                implementeur: managers.find(m => String(m.id_user) === String(createForm.id_manager)) || { nom_user: 'Non assigné', prenom_user: '' },
-                planChangement: { titre_plan: createForm.titre, etapes_plan: createForm.description }
-            };
+            // Créer le changement de base
+            const newChangement = await changeService.createChangement({
+                id_env: createForm.id_env,
+                date_debut: createForm.date_debut_prevue || null,
+                date_fin_prevu: createForm.date_fin_prevue || null,
+            });
 
-            // On tente le back
-            try {
-                await changeService.createChangement({
-                    id_env: createForm.id_env,
-                    id_user: createForm.id_manager || undefined,
-                    date_debut: createForm.date_debut_prevue || null,
-                    date_fin_prevu: createForm.date_fin_prevue || null,
-                });
-            } catch (err) { console.warn("Backend create failed, simulation used"); }
+            if (!newChangement?.id_changement) {
+                throw new Error('Changement créé mais impossible de mettre à jour le plan.');
+            }
 
-            setChangements(prev => [newChg, ...prev]);
-            alert('Nouveau changement créé avec succès !');
+            // Créer le plan de changement avec le titre
+            await changeService.updateChangement(newChangement.id_changement, {
+                plan_changement: {
+                    titre_plan: createForm.titre || 'Changement Standard',
+                    etapes_plan: createForm.description || '',
+                },
+            });
+
+            // Recharger tout et afficher immédiatement le nouveau changement
+            const updated = await changeService.getAllChangements();
+            setChangements(updated);
+            
+            setToast({ msg: 'Changement créé avec succès !', type: 'success' });
             setShowCreateChange(false);
             setCreateForm({ titre: '', description: '', priorite: 'BASSE', date_debut_prevue: '', date_fin_prevue: '', id_env: '', id_manager: '' });
-        } catch (error) {
-            alert('Erreur lors de la création.');
+        } catch (err) {
+            console.error('Create error:', err);
+            setToast({ msg: err.message || 'Erreur lors de la création du changement.', type: 'error' });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -198,26 +323,26 @@ const AdminChangementList = () => {
         if (!newStatutId || newStatutId === selectedChangement?.statut?.id_statut) return;
         try {
             await changeService.updateChangementStatus(selectedChangement.id_changement, newStatutId);
-            alert('Statut mis à jour avec succès !');
+            setToast({ msg: 'Statut mis à jour avec succès !', type: 'success' });
             const updatedChangements = await changeService.getAllChangements();
             setChangements(updatedChangements);
             const updated = updatedChangements.find(c => c.id_changement === selectedChangement.id_changement);
             if (updated) setSelectedChangement(updated);
         } catch (err) {
-            alert(err?.response?.data?.message || 'Erreur lors du changement de statut.');
+            setToast({ msg: err?.response?.data?.message || 'Erreur lors du changement de statut.', type: 'error' });
         }
     };
 
     const handleCreateReport = async () => {
-        if (!selectedChangement?.id_rfc) return alert("Ce changement n'est pas lié à une RFC, création de rapport impossible.");
-        if (!reportForm.titre_rapport || !reportForm.contenu_rapport) return alert("Le titre et le contenu sont obligatoires.");
+        if (!selectedChangement?.id_rfc) return setToast({ msg: "Ce changement n'est pas lié à une RFC, création de rapport impossible.", type: 'error' });
+        if (!reportForm.titre_rapport || !reportForm.contenu_rapport) return setToast({ msg: "Le titre et le contenu sont obligatoires.", type: 'error' });
         try {
-            await api.post(`/rfc/${selectedChangement.id_rfc}/rapports`, reportForm);
-            alert('Rapport généré et enregistré avec succès !');
+            await api.post(`/changement/${selectedChangement.id_changement}/rapports`, reportForm);
+            setToast({ msg: 'Rapport généré et enregistré avec succès !', type: 'success' });
             setShowReportForm(false);
             setReportForm({ titre_rapport: '', type_rapport: 'Audit', contenu_rapport: '' });
         } catch (e) {
-            alert('Erreur lors de la génération du rapport.');
+            setToast({ msg: 'Erreur lors de la génération du rapport.', type: 'error' });
         }
     };
 
@@ -228,51 +353,51 @@ const AdminChangementList = () => {
                 // On utilise skipRedirect pour éviter que le 401 ne nous éjecte de la page
                 const config = { skipRedirect: true };
                 
-                const [kpiRes, changesRes, statusesRes, envsRes] = await Promise.all([
-                    api.get('/dashboard/kpis/changements', config).catch(() => null),
-                    api.get('/changements', config).catch(() => null),
-                    api.get('/statuts?contexte=CHANGEMENT', config).catch(() => null),
-                    api.get('/environnements', config).catch(() => null)
+                const [kpiRes, changesData, statusesRes, envsRes, taskStatRes, prioritiesRes] = await Promise.all([
+                    dashboardService.getKpiChangements().catch(() => null),
+                    changeService.getAllChangements().catch(() => []),
+                    api.get('/statuts?contexte=CHANGEMENT').catch(() => null),
+                    api.get('/environnements').catch(() => null),
+                    api.get('/statuts?contexte=TACHE').catch(() => null),
+                    api.get('/priorites').catch(() => null)
                 ]);
                 
-                const extract = (res, key) => res?.data?.[key] || res?.data || null;
-
-                const kpiData = extract(kpiRes, 'data');
+                const kpiData = kpiRes?.data || kpiRes || null;
                 if (kpiData) {
                     setKpi(kpiData);
                 } else {
-                    // Mock KPI si vide
-                    setKpi({ total: 12, en_cours: 4, taux_reussite: '85%', echecs: 2 });
+                    setKpi({ total: 0, en_cours: 0, taux_reussite: '0%', echecs: 0 });
                 }
 
-                const changesData = extract(changesRes, 'changements') || extract(changesRes, 'data');
-                if (changesData && Array.isArray(changesData)) {
-                    setChangements(changesData);
-                } else {
-                    // Mock Changements
-                    setChangements([
-                        { id_changement: 1, code_changement: 'CHG-2024-001', titre: 'Migration Core Banking', statut: { libelle: 'En cours', code_statut: 'EN_COURS' }, environnement: { nom_env: 'Production' }, date_debut: '2024-05-01T10:00' },
-                        { id_changement: 2, code_changement: 'CHG-2024-002', titre: 'Update Firewall Rules', statut: { libelle: 'Planifié', code_statut: 'PLANIFIE' }, environnement: { nom_env: 'DMZ' }, date_debut: '2024-05-05T22:00' }
-                    ]);
-                }
+                setChangements(Array.isArray(changesData) ? changesData : []);
 
-                const statusesData = extract(statusesRes, 'statuts');
-                setChangeStatuses(statusesData || []);
+                const statusesData = statusesRes?.data?.statuts || statusesRes?.data || statusesRes || [];
+                setChangeStatuses(Array.isArray(statusesData) ? statusesData : []);
                 
-                const envsData = extract(envsRes, 'environnements') || extract(envsRes, 'data');
-                setEnvironments(envsData || []);
+                const envsData = envsRes?.data?.environnements || envsRes?.data || envsRes || [];
+                setEnvironments(Array.isArray(envsData) ? envsData : []);
 
-                // Fetch Managers
-                const mgrRes = await api.get('/users?nom_role=IMPLEMENTEUR', { skipRedirect: true }).catch(() => null);
-                const mgrData = extract(mgrRes, 'data') || extract(mgrRes, 'users');
-                if (mgrData && Array.isArray(mgrData)) {
-                    setManagers(mgrData);
-                } else {
-                    setManagers([
-                        { id_user: 1, prenom_user: 'Admin', nom_user: 'Système' },
-                        { id_user: 2, prenom_user: 'Jean', nom_user: 'Dupont' }
-                    ]);
-                }
+                const taskStatusesData = taskStatRes?.data?.statuts || taskStatRes?.data || taskStatRes || [];
+                setTaskStatuses(Array.isArray(taskStatusesData) ? taskStatusesData : []);
+
+                const prioritiesData = prioritiesRes?.data?.priorites || prioritiesRes?.data || prioritiesRes || [];
+                setPriorities(Array.isArray(prioritiesData) ? prioritiesData : []);
+
+                // Fetch Change Managers for Change Responsable
+                const cmRes = await api.get('/users?nom_role=CHANGE_MANAGER').catch(() => null);
+                const cmData = cmRes?.data?.data || cmRes?.data || [];
+                setChangeManagers(Array.isArray(cmData) ? cmData : []);
+
+                // Fetch Implementeurs for Tasks
+                const [impRes, demRes] = await Promise.all([
+                    api.get('/users?nom_role=IMPLEMENTEUR').catch(() => null),
+                    api.get('/users?nom_role=DEMANDEUR').catch(() => null)
+                ]);
+                const impData = impRes?.data?.data || impRes?.data || [];
+                setImplementeurs(Array.isArray(impData) ? impData : []);
+
+                const demData = demRes?.data?.data || demRes?.data || [];
+                setDemandeurs(Array.isArray(demData) ? demData : []);
 
             } catch (err) {
                 console.warn("Utilisation du mode secours (Front-only) pour la Gestion de Changement");
@@ -286,17 +411,12 @@ const AdminChangementList = () => {
         loadData();
     }, []);
 
-    const getStatusColor = (statut) => {
-        const s = (statut || '').toUpperCase();
-        if (s.includes('REUSSI') || s.includes('TERMINE') || s.includes('APPROUV')) return 'green';
-        if (s.includes('REJET') || s.includes('ECHEC') || s.includes('ANNULE')) return 'red';
-        if (s.includes('EVALU')) return 'purple';
-        if (s.includes('PLANIF')) return 'teal';
-        if (s.includes('COURS')) return 'pink';
-        if (s.includes('ATTENTE') || s.includes('SOUMIS')) return 'blue';
-        if (s.includes('URGENCE')) return 'amber';
-        if (s.includes('BROUILLON')) return 'orange';
-        if (s.includes('PRE-APPROUV') || s.includes('PRE_APPROUV')) return 'yellow';
+    const getStatusColor = (code) => {
+        const s = (code || '').toUpperCase();
+        if (s.includes('REUSSI') || s.includes('TERMINE') || s.includes('APPROUV') || s.includes('IMPLEMENTE') || s.includes('TESTE') || s === 'CLOTURE') return 'success';
+        if (s.includes('REJET') || s.includes('ECHEC') || s.includes('ANNULE') || s.includes('ECHEC')) return 'danger';
+        if (s.includes('PLANIF') || s.includes('COURS') || s.includes('ATTENTE') || s.includes('SOUMIS')) return 'warning';
+        if (s.includes('EVALU')) return 'primary';
         return 'default';
     };
 
@@ -318,6 +438,7 @@ const AdminChangementList = () => {
     const uniqueTypes = ['STANDARD', 'NORMAL', 'URGENCE'];
 
     const [filterType, setFilterType] = useState('');
+    const [kpiStatutFilter, setKpiStatutFilter] = useState('');
 
     const filteredChangements = Array.isArray(changements) ? changements.filter(c => {
         if (!c) return false;
@@ -325,24 +446,33 @@ const AdminChangementList = () => {
                               (c.titre?.toLowerCase() || '').includes(searchTerm?.toLowerCase() || '') ||
                               (c.rfc?.titre_rfc?.toLowerCase() || '').includes(searchTerm?.toLowerCase() || '') ||
                               (c.environnement?.nom_env?.toLowerCase() || '').includes(searchTerm?.toLowerCase() || '');
-        const matchesStatut = filterStatut ? c.statut?.code_statut === filterStatut : true;
+        const activeStatut = kpiStatutFilter || filterStatut;
+        const matchesStatut = activeStatut ? c.statut?.code_statut === activeStatut : true;
         const matchesEnv = filterEnv ? c.environnement?.nom_env === filterEnv : true;
         const matchesType = filterType ? (c.rfc?.typeRfc?.type || 'STANDARD').toUpperCase() === filterType : true;
         
         return matchesSearch && matchesStatut && matchesEnv && matchesType;
     }) : [];
+    const getKpiCardClass = (code) => {
+        if (!code) return `acl-kpi-card${kpiStatutFilter === '' && !filterStatut ? ' is-selected is-total' : ''}`;
+        return `acl-kpi-card${kpiStatutFilter === code ? ' is-selected is-' + code.toLowerCase().replace('_', '-') : ''}`;
+    };
+    const getRowClass = (index) => `acl-row hover-row ${index % 2 === 0 ? 'even' : 'odd'}`;
 
     return (
         <div className="rfc-mgr-page">
-            <div className="rfc-mgr-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                    <h1><FiRefreshCw /> Gestion des Changements</h1>
-                    <p>Supervision globale de tous les changements du système ITIL.</p>
+            <div className="premium-header-card">
+                <div className="premium-header-left">
+                    <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiRefreshCw /></div>
+                    <div className="premium-header-text">
+                        <h1>Gestion des Changements</h1>
+                        <p>Configurez le flux des changements et supervisez l'état global du système ITIL ·</p>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div className="premium-header-actions">
                     <button 
                         onClick={() => setShowCreateChange(true)} 
-                        className="btn-create-premium" 
+                        className="btn-create-premium"
                     >
                         <FiPlus /> Nouveau Changement
                     </button>
@@ -351,55 +481,66 @@ const AdminChangementList = () => {
 
             {/* KPI Section */}
             {kpi && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
-                    <div style={kpiCardStyle}>
-                        <div style={{...iconBoxStyle, background: '#e0f2fe', color: '#0369a1'}}><FiRefreshCw /></div>
-                        <div>
-                            <p style={kpiLabelStyle}>Total Changements</p>
-                            <h3 style={kpiValueStyle}>{kpi.total}</h3>
+                <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                    <div className={`stat-card blue ${kpiStatutFilter === '' ? 'selected-active' : ''}`} onClick={() => { setKpiStatutFilter(''); setFilterStatut(''); }} style={{ cursor: 'pointer' }}>
+                        <div className="stat-icon-wrapper"><FiRefreshCw size={24} /></div>
+                        <div className="stat-info">
+                            <div className="stat-value">{kpi.total}</div>
+                            <div className="stat-label">Total Changements</div>
                         </div>
                     </div>
-                    <div style={kpiCardStyle}>
-                        <div style={{...iconBoxStyle, background: '#fef3c7', color: '#b45309'}}><FiActivity /></div>
-                        <div>
-                            <p style={kpiLabelStyle}>En cours</p>
-                            <h3 style={kpiValueStyle}>{kpi.en_cours}</h3>
+                    <div className={`stat-card purple ${kpiStatutFilter === 'EN_COURS' ? 'selected-active' : ''}`} onClick={() => setKpiStatutFilter(k => k === 'EN_COURS' ? '' : 'EN_COURS')} style={{ cursor: 'pointer' }}>
+                        <div className="stat-icon-wrapper"><FiActivity size={24} /></div>
+                        <div className="stat-info">
+                            <div className="stat-value">{kpi.en_cours}</div>
+                            <div className="stat-label">En cours</div>
                         </div>
                     </div>
-                    <div style={kpiCardStyle}>
-                        <div style={{...iconBoxStyle, background: '#dcfce7', color: '#15803d'}}><FiTrendingUp /></div>
-                        <div>
-                            <p style={kpiLabelStyle}>Taux de Réussite</p>
-                            <h3 style={{...kpiValueStyle, color: '#10b981'}}>{kpi.taux_reussite}</h3>
+                    <div className={`stat-card green ${kpiStatutFilter === 'IMPLEMENTE' ? 'selected-active' : ''}`} onClick={() => setKpiStatutFilter(k => k === 'IMPLEMENTE' ? '' : 'IMPLEMENTE')} style={{ cursor: 'pointer' }}>
+                        <div className="stat-icon-wrapper"><FiTrendingUp size={24} /></div>
+                        <div className="stat-info">
+                            <div className="stat-value">{kpi.taux_reussite}</div>
+                            <div className="stat-label">Taux de Réussite</div>
                         </div>
                     </div>
-                    <div style={kpiCardStyle}>
-                        <div style={{...iconBoxStyle, background: '#fee2e2', color: '#b91c1c'}}><FiXCircle /></div>
-                        <div>
-                            <p style={kpiLabelStyle}>Échecs</p>
-                            <h3 style={kpiValueStyle}>{kpi.echecs}</h3>
+                    <div className={`stat-card red ${kpiStatutFilter === 'EN_ECHEC' ? 'selected-active' : ''}`} onClick={() => setKpiStatutFilter(k => k === 'EN_ECHEC' ? '' : 'EN_ECHEC')} style={{ cursor: 'pointer', borderLeft: '3px solid #ef4444' }}>
+                        <div className="stat-icon-wrapper" style={{ background: '#fef2f2', color: '#dc2626' }}><FiXCircle size={24} /></div>
+                        <div className="stat-info">
+                            <div className="stat-value">{kpi.echecs}</div>
+                            <div className="stat-label">Échecs</div>
                         </div>
                     </div>
                 </div>
             )}
 
             {/* TOOLBAR FILTERS */}
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <div style={{ flex: 1, minWidth: '250px', position: 'relative' }}>
-                    <FiSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                    <FiSearch size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                     <input 
                         type="text" 
                         placeholder="Rechercher par code, titre..." 
                         value={searchTerm} 
                         onChange={e => setSearchTerm(e.target.value)} 
-                        style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.5rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', outline: 'none' }}
+                        style={{
+                            width: '100%', padding: '0.6rem 0.9rem 0.6rem 2.4rem',
+                            borderRadius: '10px', border: '1.5px solid #e2e8f0',
+                            fontSize: '0.9rem', boxSizing: 'border-box',
+                            transition: 'border-color 0.2s',
+                        }}
                     />
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <div className="acl-filter-row">
                     <select 
                         value={filterStatut} 
-                        onChange={e => setFilterStatut(e.target.value)}
-                        style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: 'white', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}
+                        onChange={e => { setFilterStatut(e.target.value); setKpiStatutFilter(''); }}
+                        style={{
+                            padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
+                            fontSize: '0.875rem', background: '#f8fafc', cursor: 'pointer', fontWeight: '500',
+                            minWidth: '150px', appearance: 'none', WebkitAppearance: 'none',
+                            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center',
+                        }}
                     >
                         <option value="">Tous les statuts</option>
                         {uniqueStatuts?.map(s => (
@@ -409,7 +550,13 @@ const AdminChangementList = () => {
                     <select 
                         value={filterType} 
                         onChange={e => setFilterType(e.target.value)}
-                        style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: 'white', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}
+                        style={{
+                            padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
+                            fontSize: '0.875rem', background: '#f8fafc', cursor: 'pointer', fontWeight: '500',
+                            minWidth: '150px', appearance: 'none', WebkitAppearance: 'none',
+                            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center',
+                        }}
                     >
                         <option value="">Tous les types</option>
                         {uniqueTypes?.map(t => (
@@ -419,74 +566,152 @@ const AdminChangementList = () => {
                     <select 
                         value={filterEnv} 
                         onChange={e => setFilterEnv(e.target.value)}
-                        style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: 'white', fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}
+                        style={{
+                            padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0',
+                            fontSize: '0.875rem', background: '#f8fafc', cursor: 'pointer', fontWeight: '500',
+                            minWidth: '150px', appearance: 'none', WebkitAppearance: 'none',
+                            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+                            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center',
+                        }}
                     >
                         <option value="">Environnements</option>
                         {environments?.map(env => (
                             <option key={env?.id_env || Math.random()} value={env?.nom_env}>{env?.nom_env}</option>
                         ))}
                     </select>
+                    {(searchTerm || filterStatut || filterType || filterEnv || kpiStatutFilter) && (
+                        <button
+                            onClick={() => { setSearchTerm(''); setFilterStatut(''); setFilterType(''); setFilterEnv(''); setKpiStatutFilter(''); }}
+                            style={{
+                            padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid #7c3aed',
+                            fontSize: '0.875rem', background: '#f5f3ff', color: '#7c3aed', 
+                            cursor: 'pointer', fontWeight: '600'
+                        }}
+                        >
+                            Réinitialiser
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Table Section (Mirroring CI Management) */}
-            <Card style={{ padding: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            {/* Table Section (Mirroring User Management Table) */}
+            <Card style={{ padding: '0', overflow: 'hidden' }}>
+                <div className="table-scroll-container" style={{ overflowX: 'auto', width: '100%' }}>
+                    <table className="acl-table" style={{ minWidth: '1000px' }}>
                         <thead>
-                            <tr style={{ background: 'linear-gradient(to right, #f8fafc, #f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
-                                <th style={{ padding: '0.2rem 0.3rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Changement & Code</th>
-                                <th style={{ padding: '0.2rem 0.3rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Priorité</th>
-                                <th style={{ padding: '0.2rem 0.3rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Environnement</th>
-                                <th style={{ padding: '0.2rem 0.3rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
-                                <th style={{ padding: '0.2rem 0.3rem', textAlign: 'left', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date Planifiée</th>
-                                <th style={{ padding: '0.2rem 0.3rem', fontSize: '0.65rem', fontWeight: '700', color: '#475569', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
+                            <tr className="acl-head-row">
+                                <th className="acl-th">Changement & Code</th>
+                                <th className="acl-th">Demandeur</th>
+                                <th className="acl-th">Responsable</th>
+                                <th className="acl-th">Priorité</th>
+                                <th className="acl-th">Score de Changement</th>
+                                <th className="acl-th">Environnement</th>
+                                <th className="acl-th">Statut</th>
+                                <th className="acl-th">Tâches</th>
+                                <th className="acl-th acl-th-right" style={{ width: '80px', whiteSpace: 'nowrap' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Chargement...</td>
+                                    <td colSpan={8} className="acl-empty-cell loading">Chargement...</td>
                                 </tr>
                             ) : filteredChangements.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
-                                        <FiFileText size={40} style={{ display: 'block', margin: '0 auto 1rem', opacity: 0.3 }} />
+                                    <td colSpan={8} className="acl-empty-cell">
+                                        <FiFileText size={40} className="acl-empty-icon" />
                                         Aucun changement trouvé.
                                     </td>
                                 </tr>
                             ) : filteredChangements.map((c, index) => (
-                                <tr key={c.id_changement} onClick={() => handleOpenProcess(c)} style={{ cursor: 'pointer', borderBottom: '1px solid #f1f5f9', background: index % 2 === 0 ? 'white' : '#fafbfc', transition: 'background 0.2s' }} className="hover-row">
-                                    <td style={{ padding: '0.2rem 0.3rem' }}>
-                                        <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.8rem' }}>{c.rfc?.titre_rfc || c.planChangement?.titre_plan || 'Changement Standard'}</div>
-                                        <div style={{ fontSize: '0.65rem', color: '#3b82f6', fontWeight: '600' }}>#{c.code_changement}</div>
+                                <tr key={c.id_changement} onClick={() => handleOpenProcess(c)} className={`acl-row ${index % 2 === 0 ? 'even' : 'odd'}`}>
+                                    <td className="acl-td">
+                                        <div className="acl-title" style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.2rem' }} title={c.rfc?.titre_rfc || c.planChangement?.titre_plan || 'Changement Standard'}>
+                                            {c.rfc?.titre_rfc || c.planChangement?.titre_plan || 'Changement Standard'}
+                                        </div>
+                                        <div className="acl-code">#{c.code_changement}</div>
                                     </td>
-                                    <td style={{ padding: '0.2rem 0.3rem' }}>
-                                        <Badge 
-                                            variant={c.rfc?.urgence ? 'danger' : 'warning'} 
-                                        >
-                                            {c.rfc?.urgence ? 'HAUTE' : 'BASSE'}
+                                    <td className="acl-td">
+                                        <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>
+                                            {c.rfc ? `${c.rfc.demandeur?.prenom_user || ''} ${c.rfc.demandeur?.nom_user || ''}` : `${c.changeManager?.prenom_user || '—'} ${c.changeManager?.nom_user || ''}`}
+                                        </div>
+                                    </td>
+                                    <td className="acl-td">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div className="acl-manager-avatar" style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: '800' }}>
+                                                {(c.changeManager?.prenom_user?.[0] || '—').toUpperCase()}
+                                            </div>
+                                            <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1e293b' }}>
+                                                {`${c.changeManager?.prenom_user || '—'} ${c.changeManager?.nom_user || ''}`.trim() || 'Non assigné'}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="acl-td">
+                                        {(() => {
+                                            const prio = c.priorite || (c.rfc?.typeRfc?.type === 'URGENT' ? 'HAUTE' : (c.rfc?.typeRfc?.type === 'NORMAL' ? 'MOYENNE' : 'BASSE'));
+                                            const colors = {
+                                                'CRITIQUE': { bg: '#fef2f2', color: '#ef4444', border: '#fee2e2' },
+                                                'HAUTE':    { bg: '#fff7ed', color: '#f97316', border: '#ffedd5' },
+                                                'MOYENNE':  { bg: '#fefce8', color: '#ca8a04', border: '#fef9c3' },
+                                                'BASSE':    { bg: '#f0fdf4', color: '#22c55e', border: '#dcfce7' },
+                                            };
+                                            const style = colors[prio] || { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' };
+                                            return (
+                                                <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '700', background: style.bg, color: style.color, border: `1px solid ${style.border}` }}>
+                                                    {prio}
+                                                </span>
+                                            );
+                                        })()}
+                                    </td>
+                                    <td className="acl-td">
+                                        <Badge variant={c.rfc?.evaluationRisque?.score_risque > 15 ? 'danger' : c.rfc?.evaluationRisque?.score_risque > 8 ? 'warning' : 'success'}>
+                                            {c.rfc?.evaluationRisque?.score_risque || '—'}
                                         </Badge>
                                     </td>
-                                    <td style={{ padding: '0.2rem 0.3rem' }}>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f1f5f9', padding: '0.25rem 0.6rem', borderRadius: '99px', fontSize: '0.65rem', color: '#475569', fontWeight: '600' }}>
+                                    <td className="acl-td">
+                                        <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600', background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}>
                                             {c.environnement?.nom_env || 'N/A'}
                                         </span>
                                     </td>
-                                    <td style={{ padding: '0.2rem 0.3rem' }}>
-                                        <span className={`status-badge status-${getStatusColor(c.statut?.code_statut)}`} style={{ fontSize: '0.65rem' }}>
-                                            {c.statut?.libelle || 'Inconnu'}
-                                        </span>
+                                    <td className="acl-td" onClick={(e) => e.stopPropagation()}>
+                                        <InlineEditableBadge
+                                            currentValue={changeStatuses.find(s => s.code_statut === c.statut?.code_statut)?.id_statut || c.statut?.id_statut || ''}
+                                            label={c.statut?.libelle || 'N/A'}
+                                            currentCode={c.statut?.code_statut}
+                                            options={uniqueStatuts.map(s => ({ value: s.id_statut, label: s.libelle, code: s.code_statut }))}
+                                            allowedCodes={CHANGE_TRANSITIONS[c.statut?.code_statut] || []}
+                                            getVariant={(val) => {
+                                                const s = uniqueStatuts.find(st => st.id_statut == val);
+                                                return s ? getStatusColor(s.code_statut) : 'default';
+                                            }}
+                                            onUpdate={async (newId) => {
+                                                try {
+                                                    await changeService.updateChangementStatus(c.id_changement, newId, '');
+                                                    const updated = await changeService.getAllChangements();
+                                                    setChangements(updated);
+                                                } catch(err) {
+                                                    const msg = err?.response?.data?.message || err?.message || 'Erreur lors du changement de statut.';
+                                                    setToast({ msg: msg, type: 'error' });
+                                                }
+                                            }}
+                                            isEditable={!['CLOTURE'].includes(c.statut?.code_statut)}
+                                            dropdownPosition='down'
+                                        />
                                     </td>
-                                    <td style={{ padding: '0.2rem 0.3rem', color: '#334155', fontSize: '0.75rem' }}>
+                                    <td className="acl-td" onClick={(e) => { e.stopPropagation(); handleShowTasks(c); }} style={{ cursor: 'pointer' }}>
+                                        <Badge variant="default" style={{ textDecoration: 'underline', color: '#3b82f6' }}>
+                                            {(c._count?.taches || c.taches?.length || 0)} tâche(s)
+                                        </Badge>
+                                    </td>
+                                    <td className="acl-td">
                                         {c.date_debut ? new Date(c.date_debut).toLocaleDateString() : '—'}
                                     </td>
-                                    <td style={{ padding: '0.2rem 0.3rem', textAlign: 'right' }}>
+                                    <td className="acl-td" style={{ textAlign: 'right' }}>
                                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                            <button onClick={(e) => { e.stopPropagation(); handleOpenEditDirectly(c); }} style={{ background: '#eff6ff', color: '#2563eb', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier">
+                                            <button onClick={(e) => { e.stopPropagation(); handleOpenEditDirectly(c); }} style={{ background: '#f1f5f9', color: '#3b82f6', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier">
                                                 <FiEdit size={16} />
                                             </button>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteChangement(c.id_changement); }} style={{ background: '#fee2e2', color: '#ef4444', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Supprimer">
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteChangement(c.id_changement); }} style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Supprimer">
                                                 <FiTrash2 size={16} />
                                             </button>
                                         </div>
@@ -498,55 +723,65 @@ const AdminChangementList = () => {
                 </div>
             </Card>
 
+            {/* Confirm Delete Modal */}
+            {confirmDel && (
+                <ConfirmModal
+                    title={confirmDel.title}
+                    message={confirmDel.message}
+                    danger={true}
+                    loading={saving}
+                    onConfirm={confirmDelete}
+                    onCancel={() => setConfirmDel(null)}
+                />
+            )}
+
             {/* MODAL TRAITEMENT */}
             {showProcess && selectedChangement && (
                 <div className="modal-backdrop" onClick={closeModals}>
-                    <div className="modal-box glass-card" style={{ maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-                        <button onClick={closeModals} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', zIndex: 10 }}>
-                            <FiX size={24} />
-                        </button>
-
-                        <div className="modal-top" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', padding: '2rem', borderBottom: '1px solid #e2e8f0' }}>
-                            <div style={{ width: '70px', height: '70px', borderRadius: '18px', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', border: '1px solid #bfdbfe' }}>
-                                <FiRefreshCw />
+                    <div className="modal-box glass-card" style={{ maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-top-rfc-style">
+                            <div className="rfc-style-icon-wrapper"><FiRefreshCw /></div>
+                            <div className="rfc-style-header-text">
+                                <h2>Détails du Changement</h2>
+                                <div className="rfc-style-subtitle">#{selectedChangement.code_changement} — {selectedChangement.rfc?.titre_rfc || selectedChangement.planChangement?.titre_plan || 'Changement Standard'}</div>
                             </div>
-                            <div style={{ flex: 1 }}>
-                                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: '#0f172a' }}>Détails du Changement</h2>
-                                <div style={{ marginTop: '0.4rem', fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>#{selectedChangement.code_changement} — {selectedChangement.rfc?.titre_rfc || selectedChangement.planChangement?.titre_plan || 'Changement Standard'}</div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                 <button 
                                     onClick={handleEditChangement}
-                                    style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600', fontSize: '0.85rem' }}
+                                    className="acl-modal-btn edit"
                                 >
                                     <FiEdit3 /> Modifier
                                 </button>
                                 <button 
                                     onClick={() => setShowReportForm(!showReportForm)}
-                                    style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#b45309', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600', fontSize: '0.85rem' }}
+                                    className="acl-modal-btn report"
                                 >
                                     <FiFileText /> Rapport
+                                </button>
+                                <button onClick={closeModals} className="close-btn-rfc-style">
+                                    <FiX size={24} />
                                 </button>
                             </div>
                         </div>
 
-                        <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '2rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
+
+                        <div className="modal-body acl-modal-body">
+                            <div className="acl-modal-grid">
                                 <div>
                                     <h3 style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '1rem' }}><FiInfo /> Informations Générales</h3>
                                     
                                     {showReportForm && (
-                                        <div style={{ background: '#fffbeb', padding: '1.5rem', borderRadius: '12px', border: '1px solid #fde68a', marginBottom: '1.5rem' }}>
-                                            <h4 style={{ margin: '0 0 1rem 0', color: '#b45309', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FiFileText /> Nouveau Rapport</h4>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
+                                        <div className="acl-panel acl-panel-report">
+                                            <h4 className="acl-panel-title report"><FiFileText /> Nouveau Rapport</h4>
+                                            <div className="acl-stack">
+                                                <div className="acl-grid-2-1">
                                                     <div>
-                                                        <label style={{ fontSize: '0.7rem', color: '#b45309', fontWeight: '600' }}>Titre du Rapport</label>
-                                                        <input type="text" value={reportForm.titre_rapport} onChange={e => setReportForm({...reportForm, titre_rapport: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #fcd34d', outline: 'none' }} placeholder="Ex: Rapport d'implémentation..." />
+                                                        <label className="acl-label-xs report">Titre du Rapport</label>
+                                                        <input type="text" value={reportForm.titre_rapport} onChange={e => setReportForm({...reportForm, titre_rapport: e.target.value})} className="acl-input-report" placeholder="Ex: Rapport d'implémentation..." />
                                                     </div>
                                                     <div>
-                                                        <label style={{ fontSize: '0.7rem', color: '#b45309', fontWeight: '600' }}>Type</label>
-                                                        <select value={reportForm.type_rapport} onChange={e => setReportForm({...reportForm, type_rapport: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #fcd34d', outline: 'none', background: 'white' }}>
+                                                        <label className="acl-label-xs report">Type</label>
+                                                        <select value={reportForm.type_rapport} onChange={e => setReportForm({...reportForm, type_rapport: e.target.value})} className="acl-input-report acl-bg-white">
                                                             <option value="Audit">Audit</option>
                                                             <option value="Risque">Analyse de Risque</option>
                                                             <option value="Post-Incident">Post-Incident</option>
@@ -555,12 +790,12 @@ const AdminChangementList = () => {
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label style={{ fontSize: '0.7rem', color: '#b45309', fontWeight: '600' }}>Contenu</label>
-                                                    <textarea value={reportForm.contenu_rapport} onChange={e => setReportForm({...reportForm, contenu_rapport: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #fcd34d', outline: 'none', minHeight: '100px' }} placeholder="Rédigez le contenu du rapport..." />
+                                                    <label className="acl-label-xs report">Contenu</label>
+                                                    <textarea value={reportForm.contenu_rapport} onChange={e => setReportForm({...reportForm, contenu_rapport: e.target.value})} className="acl-input-report acl-textarea-report" placeholder="Rédigez le contenu du rapport..." />
                                                 </div>
-                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                                                    <button onClick={() => setShowReportForm(false)} style={{ background: 'transparent', border: 'none', color: '#92400e', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>Annuler</button>
-                                                    <button onClick={handleCreateReport} style={{ background: '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', padding: '0.5rem 1rem', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }}>Enregistrer le Rapport</button>
+                                                <div className="acl-actions-end">
+                                                    <button onClick={() => setShowReportForm(false)} className="acl-link-btn report">Annuler</button>
+                                                    <button onClick={handleCreateReport} className="acl-solid-btn report">Enregistrer le Rapport</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -660,7 +895,7 @@ const AdminChangementList = () => {
                                                         style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #7dd3fc', outline: 'none', background: 'white' }}
                                                     >
                                                         <option value="">Sélectionner un manager...</option>
-                                                        {managers?.map(m => (
+                                                        {changeManagers?.map(m => (
                                                             <option key={m?.id_user} value={m?.id_user}>{m?.prenom_user} {m?.nom_user}</option>
                                                         ))}
                                                     </select>
@@ -717,8 +952,8 @@ const AdminChangementList = () => {
                             </div>
                         </div>
 
-                        <div className="modal-footer" style={{ padding: '1.5rem 2rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-                            <button className="modal-btn modal-btn-cancel" style={{ padding: '0.75rem 1.25rem', borderRadius: '10px', background: 'white', border: '1px solid #e2e8f0', color: '#64748b', cursor: 'pointer', fontWeight: '700' }} onClick={closeModals}>Fermer</button>
+                        <div className="modal-footer-rfc-style">
+                            <button className="btn-cancel-rfc-style" onClick={closeModals}>Fermer</button>
                         </div>
                     </div>
                 </div>
@@ -727,18 +962,20 @@ const AdminChangementList = () => {
             {/* MODAL CRÉATION CHANGEMENT */}
             {showCreateChange && (
                 <div className="modal-backdrop" onClick={closeModals}>
-                    <div className="modal-box glass-card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-                        <div className="modal-top" style={{ background: 'linear-gradient(135deg, #2563eb, #1e40af)', color: 'white', padding: '1.5rem', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <FiPlus className="modal-ico" style={{ color: '#93c5fd', fontSize: '1.5rem' }} />
-                                <h2 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>Nouveau Changement</h2>
-                            </div>
-                            <button onClick={closeModals} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><FiX size={24} /></button>
-                        </div>
+                    <div className="modal-box glass-card" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                  <div className="modal-top" style={{ background: 'linear-gradient(135deg, #2563eb, #1e40af)', color: 'white', padding: '1rem 1.5rem', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <FiPlus className="modal-ico" style={{ color: '#93c5fd', fontSize: '1.5rem' }} />
+                          <h2 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>Nouveau Changement</h2>
+                      </div>
+                      <button onClick={closeModals} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
+                          <FiX size={24} />
+                      </button>
+                  </div>
 
-                        <form onSubmit={handleCreateChangement} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                            <div className="modal-body" style={{ overflowY: 'auto', padding: '2rem' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <form onSubmit={handleCreateChangement} className="acl-form-col">
+                            <div className="modal-body acl-modal-body">
+                                <div className="acl-stack-lg">
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Titre du changement <span style={{ color: '#ef4444' }}>*</span></label>
                                         <input 
@@ -765,11 +1002,12 @@ const AdminChangementList = () => {
                                             </select>
                                         </div>
                                         <div>
-                                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Environnement</label>
+                                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Environnement <span style={{ color: '#ef4444' }}>*</span></label>
                                             <select 
                                                 value={createForm.id_env} 
                                                 onChange={e => setCreateForm({...createForm, id_env: e.target.value})}
                                                 style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', background: 'white' }}
+                                                required
                                             >
                                                 <option value="">Sélectionner un environnement...</option>
                                                 {environments.map(env => (
@@ -808,62 +1046,201 @@ const AdminChangementList = () => {
                                         />
                                     </div>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Change Manager (Implémenteur)</label>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#1e293b', marginBottom: '0.5rem' }}>Implémenteur</label>
                                         <select 
                                             value={createForm.id_manager} 
                                             onChange={e => setCreateForm({...createForm, id_manager: e.target.value})}
                                             style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none', background: 'white' }}
                                         >
-                                            <option value="">Sélectionner un manager...</option>
-                                            {managers?.map(m => (
+                                            <option value="">Sélectionner un implémenteur...</option>
+                                            {changeManagers?.map(m => (
                                                 <option key={m?.id_user} value={m?.id_user}>{m?.prenom_user} {m?.nom_user}</option>
                                             ))}
                                         </select>
                                     </div>
                                 </div>
                             </div>
-                            <div className="modal-footer" style={{ padding: '1.5rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '1rem', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
-                                <button type="button" onClick={closeModals} style={{ padding: '0.75rem 1.5rem', borderRadius: '10px', background: 'white', border: '1px solid #cbd5e1', color: '#64748b', cursor: 'pointer', fontWeight: '700' }}>Annuler</button>
-                                <button type="submit" style={{ padding: '0.75rem 1.5rem', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'none', color: 'white', cursor: 'pointer', fontWeight: '700' }}>Créer le changement</button>
+                            <div className="modal-footer-rfc-style">
+                                <button type="button" className="btn-cancel-rfc-style" onClick={closeModals}>Annuler</button>
+                                <button type="submit" className="btn-submit-rfc-style">Créer le changement</button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
+
+            {/* MODAL AFFICHAGE TÂCHES */}
+            {showTasksModal && (
+                <div className="modal-backdrop" onClick={closeModals}>
+                    <div className="modal-box glass-card" style={{ maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-top-rfc-style">
+                            <div className="rfc-style-icon-wrapper"><FiFileText /></div>
+                            <div className="rfc-style-header-text">
+                                <h2>Tâches du Changement</h2>
+                                <div className="rfc-style-subtitle">Suivi opérationnel des interventions techniques</div>
+                            </div>
+                            <button onClick={closeModals} className="close-btn-rfc-style">
+                                <FiX size={24} />
+                            </button>
+                        </div>
+
+                        <div className="modal-body acl-modal-body" style={{ padding: '1.5rem' }}>
+                            {showNewTaskForm && (
+                                <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
+                                    <h4 style={{ margin: '0 0 1rem 0', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}><FiPlus /> Créer une nouvelle tâche</h4>
+                                    <form onSubmit={handleCreateTask}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '0.4rem' }}>Titre de la tâche *</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={newTaskForm.titre_tache} 
+                                                    onChange={e => setNewTaskForm({...newTaskForm, titre_tache: e.target.value})}
+                                                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }} 
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '0.4rem' }}>Priorité</label>
+                                                <select 
+                                                    value={newTaskForm.priorite} 
+                                                    onChange={e => setNewTaskForm({...newTaskForm, priorite: e.target.value})}
+                                                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', background: 'white' }}
+                                                >
+                                                    <option value="BASSE">Basse</option>
+                                                    <option value="MOYENNE">Moyenne</option>
+                                                    <option value="HAUTE">Haute</option>
+                                                    <option value="CRITIQUE">Critique</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div style={{ marginBottom: '1rem' }}>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '0.4rem' }}>Description</label>
+                                            <textarea 
+                                                value={newTaskForm.description} 
+                                                onChange={e => setNewTaskForm({...newTaskForm, description: e.target.value})}
+                                                style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', minHeight: '60px' }} 
+                                            />
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '0.4rem' }}>Assigné à</label>
+                                                <select 
+                                                    value={newTaskForm.id_user} 
+                                                    onChange={e => setNewTaskForm({...newTaskForm, id_user: e.target.value})}
+                                                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', background: 'white' }}
+                                                    required
+                                                >
+                                                    <option value="">Sélectionner...</option>
+                                                    {implementeurs.map(m => (
+                                                        <option key={m.id_user} value={m.id_user}>{m.prenom_user} {m.nom_user}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '0.4rem' }}>Début prévu (Optionnel)</label>
+                                                <input 
+                                                    type="datetime-local" 
+                                                    value={newTaskForm.date_debut_prevue} 
+                                                    onChange={e => setNewTaskForm({...newTaskForm, date_debut_prevue: e.target.value})}
+                                                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }} 
+                                                />
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                                            <button type="button" onClick={() => setShowNewTaskForm(false)} className="acl-link-btn" style={{ color: '#64748b' }}>Annuler</button>
+                                            <button type="submit" disabled={saving} className="btn-create-premium" style={{ padding: '8px 20px', borderRadius: '10px' }}>
+                                                {saving ? 'Création...' : 'Créer la tâche'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            )}
+                            {tasksToShow.length > 0 ? (
+                            <div className="table-scroll-container" style={{ overflowX: 'auto', marginBottom: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                <table className="acl-table" style={{ width: '100%', minWidth: '900px' }}>
+                                    <thead>
+                                        <tr className="acl-head-row">
+                                            <th className="acl-th" style={{ background: '#f8fafc' }}>Code Tâche</th>
+                                            <th className="acl-th">Titre</th>
+                                            <th className="acl-th">Statut</th>
+                                            <th className="acl-th">Assigné à</th>
+                                            <th className="acl-th" style={{ textAlign: 'right', background: '#f8fafc' }}>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {tasksToShow.map((task, idx) => (
+                                            <tr key={task.id_tache} className={idx % 2 === 0 ? 'even' : 'odd'}>
+                                                <td className="acl-td" style={{ fontWeight: '700', color: '#3b82f6' }}>{task.code_tache || '—'}</td>
+                                                <td className="acl-td" style={{ fontWeight: '600', color: '#1e293b' }}>{task.titre_tache || '—'}</td>
+                                                <td className="acl-td">
+                                                    <InlineEditableBadge
+                                                        currentValue={task.id_statut || task.statut?.id_statut || ''}
+                                                        label={task.statut?.libelle || 'N/A'}
+                                                        options={taskStatuses.map(s => ({ value: s.id_statut, label: s.libelle, code: s.code_statut }))}
+                                                        allowedCodes={TASK_TRANSITIONS[task.statut?.code_statut] || []}
+                                                        dropdownPosition='down'
+                                                        onUpdate={(newId) => handleUpdateTaskStatus(task.id_tache, newId)}
+                                                        getVariant={(val) => {
+                                                            const s = taskStatuses.find(st => st.id_statut === val);
+                                                            const code = s?.code_statut || '';
+                                                            if (code === 'TERMINE' || code === 'REUSSI') return 'success';
+                                                            if (code === 'EN_COURS') return 'warning';
+                                                            if (code === 'ECHEC' || code === 'REJETE') return 'danger';
+                                                            return 'default';
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="acl-td">{task.implementeur?.prenom_user} {task.implementeur?.nom_user || '—'}</td>
+                                                <td className="acl-td" style={{ textAlign: 'right' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id_tache); }}
+                                                            style={{ background: '#fef2f2', color: '#ef4444', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                            title="Supprimer"
+                                                        >
+                                                            <FiTrash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            ) : (
+                                <p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>Aucune tâche assignée à ce changement.</p>
+                            )}
+                        </div>
+
+                        <div className="modal-footer" style={{ padding: '1.5rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+                            <button type="button" onClick={closeModals} style={{ padding: '0.75rem 1.5rem', borderRadius: '10px', background: 'white', border: '1px solid #cbd5e1', color: '#64748b', cursor: 'pointer', fontWeight: '700' }}>Fermer</button>
+                            <button 
+                                onClick={() => setShowNewTaskForm(!showNewTaskForm)}
+                                style={{ 
+                                    padding: '0.75rem 1.5rem', 
+                                    fontSize: '0.85rem', 
+                                    background: '#f59e0b', 
+                                    color: 'white', 
+                                    border: 'none', 
+                                    cursor: 'pointer', 
+                                    borderRadius: '10px',
+                                    fontWeight: '700',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
+                                }}
+                            >
+                                <FiPlus /> Nouvelle Tâche
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             
-            <style>{`
-                .spinning { animation: spin 1s linear infinite; }
-                @keyframes spin { to { transform: rotate(360deg); } }
-                .table-row-hover:hover { background-color: #f8fafc; }
-            `}</style>
         </div>
     );
 };
-
-// Styles extraits
-const kpiCardStyle = {
-    background: 'white',
-    padding: '1.5rem',
-    borderRadius: '16px',
-    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.02)',
-    border: '1px solid #e2e8f0',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1.25rem',
-    transition: 'transform 0.2s',
-};
-
-const iconBoxStyle = {
-    width: '48px',
-    height: '48px',
-    borderRadius: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '1.5rem'
-};
-
-const kpiLabelStyle = { margin: 0, color: '#64748b', fontSize: '0.9rem', fontWeight: '600' };
-const kpiValueStyle = { margin: '0.2rem 0 0 0', fontSize: '1.6rem', fontWeight: '800', color: '#0f172a' };
 
 export default AdminChangementList;

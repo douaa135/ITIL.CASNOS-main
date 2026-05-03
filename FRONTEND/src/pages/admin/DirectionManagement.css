@@ -1,0 +1,133 @@
+@import './AdminUnified.css';
+
+.dir-toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  color: white;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  animation: slideInUp 0.3s ease;
+  min-width: 280px;
+}
+
+.dir-toast.success { background: #064e3b; }
+.dir-toast.error { background: #7f1d1d; }
+.dir-toast-message { flex: 1; font-weight: 500; }
+.dir-toast-close {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  opacity: 0.7;
+  padding: 0.25rem;
+  border-radius: 4px;
+}
+
+.dir-modal-small { max-width: 500px; }
+.dir-modal-members {
+  max-width: 600px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+.dir-modal-body-scroll { overflow-y: auto; }
+
+.dir-panel-add {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f1f5f9;
+  border-radius: 12px;
+}
+.dir-panel-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #475569;
+  margin-bottom: 0.5rem;
+  display: block;
+  text-transform: uppercase;
+}
+.dir-panel-row { display: flex; gap: 0.5rem; align-items: center; }
+.dir-panel-icon {
+  background: #3b82f6;
+  color: white;
+  padding: 0.6rem;
+  border-radius: 8px;
+  display: flex;
+}
+.dir-panel-select { flex: 1; padding: 0.5rem; margin: 0; }
+
+.dir-members-grid-single { grid-template-columns: 1fr; }
+.dir-member-card { background: white; border: 1px solid #e2e8f0; }
+.dir-member-avatar.active { background: #3b82f6; }
+.dir-member-avatar.inactive { background: #94a3b8; }
+.dir-member-info-grow { flex: 1; }
+.dir-member-email { font-size: 0.7rem; }
+.dir-user-status { margin-right: 1rem; }
+.dir-user-status.active { background: #d1fae5; color: #047857; }
+.dir-user-status.inactive { background: #fee2e2; color: #dc2626; }
+.dir-member-remove-btn {
+  background: #fee2e2;
+  color: #ef4444;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dir-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.dir-header-main { display: flex; align-items: center; gap: 1.25rem; }
+.dir-header-icon {
+  width: 56px;
+  height: 56px;
+  background: #eff6ff;
+  color: #3b82f6;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  border: 1px solid #bfdbfe;
+}
+.dir-main-title { font-size: 1.8rem; font-weight: 800; color: #0f172a; margin: 0; }
+.dir-main-subtitle { color: #64748b; font-size: 1rem; margin: 0.25rem 0 0; font-weight: 500; }
+
+.dir-kpi-spacing { margin-bottom: 2.5rem; }
+.dir-toolbar {
+  margin-bottom: 2rem;
+  background: white;
+  padding: 0.75rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+}
+.dir-search-grow { flex: 1; }
+.dir-select-filter { min-width: 220px; }
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.dir-cell-padded { padding: 3rem; }
+.dir-env-dot { background: #3b82f6; }
+.dir-members-btn {
+  cursor: pointer;
+  border: none;
+  background: #f1f5f9;
+  color: #475569;
+}
+.dir-members-btn-icon { margin-right: 4px; }

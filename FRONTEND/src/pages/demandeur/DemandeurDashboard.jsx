@@ -4,10 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   FiPlus, FiFileText, FiCheckCircle, FiXCircle, 
   FiActivity, FiList, FiClock, FiEye, FiArrowRight,
-  FiZap, FiInfo
+  FiZap, FiInfo, FiUser, FiSend
 } from 'react-icons/fi';
 import Card from '../../components/common/Card';
 import Badge from '../../components/common/Badge';
+import StatCard from '../../components/common/StatCard';
 import api from '../../api/axiosClient';
 
 const DemandeurDashboard = () => {
@@ -38,8 +39,8 @@ const DemandeurDashboard = () => {
   
   // BPMN-aligned categorization
   const total      = rfcs.length;
-  const draft      = rfcs.filter(r => ['BROUILLON', 'A_COMPLETER'].includes(r.statut?.code_statut)).length;
-  const inProgress = rfcs.filter(r => ['SOUMIS', 'ACCEPTEE_SD', 'EVALUEE'].includes(r.statut?.code_statut)).length;
+  const soumises   = rfcs.filter(r => r.statut?.code_statut === 'SOUMIS').length;
+  const inProgress = rfcs.filter(r => ['BROUILLON', 'A_COMPLETER', 'ACCEPTEE_SD', 'EVALUEE'].includes(r.statut?.code_statut)).length;
   const finalized  = rfcs.filter(r => ['APPROUVEE', 'CLOTUREE', 'REJETEE'].includes(r.statut?.code_statut)).length;
 
   if (loading) return <div style={{ padding: '4rem', textAlign: 'center', color: '#64748b' }}><span className="spinner" /> Chargement du flux BPMN...</div>;
@@ -48,66 +49,56 @@ const DemandeurDashboard = () => {
     <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
       
       {/* Hero Banner — Premium Gradient */}
-      <div style={{ 
-        background: 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)', 
-        padding: '2.5rem', borderRadius: '1.25rem', color: 'white', 
-        marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        boxShadow: '0 10px 25px -5px rgba(30, 64, 175, 0.3)'
-      }}>
-        <div>
-          <h1 style={{ fontSize: '2.2rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Bonjour, {prenom} 👋</h1>
-          <p style={{ opacity: 0.9, fontSize: '1.1rem', margin: '0.75rem 0 0 0', fontWeight: '500' }}>
-            Suivi en temps réel de vos demandes de changement.
-          </p>
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiUser /></div>
+          <div className="premium-header-text">
+            <h1>Bonjour, {prenom} 👋</h1>
+            <p>Suivi en temps réel de vos demandes de changement.</p>
+          </div>
         </div>
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div className="premium-header-actions">
           <button 
             onClick={() => navigate('/rfcs/new', { state: { edit: false, rfcData: null } })}
             className="btn-create-premium"
-            style={{ background: 'white', color: '#1e40af' }}
           >
             <FiPlus /> Nouveau RFC
           </button>
         </div>
       </div>
 
-      {/* BPMN Pipeline KPI Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
-        {[
-          { label: 'Total Demandes', val: total, icon: <FiList />, color: '#1e40af', bg: '#eff6ff' },
-          { label: 'Soumises', val: draft, icon: <FiClock />, color: '#d97706', bg: '#fffbeb' },
-          { label: "En Cours d'Analyse", val: inProgress, icon: <FiActivity />, color: '#3b82f6', bg: '#eff6ff' },
-          { label: 'Traitées', val: finalized, icon: <FiCheckCircle />, color: '#10b981', bg: '#f0fdf4' }
-        ].map((kpi, idx) => (
-          <div 
-            key={idx}
-            style={{ 
-              background: 'white', padding: '1.25rem', borderRadius: '1.25rem', 
-              border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', 
-              textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              userSelect: 'none'
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.transform = 'translateY(-5px)';
-              e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.1)';
-              e.currentTarget.style.borderColor = kpi.color;
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.05)';
-              e.currentTarget.style.borderColor = '#e2e8f0';
-            }}
-            onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95) translateY(-5px)'}
-            onMouseUp={e => e.currentTarget.style.transform = 'scale(1) translateY(-5px)'}
-          >
-            <div style={{ width: '48px', height: '48px', background: kpi.bg, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: kpi.color }}>
-              {kpi.icon}
-            </div>
-            <h2 style={{ fontSize: '1.5rem', margin: 0, fontWeight: 800, color: '#1e293b' }}>{kpi.val}</h2>
-            <p style={{ margin: '0.25rem 0 0', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{kpi.label}</p>
-          </div>
-        ))}
+      {/* BPMN Pipeline KPI Row — Coherent with Global System */}
+      <div className="stats-grid" style={{ marginBottom: '3rem' }}>
+        <StatCard 
+          title="Total Demandes" 
+          value={total} 
+          icon={<FiList />} 
+          color="blue" 
+          onClick={() => navigate('/mes-rfcs')}
+        />
+        <StatCard 
+          title="Soumises" 
+          value={soumises} 
+          icon={<FiSend />} 
+          color="amber" 
+          trend={{ value: 'Prêt pour SD', type: 'warning' }}
+        />
+        <StatCard 
+          title="En Cours" 
+          value={inProgress} 
+          icon={<FiActivity />} 
+          color="purple" 
+          trend={{ value: 'Analyse BPMN', type: 'purple' }}
+        />
+        <StatCard 
+          title="Résolues" 
+          value={finalized} 
+          icon={<FiCheckCircle />} 
+          color="green" 
+          trend={{ value: 'Action finale', type: 'success' }}
+        />
       </div>
+
 
       {/* Content Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>

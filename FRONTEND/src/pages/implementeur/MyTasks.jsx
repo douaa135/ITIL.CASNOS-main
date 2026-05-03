@@ -177,9 +177,20 @@ Vérifications post-implémentation effectuées:
 
   return (
     <div className="my-tasks-container">
+      <div className="premium-header-card">
+        <div className="premium-header-left">
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiCheckSquare /></div>
+          <div className="premium-header-text">
+            <h1>Mes Assignations</h1>
+            <p>Consultez et exécutez vos tâches d'implémentation.</p>
+          </div>
+        </div>
+        <div className="premium-header-actions">
+        </div>
+      </div>
+      
       <div className="tasks-list-panel">
         <div className="panel-header">
-           <h2>Mes Assignations</h2>
            <div className="search-bar">
              <FiSearch />
              <input 
@@ -229,7 +240,7 @@ Vérifications post-implémentation effectuées:
                      <td>{task.changement?.code_changement || '-'}</td>
                      <td>{task.changement?.rfc?.code_rfc || '-'}</td>
                      <td>
-                       <span className={`status-badge ${getTaskStatusClass(task.statut?.code_statut)}`} style={{ fontSize: '0.65rem' }}>
+                      <span className={`status-badge status-badge-sm ${getTaskStatusClass(task.statut?.code_statut)}`}>
                          {task.statut?.libelle}
                        </span>
                      </td>
@@ -265,7 +276,7 @@ Vérifications post-implémentation effectuées:
                 <div>
                   <strong>Statut</strong>
                   <p>
-                    <span className={`status-badge ${getTaskStatusClass(selectedTask.statut?.code_statut)}`} style={{ fontSize: '0.7rem' }}>
+                    <span className={`status-badge status-badge-md ${getTaskStatusClass(selectedTask.statut?.code_statut)}`}>
                       {selectedTask.statut?.libelle || 'N/A'}
                     </span>
                   </p>
@@ -303,7 +314,7 @@ Vérifications post-implémentation effectuées:
                 value={pirForm.description}
                 onChange={e => setPirForm({...pirForm, description: e.target.value})}
                 rows={12}
-                style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
+                className="pir-textarea"
               />
               <div className="modal-actions">
                 <button 
@@ -311,7 +322,7 @@ Vérifications post-implémentation effectuées:
                   onClick={handleSubmitResult} 
                   disabled={!pirForm.description.trim()}
                 >
-                  <FiSend style={{ marginRight: '6px' }} />
+                  <FiSend className="btn-icon-gap" />
                   Confirmer le Résultat
                 </button>
               </div>
