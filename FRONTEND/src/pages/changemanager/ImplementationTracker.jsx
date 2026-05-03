@@ -364,7 +364,6 @@ const ImplementationTracker = () => {
                                                                                 <InlineEditableBadge 
                                                                                     currentValue={task.id_statut || task.statut?.id_statut} 
                                                                                     currentCode={task.statut?.code_statut}
-                                                                                    label={task.statut?.libelle || task.statut?.code_statut || task.statut}
                                                                                     options={taskStatuses.map(s => ({ value: s.id_statut, label: s.libelle, code: s.code_statut }))}
                                                                                     getVariant={(val) => {
                                                                                         const s = taskStatuses.find(st => st.id_statut == val);

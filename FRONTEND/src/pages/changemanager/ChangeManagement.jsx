@@ -566,7 +566,6 @@ const ChangeManagement = () => {
                         <InlineEditableBadge
                             currentValue={change.statut?.id_statut}
                             currentCode={change.statut?.code_statut}
-                            label={change.statut?.libelle}
                             options={changeStatuses.map(s => ({ value: s.id_statut, label: s.libelle, code: s.code_statut }))}
                             allowedCodes={CHANGE_TRANSITIONS[change.statut?.code_statut] || []}
                             getVariant={(val) => {

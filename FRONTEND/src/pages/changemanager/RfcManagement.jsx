@@ -600,7 +600,6 @@ const RfcManagement = () => {
                   <td className="acl-td">
                     <InlineEditableBadge
                       currentValue={rfc.id_type || rfc.typeRfc?.id_type}
-                      label={rfc.typeRfc?.type || rfc.type || rfc.type_rfc}
                       options={rfcTypes.map(t => ({ value: t.id_type, label: t.type, code: t.type }))}
                       getVariant={(val) => {
                         const t = rfcTypes.find(tp => tp.id_type === val);
@@ -623,7 +622,6 @@ const RfcManagement = () => {
                   <td className="acl-td">
                     <InlineEditableBadge
                       currentValue={rfc.id_priorite}
-                      label={rfc.priorite?.libelle || rfc.priorite}
                       options={priorities.map(p => ({ value: p.id_priorite, label: p.libelle, code: p.code_priorite }))}
                       getVariant={(val) => {
                         const p = priorities.find(pr => pr.id_priorite === val);
@@ -650,7 +648,6 @@ const RfcManagement = () => {
                   <td className="acl-td" onClick={(e) => e.stopPropagation()}>
                     <InlineEditableBadge
                       currentValue={rfc.statut?.id_statut}
-                      label={rfc.statut?.libelle}
                       options={statuses.map(s => ({ value: s.id_statut, label: s.libelle, code: s.code_statut }))}
                       allowedCodes={RFC_TRANSITIONS[rfc.statut?.code_statut] || []}
                       getVariant={(val) => {

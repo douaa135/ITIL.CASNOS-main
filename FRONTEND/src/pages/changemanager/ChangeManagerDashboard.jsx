@@ -5,17 +5,8 @@ import {
   FiAlertCircle, FiArrowRight, FiUsers, FiCalendar, FiActivity 
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
+import StatCard from '../../components/common/StatCard';
 import './Dashboard.css';
-
-const StatCard = ({ title, value, icon, color }) => (
-    <div className={`premium-glass-card stat-card ${color}`}>
-        <div className="stat-icon-wrapper">{icon}</div>
-        <div className="stat-info">
-            <span className="stat-label">{title}</span>
-            <span className="stat-value">{value}</span>
-        </div>
-    </div>
-);
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -75,13 +66,14 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Support Grid for Stats */}
+            {/* Support Grid for Stats — Coherent with Global System */}
             <div className="stats-grid">
-                <StatCard title="Total RFC" value={stats.total} icon={<FiFileText />} color="blue" />
-                <StatCard title="En attente évaluation" value={stats.pending} icon={<FiClock />} color="orange" />
-                <StatCard title="RFC Urgentes" value={stats.urgent} icon={<FiAlertCircle />} color="red" />
-                <StatCard title="Approuvées" value={stats.approved} icon={<FiCheckCircle />} color="green" />
+                <StatCard title="Total RFC" value={stats.total} icon={<FiFileText />} color="blue" onClick={() => navigate('/manager/rfcs')} />
+                <StatCard title="En attente" value={stats.pending} icon={<FiClock />} color="amber" trend={{ value: 'Evaluation', type: 'warning' }} />
+                <StatCard title="RFC Urgentes" value={stats.urgent} icon={<FiAlertCircle />} color="red" trend={{ value: 'Priorité Haute', type: 'danger' }} />
+                <StatCard title="Approuvées" value={stats.approved} icon={<FiCheckCircle />} color="green" trend={{ value: 'Prêt FSC', type: 'success' }} />
             </div>
+
 
             <div className="manager-dashboard-grid">
                 {/* Recent RFCs Section */}

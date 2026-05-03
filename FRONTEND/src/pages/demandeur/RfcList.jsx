@@ -340,7 +340,7 @@ const MesRfcs = () => {
                     </td>
                     <td style={{ padding: '1rem 0.75rem' }}>
                       <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569', background: '#f1f5f9', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
-                        {rfc.typeRfc?.type || rfc.type || 'NORMAL'}
+                        {rfc.type || 'NORMAL'}
                       </span>
                     </td>
                     <td style={{ padding: '1rem 0.75rem' }}>

@@ -554,7 +554,6 @@ const TaskManagement = () => {
                   <InlineEditableBadge
                       currentValue={task.id_statut}
                       currentCode={task.statut}
-                      label={taskStatuses.find(s => String(s.id_statut) === String(task.id_statut))?.libelle || task.statut}
                       isEditable={task.statut === 'EN_COURS'}
                       options={taskStatuses.map(s => ({ value: s.id_statut, label: s.libelle, code: s.code_statut }))}
                       allowedCodes={TACHE_TRANSITIONS[task.statut] || []}

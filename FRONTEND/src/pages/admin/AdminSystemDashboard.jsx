@@ -10,6 +10,7 @@ import {
     FiPlus, FiLayers, FiAlertCircle, FiUserPlus, FiShield, FiServer, FiCalendar
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
+import StatCard from '../../components/common/StatCard';
 import './AdminSystemDashboard.css';
 
 const AdminSystemDashboard = () => {
@@ -41,12 +42,9 @@ const AdminSystemDashboard = () => {
             setLoading(true);
             try {
                 const userRes = await userService.getAllUsers();
-                if (userRes && userRes.users) {
+                if (userRes.success && userRes.users) {
                     const all = userRes.users;
-                    setUserStats({ 
-                        totalUsers: userRes.total || all.length, 
-                        activeUsers: all.filter(u => u.actif).length 
-                    });
+                    setUserStats({ totalUsers: all.length, activeUsers: all.filter(u => u.actif).length });
                 }
 
                 const envRes = await systemService.getEnvironnements();
@@ -174,52 +172,44 @@ const AdminSystemDashboard = () => {
                 </div>
             </div>
 
-            {/* ── KPI Cards ──────────────────────────────────────────── */}
+            {/* ── KPI Cards — Coherent with Global System ── */}
             <div className="stats-grid asd-stats-grid">
-                <div className="stat-card blue">
-                    <div className="stat-icon-wrapper"><FiUsers size={22} /></div>
-                    <div className="stat-info">
-                        <div className="stat-value">{userStats.totalUsers}</div>
-                        <div className="stat-label">Utilisateurs</div>
-                        <div className="asd-kpi-sub asd-kpi-success">
-                            {userStats.activeUsers} actifs ({calcPercent(userStats.activeUsers, userStats.totalUsers)})
-                        </div>
-                    </div>
-                </div>
+                <StatCard 
+                    title="Utilisateurs" 
+                    value={userStats.totalUsers} 
+                    icon={<FiUsers />} 
+                    color="blue" 
+                    onClick={() => navigate('/admin/users')}
+                    trend={{ value: `${userStats.activeUsers} actifs (${calcPercent(userStats.activeUsers, userStats.totalUsers)})`, type: 'info' }}
+                />
 
-                <div className="stat-card amber">
-                    <div className="stat-icon-wrapper"><FiClipboard size={22} /></div>
-                    <div className="stat-info">
-                        <div className="stat-value">{kpi.rfc.total}</div>
-                        <div className="stat-label">Total RFC</div>
-                        <div className="asd-kpi-sub asd-kpi-danger">
-                            {detailedKpi.rfc.urgentes} urgentes
-                        </div>
-                    </div>
-                </div>
+                <StatCard 
+                    title="Total RFC" 
+                    value={kpi.rfc.total} 
+                    icon={<FiClipboard />} 
+                    color="amber" 
+                    onClick={() => navigate('/admin/rfcs')}
+                    trend={{ value: `${detailedKpi.rfc.urgentes} urgentes`, type: 'danger' }}
+                />
 
-                <div className="stat-card green">
-                    <div className="stat-icon-wrapper"><FiRefreshCw size={22} /></div>
-                    <div className="stat-info">
-                        <div className="stat-value">{kpi.changements.total}</div>
-                        <div className="stat-label">Changements</div>
-                        <div className="asd-kpi-sub asd-kpi-info">
-                            {detailedKpi.changements.en_cours} en cours
-                        </div>
-                    </div>
-                </div>
+                <StatCard 
+                    title="Changements" 
+                    value={kpi.changements.total} 
+                    icon={<FiRefreshCw />} 
+                    color="green" 
+                    onClick={() => navigate('/admin/changes')}
+                    trend={{ value: `${detailedKpi.changements.en_cours} en cours`, type: 'success' }}
+                />
 
-                <div className="stat-card purple">
-                    <div className="stat-icon-wrapper"><FiServer size={22} /></div>
-                    <div className="stat-info">
-                        <div className="stat-value">{envCount}</div>
-                        <div className="stat-label">Environnements</div>
-                        <div className="asd-kpi-sub asd-kpi-purple">
-                            {kpi.taches.total} tâches au total
-                        </div>
-                    </div>
-                </div>
+                <StatCard 
+                    title="Environnements" 
+                    value={envCount} 
+                    icon={<FiServer />} 
+                    color="purple" 
+                    trend={{ value: `${kpi.taches.total} tâches au total`, type: 'purple' }}
+                />
             </div>
+
 
             {/* ── Contenu principal ───────────────────────────────────── */}
             <div className="asd-main-grid">
