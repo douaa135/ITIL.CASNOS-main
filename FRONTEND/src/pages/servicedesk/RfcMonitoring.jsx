@@ -89,7 +89,7 @@ const RfcMonitoring = () => {
     try {
       const results = await Promise.allSettled([
         api.get('/admin/statuts?contexte=RFC'),
-        api.get('/users?nom_role=CHANGE_MANAGER&limit=100'),
+        api.get('/users?nom_role=CHANGE_MANAGER&limit=1000'),
         api.get('/admin/environnements'),
         api.get('/admin/types-rfc')
       ]);

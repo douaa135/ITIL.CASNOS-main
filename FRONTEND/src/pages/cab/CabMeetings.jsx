@@ -60,7 +60,7 @@ const CabMeetings = () => {
     try {
       const [cabsRes, usersRes] = await Promise.all([
         api.get('/cab'),
-        api.get('/users').catch(() => null)
+        api.get('/users?limit=1000').catch(() => null)
       ]);
       const allCabs = cabsRes?.data?.cabs || cabsRes?.cabs || [];
       setCabs(allCabs);
@@ -106,7 +106,7 @@ const CabMeetings = () => {
         api.get(`/reunions/${meetingId}/votes`),
         api.get(`/reunions/${meetingId}/participants`),
         api.get(`/reunions/${meetingId}/decisions`),
-        api.get('/rfc?statut=APPROUVEE').catch(() => null)
+        api.get('/rfc'),
       ]);
       setRfcs(rfcsRes?.data?.rfcs || rfcsRes?.rfcs || []);
       setVotes(votesRes?.data?.votes || votesRes?.votes || []);

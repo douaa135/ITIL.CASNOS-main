@@ -101,7 +101,7 @@ const AdminSystemDashboard = () => {
     const getStatusColor = (statut) => {
         const s = (statut || '').toUpperCase();
         const STATUS_COLORS = {
-            'BROUILLON':        '#94a3b8',
+        //    'BROUILLON':        '#94a3b8',
             'SOUMIS':           '#3b82f6',
             'PRE_APPROUVEE':    '#f59e0b',
             'EN_EVALUATION':    '#8b5cf6',

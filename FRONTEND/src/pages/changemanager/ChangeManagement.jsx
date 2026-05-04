@@ -72,7 +72,7 @@ const ChangeManagement = () => {
       const config = { skipRedirect: true };
       const [changesRes, implRes, statusRes, taskStatusRes] = await Promise.all([
         api.get('/changements', config).catch(() => null),
-        api.get('/users?nom_role=IMPLEMENTEUR', config).catch(() => null),
+        api.get('/users?nom_role=IMPLEMENTEUR&limit=1000', config).catch(() => null),
         api.get('/statuts?contexte=CHANGEMENT', config).catch(() => null),
         api.get('/statuts?contexte=TACHE', config).catch(() => null),
       ]);
@@ -488,46 +488,46 @@ const ChangeManagement = () => {
         </div>
 
         <div className="changes-table-wrapper">
-          <table className="acl-table" style={{ minWidth: '1000px' }}>
+          <table className="user-table" style={{ minWidth: '1000px' }}>
             <thead>
-              <tr className="acl-head-row">
-                <th className="acl-th">Changement & Code</th>
-                <th className="acl-th">Demandeur</th>
-                <th className="acl-th">Responsable</th>
-                <th className="acl-th">Priorité</th>
-                <th className="acl-th">Score de Changement</th>
-                <th className="acl-th">Environnement</th>
-                <th className="acl-th">Statut</th>
-                <th className="acl-th">Tâches</th>
-                <th className="acl-th acl-th-right" style={{ width: '80px', whiteSpace: 'nowrap' }}>Actions</th>
+              <tr>
+                <th>Changement & Code</th>
+                <th>Demandeur</th>
+                <th>Responsable</th>
+                <th>Priorité</th>
+                <th>Score de Changement</th>
+                <th>Environnement</th>
+                <th>Statut</th>
+                <th>Tâches</th>
+                <th style={{ width: '80px', whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredChanges.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="acl-empty-cell">Aucun changement trouvé.</td>
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>Aucun changement trouvé.</td>
                 </tr>
               ) : (
                 filteredChanges.map((change, index) => (
                   <tr
                     key={change.id_changement}
-                    className={`acl-row ${index % 2 === 0 ? 'even' : 'odd'} ${selectedChange?.id_changement === change.id_changement ? 'selected-row' : ''}`}
                     onClick={() => handleSelectChange(change)}
+                    style={{ cursor: 'pointer' }}
                   >
-                    <td className="acl-td">
-                      <div className="acl-title" style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.2rem' }} title={getChangeTitle(change)}>
+                    <td>
+                      <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '.8rem', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '0.2rem' }} title={getChangeTitle(change)}>
                         {getChangeTitle(change)}
                       </div>
-                      <div className="acl-code">#{change.code_changement}</div>
+                      <div style={{ fontSize: '.65rem', color: '#3b82f6', fontWeight: '600' }}>#{change.code_changement}</div>
                     </td>
-                    <td className="acl-td">
+                    <td>
                       <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#475569' }}>
                         {change.rfc ? `${change.rfc.demandeur?.prenom_user || ''} ${change.rfc.demandeur?.nom_user || ''}` : `${change.changeManager?.prenom_user || '—'} ${change.changeManager?.nom_user || ''}`}
                       </div>
                     </td>
-                    <td className="acl-td">
+                    <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div className="acl-manager-avatar" style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: '800' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: '800' }}>
                           {(change.changeManager?.prenom_user?.[0] || '—').toUpperCase()}
                         </div>
                         <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1e293b' }}>
@@ -535,7 +535,7 @@ const ChangeManagement = () => {
                         </span>
                       </div>
                     </td>
-                    <td className="acl-td">
+                    <td>
                       {(() => {
                         const prio = change.priorite || (change.rfc?.typeRfc?.type === 'URGENT' ? 'HAUTE' : (change.rfc?.typeRfc?.type === 'NORMAL' ? 'MOYENNE' : 'BASSE'));
                         const colors = {
@@ -552,17 +552,17 @@ const ChangeManagement = () => {
                         );
                       })()}
                     </td>
-                    <td className="acl-td">
+                    <td>
                       <Badge variant={change.rfc?.evaluationRisque?.score_risque > 15 ? 'danger' : change.rfc?.evaluationRisque?.score_risque > 8 ? 'warning' : 'success'}>
                         {change.rfc?.evaluationRisque?.score_risque || '—'}
                       </Badge>
                     </td>
-                    <td className="acl-td">
+                    <td>
                       <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '600', background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}>
                         {change.environnement?.nom_env || 'N/A'}
                       </span>
                     </td>
-                    <td className="acl-td" onClick={(e) => e.stopPropagation()}>
+                    <td onClick={(e) => e.stopPropagation()}>
                         <InlineEditableBadge
                             currentValue={change.statut?.id_statut}
                             currentCode={change.statut?.code_statut}
@@ -590,12 +590,12 @@ const ChangeManagement = () => {
                             dropdownPosition="up"
                         />
                     </td>
-                    <td className="acl-td" onClick={(e) => { e.stopPropagation(); handleSelectChange(change); }} style={{ cursor: 'pointer' }}>
+                    <td onClick={(e) => { e.stopPropagation(); handleSelectChange(change); }} style={{ cursor: 'pointer' }}>
                         <Badge variant="default" style={{ textDecoration: 'underline', color: '#3b82f6' }}>
                             {(change._count?.taches || change.taches?.length || 0)} tâche(s)
                         </Badge>
                     </td>
-                    <td className="acl-td" style={{ textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                         <button className="btn-secondary" onClick={(e) => { e.stopPropagation(); handleSelectChange(change); }} title="Détails" style={{ padding: '0.4rem' }}>
                           <FiInfo size={16} />

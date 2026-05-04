@@ -406,26 +406,19 @@ const CiManagement = () => {
       </div>
 
       {/* KPI Section */}
-      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-        <div className="stat-card blue">
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+        <div className="stat-card blue" onClick={() => { setFilterType('ALL'); setFilterEnv('ALL'); setSearch(''); }} style={{ cursor: 'pointer' }}>
           <div className="stat-icon-wrapper"><FiDatabase size={24} /></div>
           <div className="stat-info">
             <div className="stat-value">{cis.length}</div>
             <div className="stat-label">Total CIs</div>
           </div>
         </div>
-        <div className="stat-card purple">
+        <div className="stat-card purple" onClick={() => setFilterType('Serveur')} style={{ cursor: 'pointer' }}>
           <div className="stat-icon-wrapper"><FiServer size={24} /></div>
           <div className="stat-info">
             <div className="stat-value">{cis.filter(c => c.type_ci?.toLowerCase().includes('serveur') || c.type_ci?.toLowerCase().includes('server')).length}</div>
             <div className="stat-label">Serveurs</div>
-          </div>
-        </div>
-        <div className="stat-card green">
-          <div className="stat-icon-wrapper"><FiGlobe size={24} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{filtered.length}</div>
-            <div className="stat-label">Filtrés</div>
           </div>
         </div>
       </div>

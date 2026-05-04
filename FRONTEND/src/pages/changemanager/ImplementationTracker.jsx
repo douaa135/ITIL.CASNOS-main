@@ -43,7 +43,7 @@ const ImplementationTracker = () => {
                 // Fetch changes and implementers in parallel
                 const [changesRes, impsRes, taskStatusRes] = await Promise.all([
                     api.get('/changements'),
-                    api.get('/users?nom_role=IMPLEMENTEUR&limit=100'),
+                    api.get('/users?nom_role=IMPLEMENTEUR&limit=1000'),
                     api.get('/statuts?contexte=TACHE')
                 ]);
 

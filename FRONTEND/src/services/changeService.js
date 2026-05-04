@@ -48,11 +48,6 @@ export const getChangeStatuses = async () => {
   return extract(result, 'statuts', []);
 };
 
-export const getTaskStatuses = async () => {
-  const result = await api.get('/statuts?contexte=TACHE');
-  return extract(result, 'statuts', []);
-};
-
 // ── Tâches ───────────────────────────────────────────────────
 
 export const getTasksByChange = async (idChangement) => {
@@ -145,6 +140,11 @@ export const getTestsByChangement = async (idChangement) => {
 export const createTest = async (idChangement, payload) => {
   const result = await api.post(`/changements/${idChangement}/tests`, payload);
   return extract(result, 'test', null);
+};
+
+export const getTaskStatuses = async () => {
+  const result = await api.get('/statuts?contexte=TACHE');
+  return extract(result, 'statuts', []);
 };
 
 const changeService = {

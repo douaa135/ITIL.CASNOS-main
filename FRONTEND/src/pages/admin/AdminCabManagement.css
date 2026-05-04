@@ -71,6 +71,17 @@
   transform: translateY(-4px);
 }
 
+.active-kpi {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+}
+
+.stat-card.active-kpi {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.15) !important;
+  border-width: 2px !important;
+}
+
 .kpi-icon {
   width: 32px;
   height: 32px;

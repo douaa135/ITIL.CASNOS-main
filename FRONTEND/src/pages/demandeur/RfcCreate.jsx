@@ -197,7 +197,7 @@ const Step1 = ({ data, onChange, isSD, demandeurs, isEdit, environments }) => {
             <option value="">-- Sélectionner l'environnement --</option>
             {environments.map(env => (
               <option key={env.id_env} value={env.id_env}>
-                🌐 {env.nom_env}
+                 {env.nom_env}
               </option>
             ))}
           </select>
@@ -432,7 +432,7 @@ const RfcCreate = ({ isModal = false, onSuccess, onCancel }) => {
       if (isEdit) {
         await rfcService.updateRfc(initialRfc.db_id, payload);
       } else {
-        await rfcService.createRfc(payload); // On crée juste, le backend gère le statut BROUILLON par défaut
+        await rfcService.createRfc(payload); // On crée juste, le backend gère le statut par défaut
       }
 
       if (isModal && onSuccess) {

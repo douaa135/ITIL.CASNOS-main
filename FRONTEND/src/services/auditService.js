@@ -14,7 +14,10 @@ const auditService = {
 
     // api retourne { success, data: { logs: [...], total }, message }
     const response = await api.get(`/audit-logs?${params.toString()}`);
-    return response; // AuditLog.jsx accède à response.data.logs et response.data.total
+    return response;
+  },
+  getFullRfcReport: async (id_rfc) => {
+    return api.get(`/rfc/${id_rfc}/rapport-complet`);
   }
 };
 

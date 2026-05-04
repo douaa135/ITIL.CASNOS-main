@@ -168,7 +168,7 @@ const DirectionManagement = () => {
     try {
       const [dirRes, userRes] = await Promise.all([
         api.get('/directions'),
-        api.get('/users')
+        api.get('/users?limit=1000')
       ]);
 
       const rawDirs = dirRes?.data?.directions || dirRes?.directions || (Array.isArray(dirRes?.data) ? dirRes.data : []) || (Array.isArray(dirRes) ? dirRes : []);

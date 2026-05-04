@@ -31,7 +31,7 @@ const BroadcastCenter = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await api.get('/users');
+      const res = await api.get('/users?limit=1000');
       const list = res?.data?.data ?? res?.data ?? [];
       setUsers(Array.isArray(list) ? list : []);
     } catch (e) { console.error('[BroadcastCenter] fetchUsers error:', e); }

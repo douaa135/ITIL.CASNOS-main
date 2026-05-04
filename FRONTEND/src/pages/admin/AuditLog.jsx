@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FiActivity, FiSearch, FiFilter, FiRefreshCw, FiUser, 
-  FiClock, FiDatabase, FiLayers, FiEye, FiArrowRight, FiX, FiTrash2, FiCheckCircle, FiAlertTriangle, FiCalendar
+  FiClock, FiDatabase, FiLayers, FiEye, FiArrowRight, FiX, FiTrash2, FiCheckCircle, FiAlertTriangle, FiCalendar, FiFileText, FiPrinter, FiDownload
 } from 'react-icons/fi';
 import auditService from '../../services/auditService';
 import userService from '../../services/userService';
@@ -32,11 +32,11 @@ const AuditLog = () => {
     action: ''
   });
   const [search,     setSearch]     = useState('');
-  const [filterType, setFilterType] = useState('ALL');
-  const [filterUser, setFilterUser] = useState('ALL');
+  const [filterType, setFilterType] = useState('');
+  const [filterUser, setFilterUser] = useState('');
   const [selectedLog, setSelectedLog] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
+  const [reportModal, setReportModal] = useState({ open: false, data: null, loading: false });
   const [hasFetched, setHasFetched] = useState(false);
 
   const fetchLogs = useCallback(async () => {
@@ -45,8 +45,8 @@ const AuditLog = () => {
       const activeFilters = {
         page,
         limit,
-        entite_type: filterType !== 'ALL' ? filterType : undefined,
-        id_user: filterUser !== 'ALL' ? filterUser : undefined,
+        entite_type: filterType || undefined,
+        id_user: filterUser || undefined,
         action: search.trim() || undefined
       };
       
@@ -92,8 +92,8 @@ const AuditLog = () => {
   const fetchUsers = useCallback(async () => {
     try {
       const result = await userService.getAllUsers({ limit: 1000 });
-      // Structure standard : { success, data: { data: [...] } }
-      const list = result?.data?.data || result?.data || [];
+      // userService returns { users, total, pages }
+      const list = result?.users || [];
       setUsers(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -119,6 +119,11 @@ const AuditLog = () => {
     setIsModalOpen(true);
   };
 
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedLog(null);
+  };
+
   const handleDeleteLog = (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Voulez-vous vraiment supprimer cette entrée du journal d\'audit ?')) return;
@@ -126,9 +131,43 @@ const AuditLog = () => {
     setTotal(prev => Math.max(0, prev - 1));
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedLog(null);
+
+
+  const handleGenerateReport = async (e, log) => {
+    e.stopPropagation();
+    if (log.entite_type !== 'RFC') {
+      setReportModal({ open: true, error: "Le rapport d'audit n'est disponible que pour les entités de type RFC.", data: null, loading: false });
+      return;
+    }
+
+    setReportModal({ open: true, error: null, data: null, loading: true });
+    try {
+      console.log('[AuditLog] Generating report for RFC ID:', log.entite_id);
+      
+      // Extraction résiliente (le backend renvoie { success, data: { rapport } })
+      // L'intercepteur axiosClient.js retourne déjà response.data
+      const result = await auditService.getFullRfcReport(log.entite_id);
+      console.log('[AuditLog] Report raw result:', result);
+      
+      // On cherche l'objet rapport soit dans .data.rapport, soit directement dans .rapport
+      const rapport = result?.data?.rapport || result?.rapport || (result?.id_rfc ? result : null);
+      
+      if (!rapport) {
+        console.error('[AuditLog] No rapport object found in result:', result);
+        throw new Error('Les données du rapport sont introuvables ou le format est incorrect.');
+      }
+
+      if (!rapport.audit_trail || !Array.isArray(rapport.audit_trail)) {
+        console.error('[AuditLog] audit_trail is missing or not an array:', rapport);
+        throw new Error("L'historique d'audit (audit_trail) est manquant pour cette RFC.");
+      }
+      
+      setReportModal({ open: true, data: rapport, loading: false });
+    } catch (error) {
+      console.error('Error generating audit report:', error);
+      setToast({ msg: error.message || 'Erreur lors de la génération du rapport.', type: 'error' });
+      setReportModal({ open: false, data: null, loading: false });
+    }
   };
 
   const getActionClass = (action) => {
@@ -257,9 +296,9 @@ const AuditLog = () => {
               <option value="CI">Élément de Configuration</option>
               <option value="USER">Utilisateur</option>
             </select>
-          {(search || filterType !== 'ALL' || filterUser !== 'ALL' ) && (
+          {(search || filterType || filterUser) && (
           <button 
-            onClick={() => { setSearch(''); setFilterType('ALL'); setFilterUser('ALL');}}
+            onClick={() => { setSearch(''); setFilterType(''); setFilterUser(''); setPage(1); }}
             style={{
               padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid #7c3aed',
               fontSize: '0.875rem', background: '#f5f3ff', color: '#7c3aed', 
@@ -286,8 +325,7 @@ const AuditLog = () => {
           <table className="audit-table">
             <thead>
               <tr>
-                <th>Date & Heure</th>
-                <th>Utilisateur</th>
+                <th className="sticky-col-first">Utilisateur & Horodatage</th>
                 <th>Action</th>
                 <th>Entité</th>
                 <th>Ancienne Valeur</th>
@@ -297,16 +335,16 @@ const AuditLog = () => {
             </thead>
             <tbody>
               {logs.map((log) => (
-                <tr key={log.id_log} onClick={() => handleRowClick(log)} className="clickable-row">
-                  <td className="td-date">
-                    <FiClock />
-                    {new Date(log.date_action).toLocaleString()}
-                  </td>
-                  <td className="td-user">
+                <tr key={log.id_log} onClick={() => handleRowClick(log)} className="audit-row" style={{ cursor: 'pointer' }}>
+                  <td className="td-user sticky-col-first">
                     <div className="user-avatar">
                       {log.utilisateur?.prenom_user?.[0]}{log.utilisateur?.nom_user?.[0]}
                     </div>
                     <span>{log.utilisateur?.prenom_user} {log.utilisateur?.nom_user}</span>
+                  </td>
+                  <td className="td-date">
+                    <FiClock />
+                    {new Date(log.date_action).toLocaleString()}
                   </td>
                   <td>
                     <span className={`action-badge ${getActionClass(log.action)}`}>
@@ -325,13 +363,23 @@ const AuditLog = () => {
                     <div className="audit-val-container premium-new-box">{formatValue(log.nouvelle_val)}</div>
                   </td>
                   <td className="text-right">
-                    <button 
-                      className="action-circle-btn delete" 
-                      onClick={(e) => handleDeleteLog(e, log.id_log)}
-                      title="Supprimer"
-                    >
-                      <FiTrash2 size={14} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <button 
+                        className="action-circle-btn report" 
+                        onClick={(e) => handleGenerateReport(e, log)}
+                        title="Générer Rapport d'Audit"
+                        style={{ background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}
+                      >
+                        <FiFileText size={14} />
+                      </button>
+                      <button 
+                        className="action-circle-btn delete" 
+                        onClick={(e) => handleDeleteLog(e, log.id_log)}
+                        title="Supprimer"
+                      >
+                        <FiTrash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -421,6 +469,163 @@ const AuditLog = () => {
 
             <div className="modal-footer-rfc-style">
               <button className="btn-close-audit" onClick={closeModal}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reportModal.open && (
+        <div className="modal-backdrop-cab" onClick={() => setReportModal({ open: false, data: null, loading: false })}>
+          <div className="modal-box-cab glass-card-cab audit-report-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '1000px', width: '95%' }}>
+            <div className="modal-top-rfc-style" style={{ 
+              background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              position: 'relative',
+              padding: '1.5rem 2.5rem 1.5rem 1.5rem' // More padding on right for X
+            }}>
+              <div className="modal-header-content">
+                <FiFileText style={{ color: 'white' }} />
+                <h3 style={{ color: 'white', margin: 0 }}>Rapport d'Audit Complet - {reportModal.data?.resume?.code_rfc || 'Chargement...'}</h3>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <button 
+                  onClick={() => window.print()} 
+                  className="no-print"
+                  style={{ 
+                    background: 'rgba(255,255,255,0.2)', 
+                    border: '1px solid rgba(255,255,255,0.4)', 
+                    color: 'white', 
+                    padding: '0.4rem 0.8rem', 
+                    borderRadius: '8px', 
+                    cursor: 'pointer', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.5rem', 
+                    fontSize: '0.8rem', 
+                    fontWeight: '600' 
+                  }}
+                >
+                  <FiPrinter /> Imprimer
+                </button>
+                <button 
+                  onClick={() => setReportModal({ open: false, data: null, loading: false })} 
+                  className="no-print"
+                  style={{ 
+                    position: 'absolute',
+                    top: '1.2rem',
+                    right: '1.2rem',
+                    background: 'rgba(0,0,0,0.1)', 
+                    border: 'none', 
+                    color: 'white', 
+                    cursor: 'pointer', 
+                    display: 'flex', 
+                    padding: '0.4rem',
+                    borderRadius: '50%',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.2)'}
+                  onMouseOut={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="modal-body-rfc-style report-print-area">
+              {reportModal.loading ? (
+                <div className="loading-state">
+                  <FiRefreshCw className="spinning" />
+                  <p>Génération du rapport d'audit en cours...</p>
+                </div>
+              ) : reportModal.error ? (
+                <div className="empty-state" style={{ color: '#dc2626' }}>
+                  <FiAlertTriangle size={48} />
+                  <h3 style={{ marginTop: '1rem' }}>Erreur de génération</h3>
+                  <p>{reportModal.error}</p>
+                </div>
+              ) : reportModal.data ? (
+                <div className="audit-report-content">
+                  <div className="report-header-info">
+                    <div className="report-section-title">Informations RFC</div>
+                    <div className="report-grid">
+                      <div className="report-item">
+                        <label>Code RFC</label>
+                        <span>{reportModal.data.resume.code_rfc}</span>
+                      </div>
+                      <div className="report-item">
+                        <label>Statut Actuel</label>
+                        <span className={`status-badge ${reportModal.data.resume.statut.toLowerCase()}`}>{reportModal.data.resume.libelle_statut}</span>
+                      </div>
+                      <div className="report-item">
+                        <label>Titre</label>
+                        <span>{reportModal.data.resume.titre_rfc}</span>
+                      </div>
+                      <div className="report-item">
+                        <label>Demandeur</label>
+                        <span>{reportModal.data.resume.demandeur}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="report-section-title" style={{ marginTop: '2rem' }}>Journal d'Audit Détaillé (GetAuditTrailByRfc)</div>
+                  <div className="report-audit-table-wrapper">
+                    <table className="report-audit-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Action</th>
+                          <th>Acteur</th>
+                          <th>Entité</th>
+                          <th>Modifications</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportModal.data.audit_trail.map((log, idx) => (
+                          <tr key={idx}>
+                            <td className="report-td-date">{new Date(log.date).toLocaleString()}</td>
+                            <td><span className={`action-badge ${getActionClass(log.action)}`}>{log.action}</span></td>
+                            <td className="report-td-actor">{log.acteur}</td>
+                            <td><span className={`entite-badge ${log.entite_type.toLowerCase()}`}>{log.entite_type}</span></td>
+                            <td className="report-td-diff">
+                              {log.avant || log.apres ? (
+                                <div className="diff-container">
+                                  {log.avant && (
+                                    <div className="diff-old">
+                                      <div className="diff-label">Ancien</div>
+                                      <div className="audit-val-container ancient-val-box">
+                                        {formatValue(log.avant)}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {log.apres && (
+                                    <div className="diff-new premium-new-box">
+                                      <div className="diff-label">Nouveau</div>
+                                      <div className="audit-val-container premium-new-box" style={{ background: 'transparent', border: 'none', padding: 0, boxShadow: 'none' }}>
+                                        {formatValue(log.apres)}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : <span className="no-diff">Aucun changement de valeur</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <FiAlertTriangle />
+                  <p>Données du rapport indisponibles.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer-rfc-style no-print">
+              <button className="btn-close-audit" onClick={() => setReportModal({ open: false, data: null, loading: false })}>Fermer le rapport</button>
             </div>
           </div>
         </div>
