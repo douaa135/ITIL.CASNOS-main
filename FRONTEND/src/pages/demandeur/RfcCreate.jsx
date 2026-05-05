@@ -395,7 +395,7 @@ const RfcCreate = ({ isModal = false, onSuccess, onCancel }) => {
     titre: initialRfc?.titre || '', 
     description: initialRfc?.description || '', 
     justification: initialRfc?.justification || '', 
-    dateSouhaitee: initialRfc?.date_souhaitee || '', 
+    dateSouhaitee: initialRfc?.raw_date_souhaitee ? initialRfc.raw_date_souhaitee.split('T')[0] : '', 
     urgence: initialRfc?.urgence || 'NORMALE',
     impacte_estimee: initialRfc?.impacte_estimee || 'MINEUR',
     id_env: initialRfc?.id_env || '',
@@ -439,7 +439,7 @@ const RfcCreate = ({ isModal = false, onSuccess, onCancel }) => {
         onSuccess();
       } else {
         const targetPath = isSD ? '/servicedesk/inquiry' : '/mes-rfcs';
-        navigate(targetPath, { state: { success: true } });
+        navigate(targetPath, { state: { success: true, isEdit } });
       }
     } catch (err) {
       console.error('RFC Save Error:', err);

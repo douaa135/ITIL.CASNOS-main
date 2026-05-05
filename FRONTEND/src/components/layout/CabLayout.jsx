@@ -2,7 +2,6 @@ import { FiGrid, FiTarget, FiCalendar } from 'react-icons/fi';
 import RoleLayout from './RoleLayout';
 
 const NAV_ITEMS = [
-  { path: '/cab',          end: true, icon: <FiGrid />,     label: 'CAB' },
   { path: '/cab/rfcs',               icon: <FiTarget />,   label: 'Évaluation RFCs' },
   { path: '/cab/meetings',           icon: <FiCalendar />, label: 'Réunions CAB' },
 ];

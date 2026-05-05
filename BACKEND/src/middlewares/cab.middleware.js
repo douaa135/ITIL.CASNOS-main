@@ -34,6 +34,14 @@ const VALEURS_VOTE_VALIDES  = ['APPROUVER', 'REJETER', 'ABSTENTION'];
 const DECISIONS_VALIDES     = ['APPROUVER', 'REJETER', 'REPORTER'];
 const ROLES_MEMBRE_VALIDES  = ['PRESIDENT', 'MEMBRE'];
 
+// Utilitaire à mettre en haut de cab.service.js
+async function safeAudit(payload) {
+  try {
+    await auditSvc.logAction(payload);
+  } catch (e) {
+    console.error('[AUDIT ERROR]', e.message); // log mais n'échoue pas
+  }
+}
 // ============================================================
 // 1. VALIDATION BODY
 // ============================================================
@@ -44,7 +52,7 @@ const ROLES_MEMBRE_VALIDES  = ['PRESIDENT', 'MEMBRE'];
  * Champs optionnels : date_creation
  */
 const validateCreateCab = (req, res, next) => {
-  const { type_cab } = req.body;
+  const { nom_cab, type_cab } = req.body;
 
   if (!type_cab) {
     return R.badRequest(res, `Le champ "type_cab" est obligatoire. Valeurs : ${TYPES_CAB_VALIDES.join(', ')}.`);

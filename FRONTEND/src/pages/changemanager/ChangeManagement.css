@@ -53,10 +53,44 @@
   color: #0f172a;
 }
 
-.changes-table-wrapper {
-  border-radius: 18px;
+.rfc-table-card {
   background: white;
-  box-shadow: 0 12px 25px rgba(15, 23, 42, 0.06);
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+}
+
+.rfc-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.72rem;
+}
+
+.rfc-table thead th {
+  background: #f8fafc;
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+}
+
+.rfc-table tbody td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid #f8fafc;
+  font-size: 0.72rem;
+  color: #334155;
+  vertical-align: middle;
+}
+
+.rfc-table tbody tr:hover td { 
+  background: #f1f5f9 !important;
 }
 
 .changes-table {

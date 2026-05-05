@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   FiSearch, FiRefreshCw, FiFilter,
@@ -172,11 +173,17 @@ const RfcMonitoring = () => {
     return matchSearch && matchStatus;
   });
 
+  const isLate = (rfc) => {
+    if (!rfc.date_souhaitee) return false;
+    if (['APPROUVEE', 'CLOTUREE', 'REJETEE'].includes(rfc.statut?.code_statut)) return false;
+    return new Date(rfc.date_souhaitee) < new Date();
+  };
+
   const kpis = {
-    total: rfcs.length,
     pending: rfcs.filter(r => r.statut?.code_statut === 'SOUMIS').length,
     urgent: rfcs.filter(r => r.typeRfc?.type === 'URGENT').length,
-    approved: rfcs.filter(r => r.statut?.code_statut === 'APPROUVEE').length,
+    preevaluee: rfcs.filter(r => r.statut?.code_statut === 'PRE_APPROUVEE').length,
+    late: rfcs.filter(r => isLate(r)).length,
   };
 
   return (
@@ -199,11 +206,11 @@ const RfcMonitoring = () => {
         </div>
       </div>
 
-      <div className="kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        <KpiCard label="Total RFC" value={kpis.total} icon={<FiFileText />} color="blue" />
+      <div className="kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
         <KpiCard label="En Attente" value={kpis.pending} icon={<FiClock />} color="purple" sub="Vérification ITIL" />
         <KpiCard label="Urgentes" value={kpis.urgent} icon={<FiZap />} color="amber" />
-        <KpiCard label="Approuvées" value={kpis.approved} icon={<FiCheckCircle />} color="green" />
+        <KpiCard label="Pré-évaluées" value={kpis.preevaluee} icon={<FiCheckCircle />} color="green" />
+        <KpiCard label="En Retard" value={kpis.late} icon={<FiAlertCircle />} color="red" />
       </div>
 
       <div className="rfc-mgr-toolbar">
@@ -223,7 +230,6 @@ const RfcMonitoring = () => {
             <option value="EVALUEE">⚙️ Évaluées</option>
             <option value="APPROUVEE">✅ Approuvées</option>
             <option value="REJETEE">❌ Rejetées</option>
-          </select>
           </select>
         </div>
       </div>
@@ -339,9 +345,7 @@ const RfcMonitoring = () => {
               </div>
               <button 
                 onClick={() => setShowProcess(false)} 
-                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', cursor: 'pointer', padding: '8px', borderRadius: '50%', display: 'flex', transition: 'all 0.2s' }}
-                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '4px', display: 'flex' }}
               >
                 <FiX size={20} />
               </button>

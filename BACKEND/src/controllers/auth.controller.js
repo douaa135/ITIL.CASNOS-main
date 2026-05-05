@@ -3,39 +3,16 @@
 const authService = require('../services/auth.service');
 const userService = require('../services/user.service');
 
-// ─── Cookie ───────────────────────────────────────────────────────────────────
+// ✅ FIX 2 : Cookie maxAge aligné sur la durée du refresh token (7 jours)
 const COOKIE_NAME    = 'refresh_token';
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: false, // mettre true seulement en HTTPS
-  sameSite: "lax",
-  maxAge: 8 * 60 * 60 * 1000 // 8h
+  secure:   process.env.NODE_ENV === 'production', // true en prod (HTTPS), false en dev
+  sameSite: 'lax',
+  maxAge:   7 * 24 * 60 * 60 * 1000,  // 7 jours — même durée que le refresh token JWT
 };
 
-
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
-/**
- * Body : { "email": "k.merabti@casnos.dz", "password": "password" }
- *
- * ⚠️  Le champ s'appelle "email" (pas "login") — pas de champ login en base.
- *
- * Réponse 200 (une seule requête — profil complet inclus) :
- * {
- *   "success": true,
- *   "accessToken": "eyJhbGci...",
- *   "expiresIn": 900,
- *   "user": {
- *     "id_user":       "uuid...",
- *     "nom_user":      "Merabti",
- *     "prenom_user":   "Karim",
- *     "email_user":    "change.manager@casnos.dz",
- *     "nom_direction": "DMSI",
- *     "roles":         ["CHANGE_MANAGER"],
- *     "permissions":   ["rfc:create", "rfc:approve", ...]
- *   }
- * }
- * Cookie : refresh_token (httpOnly, 7 jours)
- */
 async function login(req, res) {
   try {
     const { email, password } = req.body;
@@ -55,13 +32,12 @@ async function login(req, res) {
         req.headers['user-agent'] || ''
       );
 
-    // Refresh token → cookie httpOnly (non visible côté JS client)
     res.cookie(COOKIE_NAME, refreshToken, COOKIE_OPTIONS);
 
     return res.status(200).json({
       success: true,
       accessToken,
-      expiresIn,
+      expiresIn,   // 900 secondes = 15 min (aligné sur ACCESS_EXPIRES_IN='15m')
       user,
     });
 
@@ -73,12 +49,7 @@ async function login(req, res) {
   }
 }
 
-
 // ─── POST /api/auth/refresh ───────────────────────────────────────────────────
-/**
- * Renouvelle l'access token depuis le cookie refresh_token.
- * Réponse 200 : { success, accessToken, expiresIn }
- */
 async function refresh(req, res) {
   try {
     const rawToken = req.cookies[COOKIE_NAME];
@@ -101,19 +72,14 @@ async function refresh(req, res) {
   }
 }
 
-
 // ─── POST /api/auth/logout ────────────────────────────────────────────────────
-/**
- * Révoque le refresh token + efface le cookie.
- * Réponse 200 : { success, message }
- */
 async function logout(req, res) {
   try {
     const rawToken = req.cookies[COOKIE_NAME];
     await authService.logout(
       rawToken,
       req.user.sub,  // userId
-      req.user.jti   // JTI access token — identifie la session exacte
+      req.user.jti   // JTI access token
     );
     res.clearCookie(COOKIE_NAME);
     return res.status(200).json({ success: true, message: 'Déconnexion réussie' });
@@ -123,14 +89,7 @@ async function logout(req, res) {
   }
 }
 
-
 // ─── GET /api/auth/me ─────────────────────────────────────────────────────────
-/**
- * Optionnel — POST /login retourne déjà le profil complet.
- * Utile pour recharger le profil après un rechargement de page.
- *
- * Nécessite le middleware authenticateJWT → req.user.sub = UUID
- */
 async function me(req, res) {
   try {
     const user = await userService.findByIdSafe(req.user.sub);
@@ -156,11 +115,10 @@ async function myPermissions(req, res) {
   }
 }
 
-
 module.exports = {
   login,
   refresh,
   logout,
   me,
-  myPermissions
+  myPermissions,
 };

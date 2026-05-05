@@ -19,6 +19,7 @@ import Notifications from './pages/Notifications';
 
 // ── Admin ─────────────────────────────────────────────────────
 import AdminSystemDashboard from './pages/admin/AdminSystemDashboard';
+import AdminRfcManagement   from './pages/admin/AdminRfcManagement';
 import UserManagement       from './pages/admin/UserManagement';
 import CiManagement         from './pages/admin/CiManagement';
 import AuditLog             from './pages/admin/AuditLog';
@@ -28,6 +29,9 @@ import AdminChangementList  from './pages/admin/AdminChangementList';
 import DirectionManagement  from './pages/admin/DirectionManagement';
 import TaskManagement from './pages/admin/TaskManagement';
 import AdminCabManagement from './pages/admin/AdminCabManagement';
+
+// Wrapper pour s'assurer que le layout reste celui du manager
+const ManagerTaskManagement = () => <TaskManagement />;
 
 
 // ── Demandeur ─────────────────────────────────────────────────
@@ -51,10 +55,12 @@ import ImplementationTracker  from './pages/changemanager/ImplementationTracker'
 // ── Implémenteur ──────────────────────────────────────────────
 import ImplementerDashboard from './pages/implementeur/ImplementerDashboard';
 import MyTasks              from './pages/implementeur/MyTasks';
+import ImplementerHistory   from './pages/implementeur/ImplementerHistory';
 
 // ── Service Desk ──────────────────────────────────────────────
 import ServiceDeskDashboard from './pages/servicedesk/ServiceDeskDashboard';
 import InquiryHub           from './pages/servicedesk/InquiryHub';
+import RfcMonitoring        from './pages/servicedesk/RfcMonitoring';
 
 
 // ── CAB ───────────────────────────────────────────────────────
@@ -157,45 +163,35 @@ function App() {
           <Route path="/profile" element={<ProtectedRoute><ProfileWrapper /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><NotificationsWrapper /></ProtectedRoute>} />
 
+          {/* ── Change Manager ───────────────────────────────── */}
+          <Route element={<ProtectedRoute><ChangeManagerLayout /></ProtectedRoute>}>
+            <Route path="/manager"                    element={<ChangeManagerDashboard />} />
+            <Route path="/manager/rfcs"               element={<RfcManagement />} />
+            <Route path="/manager/rfcs/:id/evaluation"  element={<RfcEvaluation />} />
+            <Route path="/manager/cab"                element={<AdminCabManagement />} />
+            <Route path="/manager/cab/meetings"       element={<CabMeetings />} />
+            <Route path="/manager/changements"        element={<ChangeManagement />} />
+            <Route path="/manager/tasks"              element={<ManagerTaskManagement />} />
+            <Route path="/manager/calendar"           element={<ChangeCalendar />} />
+            <Route path="/manager/implementation"     element={<ImplementationTracker />} />
+            <Route path="/rfcs/:id/edit"              element={<RfcEdit />} />
+          </Route>
+
           {/* ── Admin ────────────────────────────────────────── */}
-          <Route path="/admin" element={
-            <ProtectedRoute><AdminLayout><AdminSystemDashboard /></AdminLayout></ProtectedRoute>
-          } />
-          <Route path="/admin/users" element={
-            <ProtectedRoute><AdminLayout><UserManagement /></AdminLayout></ProtectedRoute>
-          } />
-          <Route path="/admin/rfcs" element={
-            <ProtectedRoute><AdminLayout><RfcManagement /></AdminLayout></ProtectedRoute>
-          } />
-          <Route path="/admin/cis" element={
-            <ProtectedRoute><AdminLayout><CiManagement /></AdminLayout></ProtectedRoute>
-          } />
-          <Route path="/admin/audit" element={
-            <ProtectedRoute><AdminLayout><AuditLog /></AdminLayout></ProtectedRoute>
-          } />
-
-          <Route path="/admin/settings" element={
-            <ProtectedRoute><AdminLayout><EnvironmentManagement /></AdminLayout></ProtectedRoute>
-          } />
-          <Route path="/admin/cab" element={
-            <ProtectedRoute><AdminLayout><AdminCabManagement /></AdminLayout></ProtectedRoute>
-          } />
-
-          <Route path="/admin/cab/meetings" element={
-            <ProtectedRoute><AdminLayout><CabMeetings /></AdminLayout></ProtectedRoute>
-          } />
-          <Route path="/admin/changes" element={
-            <ProtectedRoute><AdminLayout><AdminChangementList /></AdminLayout></ProtectedRoute>
-          } />
-          <Route path="/admin/directions" element={
-            <ProtectedRoute><AdminLayout><DirectionManagement /></AdminLayout></ProtectedRoute>
-          } />
-          <Route path="/admin/environments" element={
-            <ProtectedRoute><AdminLayout><EnvironmentManagement /></AdminLayout></ProtectedRoute>
-          } />
-          <Route path="/admin/tasks" element={
-            <ProtectedRoute><AdminLayout><TaskManagement /></AdminLayout></ProtectedRoute>
-          } />
+          <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+            <Route path="/admin"              element={<AdminSystemDashboard />} />
+            <Route path="/admin/users"        element={<UserManagement />} />
+            <Route path="/admin/rfcs"         element={<AdminRfcManagement />} />
+            <Route path="/admin/cis"          element={<CiManagement />} />
+            <Route path="/admin/audit"        element={<AuditLog />} />
+            <Route path="/admin/settings"     element={<EnvironmentManagement />} />
+            <Route path="/admin/cab"          element={<AdminCabManagement />} />
+            <Route path="/admin/cab/meetings" element={<CabMeetings />} />
+            <Route path="/admin/changes"      element={<AdminChangementList />} />
+            <Route path="/admin/directions"   element={<DirectionManagement />} />
+            <Route path="/admin/environments" element={<EnvironmentManagement />} />
+            <Route path="/admin/tasks"        element={<TaskManagement />} />
+          </Route>
 
           {/* ── Demandeur ────────────────────────────────────── */}
           <Route element={<ProtectedRoute><DemandeurLayout /></ProtectedRoute>}>
@@ -207,29 +203,18 @@ function App() {
             <Route path="/rfcs/:id/review"  element={<RfcReview />} />
           </Route>
 
-          {/* ── Change Manager ───────────────────────────────── */}
-          <Route element={<ProtectedRoute><ChangeManagerLayout /></ProtectedRoute>}>
-            <Route path="/manager"                    element={<ChangeManagerDashboard />} />
-            <Route path="/manager/rfcs"               element={<RfcManagement />} />
-            <Route path="/manager/rfcs/:id/evaluation"  element={<RfcEvaluation />} />
-            <Route path="/manager/cab"                element={<CabManagement />} />
-            <Route path="/manager/changements"        element={<ChangeManagement />} />
-            <Route path="/manager/calendar"           element={<ChangeCalendar />} />
-            <Route path="/manager/implementation"     element={<ImplementationTracker />} />
-            <Route path="/rfcs/:id/edit"              element={<RfcEdit />} />
-          </Route>
-
           {/* ── Implémenteur ─────────────────────────────────── */}
           <Route element={<ProtectedRoute><ImplementerLayout /></ProtectedRoute>}>
             <Route path="/implementer"         element={<ImplementerDashboard />} />
             <Route path="/implementer/tasks"   element={<MyTasks />} />
-            <Route path="/implementer/history" element={<Placeholder title="Historique d'exécution" />} />
+            <Route path="/implementer/history" element={<ImplementerHistory />} />
           </Route>
 
           {/* ── Service Desk ─────────────────────────────────── */}
           <Route element={<ProtectedRoute><ServiceDeskLayout /></ProtectedRoute>}>
             <Route path="/servicedesk"           element={<ServiceDeskDashboard />} />
             <Route path="/servicedesk/inquiry"   element={<InquiryHub />} />
+            <Route path="/servicedesk/rfcs"      element={<RfcMonitoring />} />
             <Route path="/servicedesk/calendar"  element={<ChangeCalendar />} />
 
           </Route>

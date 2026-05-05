@@ -7,7 +7,7 @@ export const ROLE_ROUTES = {
   ADMIN:          '/admin',
   CHANGE_MANAGER: '/manager',
   IMPLEMENTEUR:   '/implementer/tasks',
-  MEMBRE_CAB:     '/cab',
+  MEMBRE_CAB:     '/cab/rfcs',
   DEMANDEUR:      '/demandeur',
   SERVICE_DESK:   '/servicedesk',
 };

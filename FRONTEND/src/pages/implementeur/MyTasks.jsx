@@ -5,6 +5,8 @@ import {
   FiX, FiSend, FiActivity, FiAlertCircle, FiFileText, FiCheckSquare
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
+import { useAuth } from '../../context/AuthContext';
+import StatCard from '../../components/common/StatCard';
 import './MyTasks.css';
 import '../changemanager/RfcManagement.css';
 
@@ -20,6 +22,7 @@ const getTaskStatusClass = (code) => {
 };
 
 const MyTasks = () => {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -54,13 +57,37 @@ const MyTasks = () => {
   useEffect(() => {
     fetchTasks();
     fetchStatuts();
-  }, []);
+  }, [user]);
 
   const fetchTasks = async () => {
+    if (!user?.id_user) return;
     setLoading(true);
     try {
-      const res = await api.get('/me/taches');
-      if (res.success) setTasks(res.data?.taches || []);
+      // 1. Fetch all changes
+      const changesRes = await api.get('/changements');
+      const changesData = changesRes.data || changesRes;
+      const allChanges = (changesData.changements || []);
+      
+      // 2. Fetch tasks for each change
+      const userTasks = [];
+      await Promise.all(allChanges.map(async (change) => {
+        try {
+          const res = await api.get(`/changements/${change.id_changement}/taches`);
+          const tasksList = res.data?.taches || res.taches || [];
+          // Filter by current implementer
+          const myTasks = tasksList.filter(t => t.id_user === user.id_user || t.implementeur?.id_user === user.id_user);
+          
+          // Attach the change object to each task so the table can display RFC/Change info
+          myTasks.forEach(t => {
+            t.changement = change;
+          });
+          
+          userTasks.push(...myTasks);
+        } catch (e) {
+          // Ignore individual change errors
+        }
+      }));
+      setTasks(userTasks);
     } catch (error) {
       console.error('Fetch My Tasks Error:', error);
     } finally {
@@ -71,26 +98,44 @@ const MyTasks = () => {
   const fetchStatuts = async () => {
     try {
       const res = await api.get('/statuts?contexte=TACHE');
-      if (res.success) setStatutsTache(res.data?.statuts || []);
-    } catch (e) { console.error(e); }
+      // L'intercepteur unwrappe 'data' de la réponse axios.
+      // Le backend renvoie { success, data: { statuts: [...] } }
+      // Donc res = { success, data: { statuts: [...] } } OU res = { statuts: [...] } selon l'unwrapping
+      const list = res?.statuts || res?.data?.statuts || res?.data || (Array.isArray(res) ? res : []);
+      setStatutsTache(Array.isArray(list) ? list : []);
+    } catch (e) { 
+      console.error('Fetch Statuts Error:', e); 
+    }
   };
 
   const handleUpdateStatus = async (taskId, nextStatusCode) => {
     const nextStatut = statutsTache.find(s => s.code_statut === nextStatusCode);
-    if (!nextStatut) return;
-
+    if (!nextStatut) {
+      alert(`Erreur : Le statut "${nextStatusCode}" est introuvable.`);
+      return;
+    }
     try {
+      // api.patch retourne déjà response.data
       const res = await api.patch(`/taches/${taskId}/statut`, { id_statut: nextStatut.id_statut });
-      if (res.success) {
+      
+      // On vérifie si la requête a réussi (l'intercepteur rejette si status >= 400)
+      if (res) {
         await fetchTasks();
-        // Update selection
         if (selectedTask?.id_tache === taskId) {
-           const updatedRes = await api.get(`/taches/${taskId}`);
-           if (updatedRes.success) setSelectedTask(updatedRes.data?.tache || selectedTask);
+           const response = await api.get(`/taches/${taskId}`);
+           // R.success renvoie { success: true, data: { tache: ... } }
+           // L'intercepteur unwrappe 'data' de la réponse axios, donc response = { success, data }
+           const tacheObj = response?.data?.tache || response?.tache || response;
+           
+           if (tacheObj && typeof tacheObj === 'object') {
+             tacheObj.changement = selectedTask.changement;
+             setSelectedTask(tacheObj);
+           }
         }
       }
     } catch (error) {
-      alert(error?.response?.data?.message || 'Erreur lors du changement de statut.');
+      console.error('Update Status Error:', error);
+      alert(error?.message || error?.error || 'Erreur lors du changement de statut.');
     }
   };
 
@@ -100,13 +145,19 @@ const MyTasks = () => {
 
     try {
       const res = await api.post(`/taches/${selectedTask.id_tache}/journaux`, newLog);
-      if (res.success) {
-        const updated = await api.get(`/taches/${selectedTask.id_tache}`);
-        if (updated.success) setSelectedTask(updated.data?.tache || selectedTask);
+      if (res) {
+        const response = await api.get(`/taches/${selectedTask.id_tache}`);
+        const tacheObj = response?.data?.tache || response?.tache || response;
+        
+        if (tacheObj && typeof tacheObj === 'object') {
+          tacheObj.changement = selectedTask.changement;
+          setSelectedTask(tacheObj);
+        }
         setNewLog({ titre_journal: '', description: '' });
       }
     } catch (error) {
       console.error('Add Log Error:', error);
+      alert(error?.message || 'Erreur lors de l\'ajout du journal.');
     }
   };
 
@@ -151,47 +202,109 @@ Vérifications post-implémentation effectuées:
 
   const handleSubmitResult = async () => {
     try {
-      // Add journal
+      // 1. Ajouter le journal d'exécution
       await api.post(`/taches/${selectedTask.id_tache}/journaux`, {
         titre_journal: pirForm.isEchec ? 'INCIDENT / ÉCHEC' : 'SUCCÈS D\'EXÉCUTION',
         description: pirForm.description
       });
       
+      // 2. Changer le statut de la tâche
       const targetCode = pirForm.isEchec ? 'ANNULEE' : 'TERMINEE';
       const statusToSet = statutsTache.find(s => s.code_statut === targetCode);
       
-      if (statusToSet) {
-        await api.patch(`/taches/${selectedTask.id_tache}/statut`, { id_statut: statusToSet.id_statut });
-        
-        // Si c'est un échec, on pourrait aussi vouloir patcher le Changement à EN_ECHEC
-        // Mais le backend peut s'en charger si la logique est centralisée.
-        
-        alert(pirForm.isEchec ? 'Incident signalé et transmis au Change Manager.' : 'Exécution terminée avec succès.');
-        setPirForm({ show: false, description: '' });
-        fetchTasks();
+      if (!statusToSet) {
+        throw new Error(`Le statut cible "${targetCode}" est introuvable dans le référentiel.`);
       }
+
+      await api.patch(`/taches/${selectedTask.id_tache}/statut`, { id_statut: statusToSet.id_statut });
+      
+      alert(pirForm.isEchec ? 'Incident signalé et transmis au Change Manager.' : 'Exécution terminée avec succès.');
+      
+      // 3. Nettoyage et rafraîchissement
+      setPirForm({ show: false, description: '' });
+      await fetchTasks();
+      setShowModal(false);
     } catch (error) {
-      alert('Erreur lors de la déclaration du résultat.');
+      console.error('Declaration Result Error:', error);
+      // L'intercepteur retourne déjà l'objet d'erreur du backend ou le message d'erreur axios
+      const errorMsg = error?.message || error?.error || 'Erreur lors de la déclaration du résultat.';
+      alert(errorMsg);
     }
+  };
+
+  const stats = {
+    total: tasks.length,
+    pending: tasks.filter(t => t.statut?.code_statut === 'EN_ATTENTE').length,
+    inProgress: tasks.filter(t => t.statut?.code_statut === 'EN_COURS').length,
+    completed: tasks.filter(t => t.statut?.code_statut === 'TERMINEE').length,
+    failed: tasks.filter(t => t.statut?.code_statut === 'ANNULEE').length
   };
 
   return (
     <div className="my-tasks-container">
       <div className="premium-header-card">
         <div className="premium-header-left">
-          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiCheckSquare /></div>
+          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}>
+            <FiCheckSquare />
+          </div>
           <div className="premium-header-text">
             <h1>Mes Assignations</h1>
-            <p>Consultez et exécutez vos tâches d'implémentation.</p>
+            <p>Consultez et exécutez vos tâches d'implémentation · Temps réel ·</p>
           </div>
         </div>
         <div className="premium-header-actions">
+           <button 
+                className="btn-create-premium" 
+                onClick={() => fetchTasks()}
+                style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}
+            >
+                <FiActivity /> Actualiser
+            </button>
         </div>
+      </div>
+
+      {/* KPI Grid — Aligned with Dashboard CSS */}
+      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+        <StatCard 
+          title="Total" 
+          value={stats.total} 
+          icon={<FiCheckSquare />} 
+          color="blue" 
+          onClick={() => setFilter('ALL')}
+          active={filter === 'ALL'}
+        />
+        <StatCard 
+          title="À faire" 
+          value={stats.pending} 
+          icon={<FiClock />} 
+          color="amber" 
+          onClick={() => setFilter('EN_ATTENTE')}
+          active={filter === 'EN_ATTENTE'}
+          trend={{ value: 'Priorité haute', type: 'warning' }}
+        />
+        <StatCard 
+          title="En cours" 
+          value={stats.inProgress} 
+          icon={<FiPlay />} 
+          color="purple" 
+          onClick={() => setFilter('EN_COURS')}
+          active={filter === 'EN_COURS'}
+          trend={{ value: 'Exécution active', type: 'info' }}
+        />
+        <StatCard 
+          title="Terminées" 
+          value={stats.completed} 
+          icon={<FiCheckCircle />} 
+          color="green" 
+          onClick={() => setFilter('TERMINEE')}
+          active={filter === 'TERMINEE'}
+          trend={{ value: 'Succès', type: 'success' }}
+        />
       </div>
       
       <div className="tasks-list-panel">
-        <div className="panel-header">
-           <div className="search-bar">
+        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+           <div className="search-bar" style={{ flex: 1, maxWidth: '400px', marginBottom: 0 }}>
              <FiSearch />
              <input 
                type="text" 
@@ -199,12 +312,6 @@ Vérifications post-implémentation effectuées:
                value={search}
                onChange={e => setSearch(e.target.value)}
              />
-           </div>
-           <div className="filter-tabs">
-             <button className={filter === 'ALL' ? 'active' : ''} onClick={() => setFilter('ALL')}>Toutes</button>
-             <button className={filter === 'EN_ATTENTE' ? 'active' : ''} onClick={() => setFilter('EN_ATTENTE')}>À Faire</button>
-             <button className={filter === 'EN_COURS' ? 'active' : ''} onClick={() => setFilter('EN_COURS')}>En Cours</button>
-             <button className={filter === 'TERMINEE' ? 'active' : ''} onClick={() => setFilter('TERMINEE')}>Terminées</button>
            </div>
         </div>
 
@@ -285,16 +392,28 @@ Vérifications post-implémentation effectuées:
                 <div><strong>Date création</strong><p>{new Date(selectedTask.date_creation).toLocaleDateString()}</p></div>
                 <div><strong>Durée estimée</strong><p>{selectedTask.duree ? `${selectedTask.duree}h` : '-'}</p></div>
               </div>
-              <div className="modal-actions modal-actions-fullwidth">
-                <button className="btn-cloturer" onClick={() => handleDeclarrerResultat(true)}>
-                  <FiCheckCircle /> Terminer l'exécution (Succès)
-                </button>
-                <button className="btn-probleme" onClick={() => handleDeclarrerResultat(false)}>
-                  <FiAlertCircle /> Signaler un Échec (Rollback)
-                </button>
+              <div className="modal-actions" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', width: '100%', gap: '1rem', marginTop: '1.5rem' }}>
+                {selectedTask.statut?.code_statut === 'EN_ATTENTE' ? (
+                  <button className="btn-select" style={{ flex: 1, padding: '0.85rem' }} onClick={() => handleUpdateStatus(selectedTask.id_tache, 'EN_COURS')}>
+                    <FiPlay className="btn-icon-gap" /> Démarrer la tâche
+                  </button>
+                ) : selectedTask.statut?.code_statut === 'EN_COURS' ? (
+                  <>
+                    <button className="btn-probleme" onClick={() => handleDeclarrerResultat(false)} style={{ flex: 1 }}>
+                      <FiAlertCircle /> Signaler un Échec (Rollback)
+                    </button>
+                    <button className="btn-cloturer" onClick={() => handleDeclarrerResultat(true)} style={{ flex: 1 }}>
+                      <FiCheckCircle /> Terminer l'exécution (Succès)
+                    </button>
+                  </>
+                ) : (
+                  <div style={{ flex: 1, textAlign: 'center', color: '#64748b', fontWeight: 600, padding: '0.85rem', background: '#f1f5f9', borderRadius: '8px' }}>
+                    Tâche {selectedTask.statut?.libelle || 'Clôturée'}
+                  </div>
+                )}
               </div>
               <div className="modal-note">
-                <p><strong>Info:</strong> Si l’implémentation échoue, le Change Manager sera informé et la tâche sera marquée pour rollback.</p>
+                <p><strong>Info:</strong> Vous devez d'abord démarrer la tâche. Si l’implémentation échoue, le Change Manager sera informé et la tâche sera marquée pour rollback.</p>
               </div>
             </div>
           </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   FiActivity, FiAlertTriangle, FiCheckCircle, FiSearch, 
-  FiClock, FiBookOpen, FiArrowRight, FiPlus
+  FiClock, FiBookOpen, FiArrowRight, FiPlus, FiAlertCircle
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
 import './Dashboard.css';
@@ -10,10 +10,10 @@ import './Dashboard.css';
 const ServiceDeskDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
-    activeChanges: 0,
-    upcomingToday: 0,
-    pendingVerification: 0,
-    totalRfcs: 0
+    pending: 0,
+    urgent: 0,
+    preevaluee: 0,
+    late: 0
   });
   const [runningChanges, setRunningChanges] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,15 +29,16 @@ const ServiceDeskDashboard = () => {
         if (resChg.success && resRfc.success) {
           const active = (resChg?.data?.changements || []).filter(c => c.statut?.code_statut === 'EN_COURS');
           setRunningChanges(active);
+          const isLate = (rfc) => {
+            if (!rfc.date_souhaitee) return false;
+            if (['APPROUVEE', 'CLOTUREE', 'REJETEE'].includes(rfc.statut?.code_statut)) return false;
+            return new Date(rfc.date_souhaitee) < new Date();
+          };
           setStats({
-            activeChanges: active.length,
-            upcomingToday: resChg.data.changements.filter(c => {
-               if (!c.date_debut) return false;
-               const today = new Date().toISOString().split('T')[0];
-               return c.date_debut.startsWith(today);
-            }).length,
-            pendingVerification: resRfc.data.rfcs.filter(r => ['SOUMIS', 'BROUILLON'].includes(r.statut?.code_statut)).length,
-            totalRfcs: resRfc.data.rfcs.length
+            pending: resRfc.data.rfcs.filter(r => r.statut?.code_statut === 'SOUMIS').length,
+            urgent: resRfc.data.rfcs.filter(r => r.typeRfc?.type === 'URGENT').length,
+            preevaluee: resRfc.data.rfcs.filter(r => r.statut?.code_statut === 'PRE_APPROUVEE').length,
+            late: resRfc.data.rfcs.filter(r => isLate(r)).length,
           });
         }
       } catch (error) {
@@ -73,32 +74,32 @@ const ServiceDeskDashboard = () => {
       </div>
 
       <div className="sd-stats-grid">
-        <div className="premium-glass-card stat-card blue">
-          <div className="stat-icon-wrapper"><FiActivity /></div>
-          <div className="stat-info">
-            <span className="stat-label">Changements en Cours</span>
-            <span className="stat-value">{stats.activeChanges}</span>
-          </div>
-        </div>
-        <div className="premium-glass-card stat-card amber">
-          <div className="stat-icon-wrapper"><FiClock /></div>
-          <div className="stat-info">
-            <span className="stat-label">Prévus aujourd'hui</span>
-            <span className="stat-value">{stats.upcomingToday}</span>
-          </div>
-        </div>
         <div className="premium-glass-card stat-card purple">
           <div className="stat-icon-wrapper"><FiSearch /></div>
           <div className="stat-info">
-            <span className="stat-label">Soumises</span>
-            <span className="stat-value">{stats.pendingVerification}</span>
+            <span className="stat-label">En Attente</span>
+            <span className="stat-value">{stats.pending}</span>
+          </div>
+        </div>
+        <div className="premium-glass-card stat-card amber">
+          <div className="stat-icon-wrapper"><FiAlertTriangle /></div>
+          <div className="stat-info">
+            <span className="stat-label">Urgentes</span>
+            <span className="stat-value">{stats.urgent}</span>
           </div>
         </div>
         <div className="premium-glass-card stat-card green">
           <div className="stat-icon-wrapper"><FiCheckCircle /></div>
           <div className="stat-info">
-            <span className="stat-label">Total RFC</span>
-            <span className="stat-value">{stats.totalRfcs}</span>
+            <span className="stat-label">Pré-évaluées</span>
+            <span className="stat-value">{stats.preevaluee}</span>
+          </div>
+        </div>
+        <div className="premium-glass-card stat-card red" style={{ borderLeft: '3px solid #ef4444' }}>
+          <div className="stat-icon-wrapper" style={{ background: '#fef2f2', color: '#dc2626' }}><FiAlertCircle /></div>
+          <div className="stat-info">
+            <span className="stat-label">En Retard</span>
+            <span className="stat-value">{stats.late}</span>
           </div>
         </div>
       </div>

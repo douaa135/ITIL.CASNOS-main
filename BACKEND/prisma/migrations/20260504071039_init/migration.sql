@@ -61,34 +61,15 @@ CREATE TABLE "user_role" (
 );
 
 -- CreateTable
-CREATE TABLE "RefreshToken" (
-    "id" TEXT NOT NULL,
-    "jti" TEXT NOT NULL,
-    "id_user" UUID NOT NULL,
-    "revoked" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "RefreshToken_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "RevokedToken" (
-    "id" TEXT NOT NULL,
-    "jti" TEXT NOT NULL,
-    "revokedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "RevokedToken_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "Session" (
     "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "userId" UUID NOT NULL,
     "refreshToken" TEXT NOT NULL,
     "ip" TEXT,
     "userAgent" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "revoked" BOOLEAN NOT NULL DEFAULT false,
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "logoutAt" TIMESTAMP(3),
     "jti" TEXT NOT NULL,
@@ -125,6 +106,7 @@ CREATE TABLE "utilisateur" (
 -- CreateTable
 CREATE TABLE "cab" (
     "id_cab" UUID NOT NULL,
+    "nom_cab" VARCHAR(150) NOT NULL,
     "code_metier" VARCHAR(40) NOT NULL,
     "type_cab" "TypeCab" NOT NULL,
     "date_creation" DATE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -280,6 +262,7 @@ CREATE TABLE "commentaire" (
     "contenu" TEXT NOT NULL,
     "date_publication" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "id_rfc" UUID NOT NULL,
+    "id_user" UUID NOT NULL,
 
     CONSTRAINT "commentaire_pkey" PRIMARY KEY ("id_commentaire")
 );
@@ -480,7 +463,7 @@ CREATE TABLE "audit_log" (
     "code_metier" VARCHAR(40) NOT NULL,
     "action" VARCHAR(50) NOT NULL,
     "entite_type" VARCHAR(50) NOT NULL,
-    "entite_id" INTEGER NOT NULL,
+    "entite_id" VARCHAR(100) NOT NULL,
     "ancienne_val" JSONB,
     "nouvelle_val" JSONB,
     "date_action" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -502,12 +485,6 @@ CREATE UNIQUE INDEX "role_code_metier_key" ON "role"("code_metier");
 CREATE UNIQUE INDEX "role_nom_role_key" ON "role"("nom_role");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "RefreshToken_jti_key" ON "RefreshToken"("jti");
-
--- CreateIndex
-CREATE UNIQUE INDEX "RevokedToken_jti_key" ON "RevokedToken"("jti");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Session_jti_key" ON "Session"("jti");
 
 -- CreateIndex
@@ -524,6 +501,9 @@ CREATE UNIQUE INDEX "utilisateur_code_metier_key" ON "utilisateur"("code_metier"
 
 -- CreateIndex
 CREATE UNIQUE INDEX "utilisateur_email_user_key" ON "utilisateur"("email_user");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cab_nom_cab_key" ON "cab"("nom_cab");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "cab_code_metier_key" ON "cab"("code_metier");
@@ -640,7 +620,7 @@ ALTER TABLE "user_role" ADD CONSTRAINT "user_role_id_user_fkey" FOREIGN KEY ("id
 ALTER TABLE "user_role" ADD CONSTRAINT "user_role_id_role_fkey" FOREIGN KEY ("id_role") REFERENCES "role"("id_role") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_id_user_fkey" FOREIGN KEY ("id_user") REFERENCES "utilisateur"("id_user") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "utilisateur"("id_user") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "utilisateur" ADD CONSTRAINT "utilisateur_id_direction_fkey" FOREIGN KEY ("id_direction") REFERENCES "direction_metier"("id_direction") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -695,6 +675,9 @@ ALTER TABLE "pieces_jointe" ADD CONSTRAINT "pieces_jointe_id_rfc_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "commentaire" ADD CONSTRAINT "commentaire_id_rfc_fkey" FOREIGN KEY ("id_rfc") REFERENCES "rfc"("id_rfc") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "commentaire" ADD CONSTRAINT "commentaire_id_user_fkey" FOREIGN KEY ("id_user") REFERENCES "utilisateur"("id_user") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "changement" ADD CONSTRAINT "changement_id_user_fkey" FOREIGN KEY ("id_user") REFERENCES "utilisateur"("id_user") ON DELETE RESTRICT ON UPDATE CASCADE;

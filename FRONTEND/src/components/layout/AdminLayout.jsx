@@ -8,11 +8,11 @@ const NAV_ITEMS = [
   { path: '/admin/users', icon: <FiUsers />,    label: 'Comptes et RBAC' },
   { path: '/admin/rfcs',  icon: <FiClipboard />, label: 'Gestion RFC' },
   { path: '/admin/changes', icon: <FiRefreshCw />, label: 'Gestion Changements' },
+  { path: '/admin/tasks', icon: <FiCheckSquare />, label: 'Gestion Tâches' },
   { path: '/admin/cab', icon: <FiUsers />, label: 'CAB', end: true },
   { path: '/admin/cab/meetings', icon: <FiCalendar />, label: 'Réunions CAB' },
   { path: '/admin/directions', icon: <FiBriefcase />, label: 'Directions' },
   { path: '/admin/environments', icon: <FiGlobe />, label: 'Environnements & Réf' },
-  { path: '/admin/tasks', icon: <FiCheckSquare />, label: 'Gestion Tâches' },
   { path: '/admin/cis',   icon: <FiDatabase />, label: 'Référentiel CIs' },
 
   { path: '/admin/audit', icon: <FiFileText />, label: "Journaux d'Audit" },

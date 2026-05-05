@@ -5,6 +5,8 @@ import {
   FiArrowRight, FiPlay, FiFileText, FiTrendingUp, FiCheckSquare
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
+import { useAuth } from '../../context/AuthContext';
+import StatCard from '../../components/common/StatCard';
 import './Dashboard.css';
 
 const ImplementerDashboard = () => {
@@ -17,24 +19,44 @@ const ImplementerDashboard = () => {
   const [recentTasks, setRecentTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const { user } = useAuth();
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const res = await api.get('/me/taches');
-        if (res.success) {
-          const taches = res.taches || [];
-          setRecentTasks(taches.slice(0, 5));
-          
-          const counts = taches.reduce((acc, t) => {
-            const code = t.statut?.code_statut;
-            if (code === 'EN_ATTENTE') acc.pending++;
-            else if (code === 'EN_COURS') acc.inProgress++;
-            else if (code === 'TERMINEE') acc.completed++;
-            return acc;
-          }, { pending: 0, inProgress: 0, completed: 0 });
-          
-          setStats(counts);
-        }
+        if (!user?.id_user) return;
+        
+        // 1. Fetch all changes
+        const changesRes = await api.get('/changements');
+        const changesData = changesRes.data || changesRes;
+        const allChanges = (changesData.changements || []);
+        
+        // 2. Fetch tasks for each change
+        const userTasks = [];
+        await Promise.all(allChanges.map(async (change) => {
+          try {
+            const res = await api.get(`/changements/${change.id_changement}/taches`);
+            const tasks = res.data?.taches || res.taches || [];
+            // Filter by current implementer
+            const myTasks = tasks.filter(t => t.id_user === user.id_user || t.implementeur?.id_user === user.id_user);
+            userTasks.push(...myTasks);
+          } catch (e) {
+            // Ignore individual change errors
+          }
+        }));
+        
+        setRecentTasks(userTasks.slice(0, 5));
+        
+        const counts = userTasks.reduce((acc, t) => {
+          const code = t.statut?.code_statut;
+          if (code === 'EN_ATTENTE') acc.pending++;
+          else if (code === 'EN_COURS') acc.inProgress++;
+          else if (code === 'TERMINEE') acc.completed++;
+          else if (code === 'ANNULEE') acc.failed++;
+          return acc;
+        }, { pending: 0, inProgress: 0, completed: 0, failed: 0 });
+        
+        setStats(counts);
       } catch (error) {
         console.error('Implementer Dashboard Error:', error);
       } finally {
@@ -42,7 +64,7 @@ const ImplementerDashboard = () => {
       }
     };
     fetchDashboardData();
-  }, []);
+  }, [user]);
 
   // Calculate rotation for productivity circle
   const totalActives = stats.pending + stats.inProgress + stats.completed;
@@ -65,28 +87,35 @@ const ImplementerDashboard = () => {
         </div>
       </div>
 
-      <div className="impl-stats-grid">
-        <div className="premium-glass-card stat-card blue">
-          <div className="stat-icon-wrapper"><FiClock /></div>
-          <div className="stat-info">
-            <span className="stat-value">{stats.pending}</span>
-            <span className="stat-label">À Faire</span>
-          </div>
-        </div>
-        <div className="premium-glass-card stat-card amber">
-          <div className="stat-icon-wrapper"><FiPlay /></div>
-          <div className="stat-info">
-            <span className="stat-value">{stats.inProgress}</span>
-            <span className="stat-label">En Cours</span>
-          </div>
-        </div>
-        <div className="premium-glass-card stat-card green">
-          <div className="stat-icon-wrapper"><FiCheckCircle /></div>
-          <div className="stat-info">
-            <span className="stat-value">{stats.completed}</span>
-            <span className="stat-label">Terminées</span>
-          </div>
-        </div>
+      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+        <StatCard 
+          title="À Faire" 
+          value={stats.pending} 
+          icon={<FiClock />} 
+          color="blue" 
+          onClick={() => navigate('/implementer/tasks')}
+        />
+        <StatCard 
+          title="En Cours" 
+          value={stats.inProgress} 
+          icon={<FiPlay />} 
+          color="amber" 
+          onClick={() => navigate('/implementer/tasks')}
+        />
+        <StatCard 
+          title="Succès" 
+          value={stats.completed} 
+          icon={<FiCheckCircle />} 
+          color="green" 
+          onClick={() => navigate('/implementer/tasks')}
+        />
+        <StatCard 
+          title="Échec" 
+          value={stats.failed} 
+          icon={<FiAlertCircle />} 
+          color="red" 
+          onClick={() => navigate('/implementer/tasks')}
+        />
       </div>
 
       <div className="impl-dashboard-layout">

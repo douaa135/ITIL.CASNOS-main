@@ -4,7 +4,14 @@
 
 import api from '../api/axiosClient';
 
-const extract = (result, key, fallback = []) => result?.data?.[key] ?? fallback;
+const extract = (result, key, fallback = []) => {
+  if (!result) return fallback;
+  if (Array.isArray(result)) return result;
+  if (result.data && result.data[key]) return result.data[key];
+  if (result[key]) return result[key];
+  if (result.data && Array.isArray(result.data)) return result.data;
+  return fallback;
+};
 
 // ── RFC CRUD ──────────────────────────────────────────────────
 
@@ -105,7 +112,8 @@ export const getConfigurationItems = async (filters = {}) => {
 
 export const getUsersByRole = async (nom_role) => {
   const result = await api.get('/users', { params: { nom_role } });
-  return result?.data?.data ?? [];
+  // Robust extraction of users array from various possible response structures
+  return result?.data?.data?.users || result?.data?.users || result?.data?.data || [];
 };
 
 export const getChangeManagers = async () => getUsersByRole('CHANGE_MANAGER');

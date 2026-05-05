@@ -4,8 +4,10 @@ import RoleLayout from './RoleLayout';
 const NAV_ITEMS = [
   { path: '/manager',                end: true, icon: <FiGrid />,        label: 'Tableau de Bord' },
   { path: '/manager/rfcs',                      icon: <FiFileText />,    label: 'Évaluation & Impact' },
-  { path: '/manager/cab',                       icon: <FiUsers />,       label: 'Planification CAB' },
   { path: '/manager/changements',               icon: <FiFileText />,    label: 'Gestion Changements' },
+  { path: '/manager/tasks',                     icon: <FiCheckSquare />, label: 'Gestion Tâches' },
+  { path: '/manager/cab',                       icon: <FiShield />,      label: 'Comité CAB', end: true },
+  { path: '/manager/cab/meetings',              icon: <FiUsers />,       label: 'Réunions CAB' },
   { path: '/manager/implementation',            icon: <FiCheckSquare />, label: 'Suivi Implémentation' },
 ];
 

@@ -9,9 +9,12 @@ import {
 } from 'react-icons/fi';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import Toast from '../../components/common/Toast';
 import api from '../../api/axiosClient';
 import rfcService from '../../services/rfcService';
 import './demandeur.css';
+import '../admin/AdminChangementList.css'; // Pour réutiliser acl-table si possible
 
 
 
@@ -76,13 +79,17 @@ const MesRfcs = () => {
   const location  = useLocation();
   const { user }  = useAuth();
   const [localRfcs, setLocalRfcs] = useState([]);
+  const [deletedRfcIds, setDeletedRfcIds] = useState(
+    () => JSON.parse(localStorage.getItem('deleted_rfcs') || '[]')
+  );
   const [loading, setLoading]     = useState(true);
   const [tab,     setTab]     = useState('all');
   const [search,  setSearch]  = useState('');
   const [statusF, setStatusF] = useState('');
   const [sortBy,  setSortBy]  = useState('date_desc');
-  const [toast,   setToast]   = useState(location.state?.success || false);
+  const [toast,   setToast]   = useState(location.state?.success ? { msg: location.state?.isEdit ? 'RFC mise à jour avec succès !' : 'RFC créée avec succès !', type: 'success' } : null);
   const [selectedRfc, setSelectedRfc] = useState(null);
+  const [confirmDel, setConfirmDel] = useState(null);
 
 
   const fetchMyRfcs = async () => {
@@ -90,28 +97,34 @@ const MesRfcs = () => {
     try {
       setLoading(true);
       const rfcsData = await rfcService.getAllRfcs({ id_user: user.id_user });
+      const deletedIds = JSON.parse(localStorage.getItem('deleted_rfcs') || '[]');
       
-      const mapped = rfcsData.map(r => ({
-        id_rfc:         r.code_rfc || r.id_rfc,
-        db_id:          r.id_rfc,
-        titre:          r.titre_rfc || 'Sans titre',
-        impactEstime:   r.impacte_estimee || 'MINEUR',
-        urgence:        r.urgence ? 'HAUTE' : 'NORMALE',
-        priorite: {
-          niveau:   r.priorite?.code_priorite || 'P2',
-          libelle:  r.priorite?.libelle || 'Moyenne'
-        },
-        statut: {
-          code:     r.statut?.code_statut || 'NOUVEAU',
-          libelle:  r.statut?.libelle || 'Nouveau'
-        },
-        date_creation:   r.date_creation || new Date().toISOString(),
-        date_souhaitee:  r.date_souhaitee ? new Date(r.date_souhaitee).toLocaleDateString('fr-FR') : '-',
-        nb_pieces:       r._count?.piecesJointes || 0,
-        nb_commentaires: r._count?.commentaires || 0,
-        score_risque:    r.evaluationRisque?.score_risque || 0,
-        type:            r.typeRfc?.type || 'NORMAL',
-      }));
+      const mapped = rfcsData
+        .filter(r => !deletedIds.includes(r.id_rfc))
+        .map(r => ({
+          id_rfc:         r.code_rfc || r.id_rfc,
+          db_id:          r.id_rfc,
+          titre:          r.titre_rfc || 'Sans titre',
+          description:    r.description || '',
+          justification:  r.justification || '',
+          impactEstime:   r.impacte_estimee || 'MINEUR',
+          urgence:        r.urgence ? 'HAUTE' : 'NORMALE',
+          priorite: {
+            niveau:   r.priorite?.code_priorite || 'P2',
+            libelle:  r.priorite?.libelle || 'Moyenne'
+          },
+          statut: {
+            code:     r.statut?.code_statut || 'NOUVEAU',
+            libelle:  r.statut?.libelle || 'Nouveau'
+          },
+          date_creation:   r.date_creation || new Date().toISOString(),
+          date_souhaitee:  r.date_souhaitee ? new Date(r.date_souhaitee).toLocaleDateString('fr-FR') : '-',
+          raw_date_souhaitee: r.date_souhaitee || '',
+          nb_pieces:       r._count?.piecesJointes || 0,
+          nb_commentaires: r._count?.commentaires || 0,
+          score_risque:    r.evaluationRisque?.score_risque || 0,
+          type:            r.typeRfc?.type || 'NORMAL',
+        }));
       setLocalRfcs(mapped);
     } catch (err) {
       console.error('Erreur chargement RFC:', err);
@@ -165,42 +178,35 @@ const MesRfcs = () => {
   };
 
 
-  const handleDelete = async (id, e) => {
+  const handleDelete = (id, e) => {
     e.stopPropagation();
-    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette demande ? Cette action est irréversible.")) return;
-    
+    setConfirmDel({
+      title: 'Supprimer la demande',
+      message: 'Êtes-vous sûr de vouloir supprimer cette demande ? Cette action est irréversible.',
+      id
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmDel) return;
     try {
-      const res = await api.delete(`/rfc/${id}`);
-      if (res.success) {
-        setToast({ msg: 'RFC supprimée avec succès.', type: 'success' });
-        fetchMyRfcs();
-      }
+      await api.delete(`/rfc/${confirmDel.id}`);
+      const updatedDeleted = [...deletedRfcIds, confirmDel.id];
+      setDeletedRfcIds(updatedDeleted);
+      localStorage.setItem('deleted_rfcs', JSON.stringify(updatedDeleted));
+      setLocalRfcs(prev => prev.filter(r => r.db_id !== confirmDel.id));
+      setToast({ msg: 'RFC supprimée avec succès.', type: 'success' });
     } catch (err) {
       console.error('Delete error:', err);
-      alert('Erreur lors de la suppression de la RFC.');
+      setToast({ msg: 'Erreur lors de la suppression de la RFC.', type: 'error' });
+    } finally {
+      setConfirmDel(null);
     }
   };
 
   return (
     <div className="mes-rfcs-page">
-      {/* Success toast */}
-      {toast && (
-        <div className="success-toast" style={{
-          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999,
-          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-          color: 'white', padding: '1rem 1.5rem', borderRadius: '16px',
-          boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
-          display: 'flex', alignItems: 'center', gap: '1rem', animation: 'slideInUp 0.3s ease-out'
-        }}>
-          <div style={{ width: '40px', height: '40px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FiCheckCircle size={24} />
-          </div>
-          <div>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem' }}>Opération réussie !</p>
-            <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9 }}>{typeof toast === 'object' ? toast.msg : 'Votre demande a été enregistrée avec succès.'}</p>
-          </div>
-        </div>
-      )}
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
       <div className="premium-header-card">
         <div className="premium-header-left">
@@ -305,17 +311,39 @@ const MesRfcs = () => {
       </div>
 
       {/* Table Section */}
-      <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-        <div className="table-scroll-container" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1000px' }}>
+      <div style={{ 
+        background: '#ffffff', 
+        borderRadius: '16px', 
+        border: '1px solid #e2e8f0',
+        overflow: 'hidden',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
+      }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: '1000px', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: 'linear-gradient(to right, #f8fafc, #f1f5f9)', borderBottom: '2px solid #e2e8f0' }}>
-                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', width: '25%' }}>RFC & Code</th>
-                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
-                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Priorité</th>
-                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Impact</th>
-                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</th>
-                <th style={{ padding: '1rem 0.75rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={{ 
+                  position: 'sticky', left: 0, zIndex: 3, 
+                  background: '#f8fafc', padding: '12px 16px', 
+                  fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', 
+                  letterSpacing: '0.07em', color: '#64748b', textAlign: 'left', 
+                  whiteSpace: 'nowrap', borderRight: '1px solid #e2e8f0' 
+                }}>
+                  RFC & Code
+                </th>
+                <th style={{ padding: '12px 16px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#64748b', textAlign: 'left' }}>Type</th>
+                <th style={{ padding: '12px 16px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#64748b', textAlign: 'left' }}>Priorité</th>
+                <th style={{ padding: '12px 16px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#64748b', textAlign: 'left' }}>Impact</th>
+                <th style={{ padding: '12px 16px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#64748b', textAlign: 'left' }}>Statut</th>
+                <th style={{ 
+                  position: 'sticky', right: 0, zIndex: 3, 
+                  background: '#f8fafc', padding: '12px 16px', 
+                  fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', 
+                  color: '#64748b', textAlign: 'right', whiteSpace: 'nowrap',
+                  borderLeft: '1px solid #e2e8f0'
+                }}>
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -337,54 +365,72 @@ const MesRfcs = () => {
                     style={{ 
                       cursor: 'pointer', 
                       borderBottom: '1px solid #f1f5f9', 
-                      background: index % 2 === 0 ? 'white' : '#fafbfc',
+                      background: '#ffffff',
                       transition: 'background 0.2s'
                     }}
-                    className="hover-row-sd"
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}
                   >
-                    <td style={{ padding: '1rem 0.75rem' }}>
-                      <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{rfc.titre}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#3b82f6', fontWeight: '700' }}>#{rfc.id_rfc}</div>
+                    <td style={{ 
+                      position: 'sticky', left: 0, zIndex: 2, 
+                      background: 'inherit', padding: '14px 16px',
+                      borderRight: '1px solid #f1f5f9'
+                    }}>
+                      <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.82rem', marginBottom: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '250px' }}>{rfc.titre}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#3b82f6', fontWeight: '700' }}>#{rfc.id_rfc}</div>
                     </td>
-                    <td style={{ padding: '1rem 0.75rem' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569', background: '#f1f5f9', padding: '0.25rem 0.6rem', borderRadius: '6px' }}>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#475569', background: '#f1f5f9', padding: '3px 10px', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
                         {rfc.type || 'NORMAL'}
                       </span>
                     </td>
-                    <td style={{ padding: '1rem 0.75rem' }}>
-                      <span style={{ 
-                        fontSize: '0.75rem', fontWeight: '800', padding: '0.3rem 0.6rem', borderRadius: '6px',
-                        background: rfc.priorite?.niveau === 'P5' ? '#fee2e2' : '#f0f9ff',
-                        color: rfc.priorite?.niveau === 'P5' ? '#991b1b' : '#0369a1',
-                        border: `1px solid ${rfc.priorite?.niveau === 'P5' ? '#fecaca' : '#bae6fd'}`
-                      }}>
-                        {rfc.priorite?.libelle || 'Moyenne'}
-                      </span>
+                    <td style={{ padding: '14px 16px' }}>
+                      {(() => {
+                        const isHigh = rfc.priorite?.niveau === 'P5' || rfc.priorite?.niveau === 'P1';
+                        return (
+                          <span style={{ 
+                            fontSize: '0.72rem', fontWeight: '700', padding: '3px 10px', borderRadius: '20px',
+                            background: isHigh ? '#fef2f2' : '#f0f9ff',
+                            color: isHigh ? '#991b1b' : '#0369a1',
+                            border: `1px solid ${isHigh ? '#fecaca' : '#bae6fd'}`
+                          }}>
+                            {rfc.priorite?.libelle || 'Moyenne'}
+                          </span>
+                        );
+                      })()}
                     </td>
-                    <td style={{ padding: '1rem 0.75rem' }}>
-                      <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '500' }}>{rfc.impactEstime}</span>
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ fontSize: '0.875rem', color: '#64748b', fontWeight: '500' }}>{rfc.impactEstime}</span>
                     </td>
-                    <td style={{ padding: '1rem 0.75rem' }}>
-                      <Badge status={sc.badge}>{sc.label}</Badge>
+                    <td style={{ padding: '14px 16px' }}>
+                      <Badge variant={sc.badge}>{sc.label}</Badge>
                     </td>
-                    <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }} onClick={e => e.stopPropagation()}>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                    <td style={{ 
+                      position: 'sticky', right: 0, zIndex: 2, 
+                      background: 'inherit', padding: '14px 16px',
+                      borderLeft: '1px solid #f1f5f9', textAlign: 'right' 
+                    }} onClick={e => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                         {['BROUILLON', 'SOUMIS', 'A_COMPLETER', 'REJETEE'].includes(rfc.statut.code) && (
                           <button
-                            className="action-icon-btn"
                             onClick={() => navigate('/rfcs/new', { state: { edit: true, rfcData: rfc } })}
-                            style={{ color: '#3b82f6', background: '#eff6ff' }}
+                            title="Modifier"
+                            style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#eff6ff', color: '#3b82f6', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#dbeafe'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#eff6ff'}
                           >
-                            <FiEdit2 />
+                            <FiEdit2 size={15} />
                           </button>
                         )}
                         {['BROUILLON', 'REJETEE'].includes(rfc.statut.code) && (
                           <button
-                            className="action-icon-btn"
                             onClick={(e) => handleDelete(rfc.db_id, e)}
-                            style={{ color: '#ef4444', background: '#fef2f2' }}
+                            title="Supprimer"
+                            style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
                           >
-                            <FiTrash2 />
+                            <FiTrash2 size={15} />
                           </button>
                         )}
                       </div>
@@ -449,6 +495,14 @@ const MesRfcs = () => {
       )}
 
 
+      {confirmDel && (
+        <ConfirmModal
+          title={confirmDel.title}
+          message={confirmDel.message}
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDel(null)}
+        />
+      )}
     </div>
   );
 };

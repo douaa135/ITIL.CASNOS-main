@@ -7,61 +7,35 @@ import './ConfirmModal.css';
  * Uses its own CSS classes (not modal-backdrop-cab) so it always renders on top.
  */
 const ConfirmModal = ({ title, message, onConfirm, onCancel, danger = true, loading = false }) => (
-  <div className="confirm-modal-backdrop" onClick={onCancel}>
-    <div className="confirm-modal-box" onClick={e => e.stopPropagation()}>
-
-      {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '1rem',
-        padding: '1.5rem 1.5rem 1rem',
-        borderBottom: '1px solid #f1f5f9'
-      }}>
-        <div style={{
-          width: '46px', height: '46px', borderRadius: '12px', flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: danger ? '#fee2e2' : '#dbeafe',
+  <div className="modal-backdrop-cab" style={{ zIndex: 9999 }} onClick={onCancel}>
+    <div className="modal-box-cab glass-card-cab" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+      
+      <div className="modal-top-rfc-style" style={{ padding: '1.25rem 1.5rem' }}>
+        <div className="rfc-style-icon-wrapper" style={{ 
+          background: danger ? '#fee2e2' : '#eff6ff', 
           color: danger ? '#dc2626' : '#2563eb',
-          border: `1.5px solid ${danger ? '#fecaca' : '#bfdbfe'}`
+          borderColor: danger ? '#fecaca' : '#bfdbfe'
         }}>
-          <FiAlertTriangle size={22} />
+          <FiAlertTriangle size={24} />
         </div>
-        <div style={{ flex: 1 }}>
-          <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>{title}</h2>
-          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2px' }}>Confirmation requise</div>
+        <div className="rfc-style-header-text">
+          <h2>{title}</h2>
+          <div className="rfc-style-subtitle">Confirmation de l'opération</div>
         </div>
-        <button
-          onClick={onCancel}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: '#94a3b8', padding: '4px', borderRadius: '8px',
-            display: 'flex', alignItems: 'center'
-          }}
-        >
-          <FiX size={22} />
-        </button>
+        <button className="close-btn-rfc-style" onClick={onCancel}><FiX size={24} /></button>
       </div>
 
-      {/* Body */}
-      <div style={{ padding: '1.25rem 1.5rem' }}>
-        <p style={{ margin: 0, color: '#475569', lineHeight: 1.65, fontSize: '0.95rem' }}>
+      <div className="modal-body-rfc-style" style={{ padding: '1.5rem' }}>
+        <p style={{ margin: 0, color: '#475569', lineHeight: 1.6, fontSize: '0.95rem', fontWeight: '500' }}>
           {message}
         </p>
       </div>
 
-      {/* Footer */}
-      <div style={{
-        display: 'flex', justifyContent: 'flex-end', gap: '0.75rem',
-        padding: '1rem 1.5rem',
-        borderTop: '1px solid #f1f5f9'
-      }}>
+      <div className="modal-footer-rfc-style" style={{ background: '#f8fafc', padding: '1rem 1.5rem' }}>
         <button
           type="button"
           onClick={onCancel}
-          style={{
-            padding: '0.6rem 1.4rem', borderRadius: '10px',
-            border: '1.5px solid #e2e8f0', background: '#f8fafc',
-            color: '#64748b', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem'
-          }}
+          className="btn-cancel-rfc-style"
         >
           Annuler
         </button>
@@ -69,13 +43,11 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, danger = true, load
           type="button"
           onClick={onConfirm}
           disabled={loading}
-          style={{
-            padding: '0.6rem 1.4rem', borderRadius: '10px',
-            border: 'none',
+          className={`btn-submit-rfc-style`}
+          style={{ 
             background: danger ? '#dc2626' : '#7c3aed',
-            color: '#fff', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
-            fontSize: '0.9rem', opacity: loading ? 0.7 : 1,
-            display: 'flex', alignItems: 'center', gap: '0.5rem'
+            borderColor: danger ? '#b91c1c' : '#6d28d9',
+            minWidth: '120px'
           }}
         >
           {loading ? 'Traitement...' : 'Confirmer'}

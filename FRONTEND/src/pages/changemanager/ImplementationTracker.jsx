@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   FiActivity, FiCheckCircle, FiClock, FiAlertCircle, 
   FiMaximize2, FiMinimize2, FiUser, FiList, FiMessageSquare,
-  FiPlus, FiX, FiCheck, FiCpu, FiTrendingUp, FiUsers, FiCheckSquare, FiCalendar
+  FiPlus, FiX, FiCheck, FiCpu, FiTrendingUp, FiUsers, FiCheckSquare, FiCalendar,
+  FiTrash2, FiEdit3
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
 import InlineEditableBadge from '../../components/common/InlineEditableBadge';
+import ConfirmModal from '../../components/common/ConfirmModal';
 import './ImplementationTracker.css';
 
 const ImplementationTracker = () => {
@@ -28,50 +30,84 @@ const ImplementationTracker = () => {
     const [filterType, setFilterType] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [taskStatuses, setTaskStatuses] = useState([]);
+    const [savingTask, setSavingTask] = useState(false);
+    const [confirmDel, setConfirmDel] = useState(null);
     const [newTask, setNewTask] = useState({
+        id_tache: null,
         titre_tache: '',
         description: '',
         id_user: '',
         ordre_tache: 1,
-        duree: 2
+        id_changement: ''
     });
+
+    // Filtres spécifiques pour l'équipe technique
+    const [teamSearch, setTeamSearch] = useState('');
+    const [teamImplementerFilter, setTeamImplementerFilter] = useState('ALL');
+
+    const fetchImplementerTasks = (imp) => {
+        setSelectedImplementer(imp);
+        setShowTasksModal(true);
+        // We already have all tasks in tasksData, we just need to collect them for this user
+        const allTasksForUser = Object.values(tasksData).flat().filter(t => t.id_user === imp.id_user || t.implementeur?.id_user === imp.id_user);
+        setImplementerTasks(allTasksForUser);
+    };
 
     useEffect(() => {
         const initData = async () => {
             setLoading(true);
             try {
-                // Fetch changes and implementers in parallel
                 const [changesRes, impsRes, taskStatusRes] = await Promise.all([
                     api.get('/changements'),
                     api.get('/users?nom_role=IMPLEMENTEUR&limit=1000'),
                     api.get('/statuts?contexte=TACHE')
                 ]);
 
+                let allChanges = [];
                 if (changesRes.data) {
                     const changesData = changesRes.data || changesRes;
-                    setChangements((changesData.changements || []).filter(c => c.statut?.code_statut !== 'EN_PLANIFICATION'));
+                    allChanges = (changesData.changements || []).filter(c => c.statut?.code_statut !== 'EN_PLANIFICATION');
+                    setChangements(allChanges);
                 }
                 
                 const implementersList = impsRes.data?.data || impsRes.data?.users || [];
-                if (implementersList && implementersList.length > 0) {
-                    setImplementers(implementersList);
-                    // Calculate stats for each implementer
-                    const stats = {};
-                    for (const imp of implementersList) {
-                        try {
-                            const tasksRes = await api.get(`/taches/implementeur/${imp.id_user}`);
-                            const tasks = (tasksRes.data?.taches || tasksRes.taches || []);
-                            stats[imp.id_user] = {
-                                total: tasks.length,
-                                urgent: tasks.filter(t => t.priorite === 'URGENT' || t.changement?.priorite === 'URGENT').length
-                            };
-                        } catch (e) {
-                            console.error('Stats fetch error for implementer:', imp.id_user, e);
-                            stats[imp.id_user] = { total: 0, urgent: 0 };
-                        }
+                setImplementers(implementersList);
+
+                // Fetch ALL tasks for ALL relevant changes to have coherent stats
+                const tasksMap = {};
+                const statsMap = {};
+                
+                // Initialize stats for each implementer
+                implementersList.forEach(imp => {
+                    statsMap[imp.id_user] = { total: 0, urgent: 0, completed: 0 };
+                });
+
+                await Promise.all(allChanges.map(async (change) => {
+                    try {
+                        const res = await api.get(`/changements/${change.id_changement}/taches`);
+                        const tasks = res.data?.taches || res.taches || [];
+                        tasksMap[change.id_changement] = tasks;
+
+                        // Update stats
+                        tasks.forEach(task => {
+                            const impId = task.id_user || task.implementeur?.id_user;
+                            if (impId && statsMap[impId]) {
+                                statsMap[impId].total += 1;
+                                if (task.priorite?.toUpperCase() === 'URGENT' || change.priorite?.toUpperCase() === 'URGENT') {
+                                    statsMap[impId].urgent += 1;
+                                }
+                                if (['TERMINEE', 'CLOTURE'].includes(task.statut?.code_statut?.toUpperCase())) {
+                                    statsMap[impId].completed += 1;
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.error(`Error fetching tasks for change ${change.id_changement}`, e);
                     }
-                    setImplementerStats(stats);
-                }
+                }));
+
+                setTasksData(tasksMap);
+                setImplementerStats(statsMap);
 
                 if (taskStatusRes?.data?.statuts) {
                     setTaskStatuses(taskStatusRes.data.statuts);
@@ -95,30 +131,35 @@ const ImplementationTracker = () => {
 
     const handleAssignTask = async (e) => {
         e.preventDefault();
-        if (!selectedChange) return;
-
         setIsAssigning(true);
-        try {
-            const res = await api.post(`/changements/${selectedChange.id_changement}/taches`, newTask);
-            if (res.data || res.id_tache) {
-                // Refresh tasks for this change if it's currently expanded
-                const tasksRes = await api.get(`/changements/${selectedChange.id_changement}/taches`);
-                const tasks = tasksRes.data?.taches || tasksRes.taches || [];
-                setTasksData(prev => ({ ...prev, [selectedChange.id_changement]: tasks }));
-                
-                // Update local changement count if needed
-                setChangements(prev => prev.map(c => 
-                    c.id_changement === selectedChange.id_changement 
-                    ? { ...c, _count: { ...c._count, taches: (c._count?.taches || 0) + 1 } }
-                    : c
-                ));
+        const targetChangeId = selectedChange?.id_changement || newTask.id_changement;
+        
+        if (!targetChangeId) {
+            alert('Veuillez sélectionner un changement.');
+            setIsAssigning(false);
+            return;
+        }
 
-                setShowAssignModal(false);
-                setNewTask({ titre_tache: '', description: '', id_user: implementers[0]?.id_user || '', ordre_tache: 1, duree: 2 });
+        try {
+            if (newTask.id_tache) {
+                // Update mode
+                await api.put(`/taches/${newTask.id_tache}`, newTask);
+            } else {
+                // Create mode
+                await api.post(`/changements/${targetChangeId}/taches`, newTask);
+            }
+            
+            setShowAssignModal(false);
+            setNewTask({ id_tache: null, titre_tache: '', description: '', id_user: '', ordre_tache: 1, id_changement: '' });
+            
+            if (selectedChange) {
+                fetchTasks(selectedChange.id_changement);
+            } else if (selectedImplementer) {
+                fetchImplementerTasks(selectedImplementer);
             }
         } catch (error) {
-            console.error('Assign Task Error:', error);
-            alert('Erreur lors de l\'assignation de la tâche.');
+            console.error('Erreur assignation/update tâche:', error);
+            alert('Erreur lors de l\'opération sur la tâche.');
         } finally {
             setIsAssigning(false);
         }
@@ -152,13 +193,41 @@ const ImplementationTracker = () => {
         }
     };
 
-    const handleTaskStatusUpdate = async (taskId, newStatusId, idChangement) => {
+    const handleTaskStatusUpdate = async (idTache, idStatut, idChangement) => {
         try {
-            await api.patch(`/taches/${taskId}/statut`, { id_statut: newStatusId });
-            await fetchTasks(idChangement);
+            await api.put(`/taches/${idTache}/statut`, { id_statut: idStatut });
+            // Refresh logic...
+            if (selectedImplementer) {
+                fetchImplementerTasks(selectedImplementer);
+            }
+            fetchTasks(idChangement);
         } catch (error) {
-            console.error('Erreur statut tâche', error);
+            console.error('Erreur update statut tâche:', error);
             alert('Erreur lors du changement de statut de la tâche.');
+        }
+    };
+
+    const handleDeleteTask = (task, idChangement) => {
+        setConfirmDel({
+            idTache: task.id_tache,
+            idChangement,
+            title: 'Supprimer la tâche',
+            message: `Êtes-vous sûr de vouloir supprimer la tâche "${task.titre_tache}" ? Cette action est irréversible.`
+        });
+    };
+
+    const confirmDeleteTask = async () => {
+        if (!confirmDel) return;
+        try {
+            await api.delete(`/taches/${confirmDel.idTache}`);
+            if (selectedImplementer) {
+                fetchImplementerTasks(selectedImplementer);
+            }
+            fetchTasks(confirmDel.idChangement);
+            setConfirmDel(null);
+        } catch (error) {
+            console.error('Erreur suppression tâche:', error);
+            alert('Erreur lors de la suppression de la tâche.');
         }
     };
 
@@ -212,6 +281,38 @@ const ImplementationTracker = () => {
         return matchesType && matchesStatus;
     });
 
+    const filteredImplementers = implementers.filter(imp => {
+        // Filtre de recherche général (nom, prénom, email)
+        const term = teamSearch.toLowerCase();
+        const matchesSearch = !teamSearch || 
+            (imp.prenom_user + ' ' + imp.nom_user).toLowerCase().includes(term) ||
+            (imp.email_user || '').toLowerCase().includes(term);
+
+        if (!matchesSearch) return false;
+
+        // Filtre par implémenteur spécifique
+        const matchesImpFilter = teamImplementerFilter === 'ALL' || imp.id_user === teamImplementerFilter;
+        if (!matchesImpFilter) return false;
+        
+        // Filtres globaux (Type/Statut) hérités du tracker si présents
+        if (!filterType && !filterStatus) return true;
+        
+        const impTasks = Object.values(tasksData).flat().filter(t => t.id_user === imp.id_user || t.implementeur?.id_user === imp.id_user);
+        
+        return impTasks.some(task => {
+            const change = changements.find(c => c.id_changement === task.id_changement);
+            if (!change) return false;
+            
+            const typeName = change.rfc?.typeRfc?.type || change.type || 'Standard';
+            const statusCode = change.statut?.code_statut || '';
+            
+            const matchesType = !filterType || typeName === filterType;
+            const matchesStatus = !filterStatus || statusCode === filterStatus;
+            
+            return matchesType && matchesStatus;
+        });
+    });
+
     if (loading) return <div className="loading-spinner">Chargement du tracker d'implémentation...</div>;
 
     return (
@@ -223,13 +324,7 @@ const ImplementationTracker = () => {
                     </div>
                     <div className="premium-header-text">
                         <h1>Suivi de l'Implémentation</h1>
-                        <p>
-                            Surveillez en temps réel l'avancement technique et les tâches des implémenteurs · 
-                            <span style={{ marginLeft: '8px', color: '#7c3aed', fontWeight: '600' }}>
-                                <FiCalendar style={{ verticalAlign: 'middle', marginRight: '4px', marginBottom: '2px' }} /> 
-                                {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                            </span>
-                        </p>
+                        <p>Surveillez en temps réel l'avancement technique et les tâches des implémenteurs</p>
                     </div>
                 </div>
                 <div className="premium-header-actions" style={{ display: 'flex', gap: '0.75rem' }}>
@@ -250,35 +345,40 @@ const ImplementationTracker = () => {
                 </div>
             </div>
 
-            {/* Task Statuses State (Local simulation or fetch if needed) */}
-            {/* For simplicity in this view, we'll use a hardcoded or derived list if not fetched */}
+            {/* ── SECTION STATISTIQUES GLOBALES (Tendances Implementation) ── */}
+            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                <div className="stat-card blue">
+                    <div className="stat-icon-wrapper"><FiActivity size={24} /></div>
+                    <div className="stat-info">
+                        <div className="stat-value">{changements.filter(c => c.statut?.code_statut === 'EN_COURS').length}</div>
+                        <div className="stat-label">Changements en Cours</div>
+                    </div>
+                </div>
+                <div className="stat-card green">
+                    <div className="stat-icon-wrapper"><FiCheckCircle size={24} /></div>
+                    <div className="stat-info">
+                        <div className="stat-value">{changements.filter(c => c.statut?.code_statut === 'CLOTURE' || c.statut?.code_statut === 'IMPLEMENTE').length}</div>
+                        <div className="stat-label">Changements Terminés</div>
+                    </div>
+                </div>
+                <div className="stat-card purple">
+                    <div className="stat-icon-wrapper" style={{ background: '#f5f3ff', color: '#7c3aed' }}><FiCheckSquare size={24} /></div>
+                    <div className="stat-info">
+                        <div className="stat-value">{changements.reduce((acc, c) => acc + (c._count?.taches || 0), 0)}</div>
+                        <div className="stat-label">Tâches au Total</div>
+                    </div>
+                </div>
+                <div className="stat-card amber">
+                    <div className="stat-icon-wrapper" style={{ background: '#fffbeb', color: '#d97706' }}><FiUsers size={24} /></div>
+                    <div className="stat-info">
+                        <div className="stat-value">{implementers.length}</div>
+                        <div className="stat-label">Équipe Technique</div>
+                    </div>
+                </div>
+            </div>
 
             {activeTab === 'tracking' ? (
                 <>
-                    <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-                        <div className="stat-card blue">
-                            <div className="stat-icon-wrapper"><FiActivity size={24} /></div>
-                            <div className="stat-info">
-                                <div className="stat-value">{changements.filter(c => c.statut?.code_statut === 'EN_COURS').length}</div>
-                                <div className="stat-label">En Cours</div>
-                            </div>
-                        </div>
-                        <div className="stat-card green">
-                            <div className="stat-icon-wrapper"><FiCheckCircle size={24} /></div>
-                            <div className="stat-info">
-                                <div className="stat-value">{changements.filter(c => c.statut?.code_statut === 'CLOTURE' || c.statut?.code_statut === 'IMPLEMENTE').length}</div>
-                                <div className="stat-label">Terminés</div>
-                            </div>
-                        </div>
-                        <div className="stat-card red" style={{ borderLeft: '3px solid #ef4444' }}>
-                            <div className="stat-icon-wrapper" style={{ background: '#fef2f2', color: '#dc2626' }}><FiAlertCircle size={24} /></div>
-                            <div className="stat-info">
-                                <div className="stat-value">{changements.filter(c => c.statut?.code_statut === 'EN_ECHEC').length}</div>
-                                <div className="stat-label">En Échec</div>
-                            </div>
-                        </div>
-                    </div>
-
                     <div className="tracker-layout-container">
                         <div className="tracker-main-content">
                             <div className="tracker-list">
@@ -380,7 +480,7 @@ const ImplementationTracker = () => {
                                                                                     options={implementers.map(imp => ({ value: imp.id_user, label: `${imp.prenom_user} ${imp.nom_user}` }))}
                                                                                     getVariant={() => 'info'}
                                                                                     onUpdate={(newId) => handleTaskUpdate(task.id_tache, { id_user: newId }, change.id_changement)}
-                                                                                    isEditable={true}
+                                                                                    isEditable={task.statut?.code_statut === 'EN_ATTENTE'}
                                                                                     dropdownPosition="up"
                                                                                     label={task.implementeur ? `${task.implementeur.prenom_user} ${task.implementeur.nom_user}` : 'Non assigné'}
                                                                                 />
@@ -398,52 +498,39 @@ const ImplementationTracker = () => {
                                 })}
                             </div>
                         </div>
-
-                        <div className="tracker-sidebar-summary">
-                            <div className="summary-card">
-                                <div className="summary-card-header">
-                                    <FiTrendingUp /> Tendances Impl.
-                                </div>
-                                <div className="summary-card-body">
-                                     <div className="mini-stat">
-                                         <label>Tâches au total</label>
-                                         <span>{changements.reduce((acc, c) => acc + (c._count?.taches || 0), 0)}</span>
-                                     </div>
-                                     <div className="mini-stat">
-                                         <label>Implémenteurs Actifs</label>
-                                         <span>{implementers.length}</span>
-                                     </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </>
             ) : (
                 <>
                     <div className="team-table-container">
-                        <div className="team-panel-header">
+                        <div className="team-panel-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                             <div>
-                                <h2>Équipe Technique</h2>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a' }}>Équipe Technique</h2>
+                                <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>Liste détaillée des intervenants et charge de travail</p>
                             </div>
-                            <div className="team-filters-row">
-                                <div className="filter-field">
-                                    <label>Type de changement</label>
-                                    <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                                        <option value="">Tous les types</option>
-                                        {typeOptions.map((type) => (
-                                            <option key={type} value={type}>{type}</option>
-                                        ))}
-                                    </select>
+                            <div className="team-filters" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <div className="search-box-premium" style={{ position: 'relative' }}>
+                                    <FiActivity style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Filtre général (Nom, Email...)" 
+                                        style={{ padding: '10px 12px 10px 38px', borderRadius: '10px', border: '1px solid #e2e8f0', minWidth: '250px', fontSize: '0.85rem' }}
+                                        value={teamSearch}
+                                        onChange={(e) => setTeamSearch(e.target.value)}
+                                    />
                                 </div>
-                                <div className="filter-field">
-                                    <label>Statut</label>
-                                    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                                        <option value="">Tous les statuts</option>
-                                        {statusOptions.map((status) => (
-                                            <option key={status} value={status}>{status}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <select 
+                                    style={{ padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', background: 'white', fontSize: '0.85rem', color: '#475569', minWidth: '180px' }}
+                                    value={teamImplementerFilter}
+                                    onChange={(e) => setTeamImplementerFilter(e.target.value)}
+                                >
+                                    <option value="ALL">Tous les implémenteurs</option>
+                                    {implementers.map(imp => (
+                                        <option key={imp.id_user} value={imp.id_user}>
+                                            {imp.prenom_user} {imp.nom_user}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                         {implementers.length === 0 ? (
@@ -452,28 +539,34 @@ const ImplementationTracker = () => {
                             <table className="team-table">
                                 <thead>
                                     <tr>
-                                        <th>Nom</th>
+                                        <th>Nom & Prénom</th>
                                         <th>Email</th>
-                                        <th>Nombre de tâches</th>
-                                        <th>Tâches urgentes</th>
-                                        <th>Tâches terminées</th>
-                                        <th>Actions</th>
+                                        <th className="text-center">Tâches</th>
+                                        <th className="text-center">Urgentes</th>
+                                        <th className="text-center">Terminées</th>
+                                        <th className="text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {implementers.map((imp) => {
-                                        const stats = implementerStats[imp.id_user] || { total: 0, urgent: 0 };
-                                        const completed = implementerTasks.filter(t => t.implementeur?.id_user === imp.id_user && (t.statut?.code_statut === 'TERMINEE' || t.statut?.code_statut === 'CLOTURE')).length;
+                                    {filteredImplementers.map((imp) => {
+                                        const stats = implementerStats[imp.id_user] || { total: 0, urgent: 0, completed: 0 };
                                         return (
                                             <tr key={imp.id_user}>
-                                                <td><strong>{imp.prenom_user} {imp.nom_user}</strong></td>
-                                                <td>{imp.email_user || '—'}</td>
-                                                <td className="text-center"><span className="badge-count">{stats.total}</span></td>
-                                                <td className="text-center"><span className="badge-urgent">{stats.urgent}</span></td>
-                                                <td className="text-center"><span className="badge-completed">{completed}</span></td>
                                                 <td>
-                                                    <button type="button" className="btn-link" onClick={(e) => { e.stopPropagation(); fetchImplementerTasks(imp); }}>
-                                                        Voir tâches
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.8rem' }}>
+                                                            {imp.prenom_user[0]}{imp.nom_user[0]}
+                                                        </div>
+                                                        <strong>{imp.prenom_user} {imp.nom_user}</strong>
+                                                    </div>
+                                                </td>
+                                                <td>{imp.email_user || '—'}</td>
+                                                <td className="text-center"><span className="badge-count" style={{ background: '#eff6ff', color: '#2563eb', padding: '4px 10px', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem' }}>{stats.total}</span></td>
+                                                <td className="text-center"><span className="badge-urgent" style={{ background: '#fef2f2', color: '#dc2626', padding: '4px 10px', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem' }}>{stats.urgent}</span></td>
+                                                <td className="text-center"><span className="badge-completed" style={{ background: '#f0fdf4', color: '#16a34a', padding: '4px 10px', borderRadius: '6px', fontWeight: '700', fontSize: '0.8rem' }}>{stats.completed}</span></td>
+                                                <td className="text-right">
+                                                    <button type="button" className="btn-link-premium" onClick={(e) => { e.stopPropagation(); fetchImplementerTasks(imp); }} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.8rem', transition: 'all 0.2s' }}>
+                                                        Détails
                                                     </button>
                                                 </td>
                                             </tr>
@@ -485,50 +578,105 @@ const ImplementationTracker = () => {
                     </div>
 
                     {showTasksModal && selectedImplementer && (
-                        <div className="modal-backdrop-center" onClick={() => setShowTasksModal(false)}>
-                            <div className="tasks-modal-content" onClick={(e) => e.stopPropagation()}>
-                                <div className="modal-header-tasks">
-                                    <div>
-                                        <h2>{selectedImplementer.prenom_user} {selectedImplementer.nom_user}</h2>
-                                        <p className="modal-subtitle">Tâches assignées - {implementerTasks.length} au total</p>
+                        <div className="modal-backdrop-cab" onClick={() => setShowTasksModal(false)}>
+                            <div className="modal-box-cab glass-card-cab" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px' }}>
+                                <div className="modal-top-rfc-style">
+                                    <div className="rfc-style-icon-wrapper" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}>
+                                        <FiList />
                                     </div>
-                                    <button type="button" className="modal-close-button" onClick={() => setShowTasksModal(false)}>
-                                        <FiX />
+                                    <div className="rfc-style-header-text">
+                                        <h2>{selectedImplementer.prenom_user} {selectedImplementer.nom_user}</h2>
+                                        <div className="rfc-style-subtitle">Tâches assignées — {implementerTasks.length} au total</div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginRight: '40px' }}>
+                                        <button 
+                                            type="button" 
+                                            className="btn-submit-rfc-style" 
+                                            style={{ padding: '8px 16px', fontSize: '0.8rem' }}
+                                            onClick={() => {
+                                                setSelectedChange(null);
+                                                setNewTask({ id_tache: null, titre_tache: '', description: '', id_user: selectedImplementer.id_user, ordre_tache: 1, id_changement: '' });
+                                                setShowAssignModal(true);
+                                            }}
+                                        >
+                                            <FiPlus /> Nouvelle Tâche
+                                        </button>
+                                    </div>
+                                    <button type="button" className="close-btn-rfc-style" onClick={() => setShowTasksModal(false)}>
+                                        <FiX size={24} />
                                     </button>
                                 </div>
-                                <div className="modal-body-tasks">
+                                <div className="modal-body-rfc-style">
                                     {loadingImplementerTasks ? (
                                         <div className="loading-box">Chargement des tâches...</div>
                                     ) : implementerTasks.length === 0 ? (
                                         <div className="empty-team">Aucune tâche assignée pour cet implémenteur.</div>
                                     ) : (
-                                        <table className="tasks-modal-table">
+                                        <table className="tasks-table-mini">
                                             <thead>
                                                 <tr>
                                                     <th>Code</th>
-                                                    <th>Titre</th>
-                                                    <th>Changement</th>
+                                                    <th>Titre & Description</th>
                                                     <th>Statut</th>
-                                                    <th>Priorité</th>
-                                                    <th>Réalisée</th>
+                                                    <th>Implémenteur</th>
+                                                    <th className="text-right">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {implementerTasks.map((task) => {
-                                                    const isCompleted = task.statut?.code_statut === 'TERMINEE' || task.statut?.code_statut === 'CLOTURE';
+                                                    const isCompleted = ['TERMINEE', 'CLOTURE'].includes(task.statut?.code_statut?.toUpperCase());
+                                                    const change = changements.find(c => c.id_changement === task.id_changement);
                                                     return (
                                                         <tr key={task.id_tache}>
-                                                            <td><strong>{task.code_tache || '—'}</strong></td>
-                                                            <td>{task.titre_tache}</td>
-                                                            <td>{task.changement?.code_changement || task.id_changement || '—'}</td>
-                                                            <td><span className={`status-badge ${task.statut?.code_statut?.toLowerCase()}`}>{task.statut?.libelle || '—'}</span></td>
-                                                            <td>{task.changement?.priorite || task.priorite || '—'}</td>
-                                                            <td className="text-center">
-                                                                {isCompleted ? (
-                                                                    <span className="completed-badge"><FiCheck /> Oui</span>
-                                                                ) : (
-                                                                    <span className="pending-badge"><FiClock /> Non</span>
-                                                                )}
+                                                            <td className="mini-code"><strong>#{task.code_tache || '—'}</strong></td>
+                                                            <td>
+                                                                <div className="mini-title" style={{ fontWeight: '700', color: '#0f172a' }}>{task.titre_tache}</div>
+                                                                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>{task.description || 'Pas de description'}</div>
+                                                                <div style={{ fontSize: '0.7rem', color: '#3b82f6', fontWeight: '700', marginTop: '4px' }}>
+                                                                    Réf Chg: #{change?.code_changement || '—'}
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <span className={`status-badge en_attente`} style={{ padding: '4px 10px', borderRadius: '6px', fontWeight: '700', fontSize: '0.75rem', background: '#f1f5f9', color: '#64748b' }}>
+                                                                    {task.statut?.libelle || 'En attente'}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: '800' }}>
+                                                                        {task.implementeur?.prenom_user?.[0] || 'U'}
+                                                                    </div>
+                                                                    <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>{task.implementeur?.prenom_user} {task.implementeur?.nom_user}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="text-right">
+                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            setNewTask({
+                                                                                id_tache: task.id_tache,
+                                                                                titre_tache: task.titre_tache,
+                                                                                description: task.description || '',
+                                                                                id_user: task.id_user,
+                                                                                ordre_tache: task.ordre_tache,
+                                                                                id_changement: task.id_changement
+                                                                            });
+                                                                            setSelectedChange(change);
+                                                                            setShowAssignModal(true);
+                                                                        }}
+                                                                        style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', color: '#3b82f6', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}
+                                                                        title="Modifier"
+                                                                    >
+                                                                        <FiEdit3 size={15} />
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleDeleteTask(task, change.id_changement)}
+                                                                        style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}
+                                                                        title="Supprimer"
+                                                                    >
+                                                                        <FiTrash2 size={15} />
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     );
@@ -545,64 +693,99 @@ const ImplementationTracker = () => {
 
             {/* Modal Assigner Tâche */}
             {showAssignModal && (
-                <div className="modal-overlay">
-                    <div className="assign-task-modal">
-                        <div className="modal-header">
-                            <h2><FiPlus /> Nouvelle Tâche Technique</h2>
-                            <button onClick={() => setShowAssignModal(false)}><FiX /></button>
+                <div className="modal-backdrop-cab" onClick={() => setShowAssignModal(false)}>
+                    <div className="modal-box-cab glass-card-cab" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+                        <div className="modal-top-rfc-style">
+                            <div className="rfc-style-icon-wrapper" style={{ background: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' }}>
+                                <FiPlus />
+                            </div>
+                            <div className="rfc-style-header-text">
+                                <h2>Nouvelle Tâche Technique</h2>
+                                <div className="rfc-style-subtitle">Assignation d'une opération technique au changement</div>
+                            </div>
+                            <button className="close-btn-rfc-style" onClick={() => setShowAssignModal(false)}><FiX size={24} /></button>
                         </div>
                         <form onSubmit={handleAssignTask}>
-                            <div className="form-group">
-                                <label>Titre de la tâche</label>
-                                <input 
-                                    required 
-                                    value={newTask.titre_tache} 
-                                    onChange={e => setNewTask({...newTask, titre_tache: e.target.value})}
-                                    placeholder="ex: Configurer les ports pare-feu..."
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Description (Optionnel)</label>
-                                <textarea 
-                                    value={newTask.description} 
-                                    onChange={e => setNewTask({...newTask, description: e.target.value})}
-                                    placeholder="Détails techniques pour l'implémenteur..."
-                                />
-                            </div>
-                            <div className="form-row">
-                                <div className="form-group half">
-                                    <label>Assigner à l'implémenteur</label>
-                                    <select 
-                                        required
-                                        value={newTask.id_user}
-                                        onChange={e => setNewTask({...newTask, id_user: e.target.value})}
-                                    >
-                                        {implementers.map(imp => (
-                                            <option key={imp.id_user} value={imp.id_user}>
-                                                {imp.prenom_user} {imp.nom_user}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-group half">
-                                    <label>Ordre d'exécution</label>
+                            <div className="modal-body-rfc-style">
+                                {!selectedChange && (
+                                    <div className="form-group">
+                                        <label>Sélectionner le Changement</label>
+                                        <select 
+                                            required 
+                                            value={newTask.id_changement}
+                                            onChange={e => setNewTask({...newTask, id_changement: e.target.value})}
+                                        >
+                                            <option value="">-- Choisir un changement --</option>
+                                            {changements.map(c => (
+                                                <option key={c.id_changement} value={c.id_changement}>
+                                                    {c.code_changement} - {c.rfc?.titre_rfc || c.planChangement?.titre_plan}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                <div className="form-group">
+                                    <label>Titre de la tâche</label>
                                     <input 
-                                        type="number" 
-                                        min="1" 
-                                        value={newTask.ordre_tache}
-                                        onChange={e => setNewTask({...newTask, ordre_tache: parseInt(e.target.value)})}
+                                        required 
+                                        value={newTask.titre_tache} 
+                                        onChange={e => setNewTask({...newTask, titre_tache: e.target.value})}
+                                        placeholder="ex: Configurer les ports pare-feu..."
                                     />
                                 </div>
+                                <div className="form-group">
+                                    <label>Description (Optionnel)</label>
+                                    <textarea 
+                                        value={newTask.description} 
+                                        onChange={e => setNewTask({...newTask, description: e.target.value})}
+                                        placeholder="Détails techniques pour l'implémenteur..."
+                                        style={{ minHeight: '100px' }}
+                                    />
+                                </div>
+                                <div className="form-row">
+                                    <div className="form-group half">
+                                        <label>Assigner à l'implémenteur</label>
+                                        <select 
+                                            required
+                                            value={newTask.id_user}
+                                            onChange={e => setNewTask({...newTask, id_user: e.target.value})}
+                                        >
+                                            {implementers.map(imp => (
+                                                <option key={imp.id_user} value={imp.id_user}>
+                                                    {imp.prenom_user} {imp.nom_user}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-group half">
+                                        <label>Ordre d'exécution</label>
+                                        <input 
+                                            type="number" 
+                                            min="1" 
+                                            value={newTask.ordre_tache}
+                                            onChange={e => setNewTask({...newTask, ordre_tache: parseInt(e.target.value)})}
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="modal-actions">
-                                <button type="button" className="cancel-btn" onClick={() => setShowAssignModal(false)}>Annuler</button>
-                                <button type="submit" className="confirm-btn" disabled={isAssigning}>
+                            <div className="modal-footer-rfc-style">
+                                <button type="button" className="btn-cancel-rfc-style" onClick={() => setShowAssignModal(false)}>Annuler</button>
+                                <button type="submit" className="btn-submit-rfc-style" disabled={isAssigning}>
                                     {isAssigning ? 'Création...' : <><FiCheck /> Assigner la tâche</>}
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
+            )}
+            {confirmDel && (
+                <ConfirmModal 
+                    title={confirmDel.title} 
+                    message={confirmDel.message} 
+                    danger={true} 
+                    onConfirm={confirmDeleteTask} 
+                    onCancel={() => setConfirmDel(null)} 
+                />
             )}
         </div>
     );

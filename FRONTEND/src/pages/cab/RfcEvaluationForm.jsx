@@ -30,8 +30,9 @@ const RfcEvaluationForm = () => {
         try {
             setLoading(true);
             const response = await api.get(`/rfc/${id}`);
-            if (response.success && response.rfc) {
-                setRfc(response.rfc[0] || response.rfc);
+            if (response.success) {
+                const rfcData = response.data?.rfc || response.rfc;
+                setRfc(Array.isArray(rfcData) ? rfcData[0] : rfcData);
             }
         } catch (error) {
             console.error('Erreur lors du chargement des détails RFC:', error);
@@ -118,10 +119,10 @@ const RfcEvaluationForm = () => {
                         <div style={{ padding: '0.5rem 0' }}>
                             <p><strong>Titre:</strong> {rfc.titre_rfc}</p>
                             <p><strong>Demandeur:</strong> {rfc.demandeur?.prenom_user} {rfc.demandeur?.nom_user}</p>
-                            <p><strong>Priorité:</strong> <span className={`rfc-priority priority-${rfc.priorite?.toLowerCase()}`}>{rfc.priorite}</span></p>
+                            <p><strong>Priorité:</strong> <span className={`rfc-priority priority-${(rfc.priorite?.code_priorite || rfc.priorite || 'basse').toLowerCase()}`}>{rfc.priorite?.libelle || rfc.priorite || '—'}</span></p>
                             <p><strong>Description:</strong></p>
                             <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', color: '#334155' }}>
-                                {rfc.description_rfc || 'Aucune description détaillée.'}
+                                {rfc.description || rfc.description_rfc || 'Aucune description détaillée.'}
                             </div>
                         </div>
                     </div>
@@ -133,9 +134,9 @@ const RfcEvaluationForm = () => {
                         <div style={{ padding: '0.5rem 0' }}>
                            <div style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b', padding: '1rem', borderRadius: '0 8px 8px 0', marginBottom: '1rem' }}>
                                <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600', color: '#92400e' }}>Impact évalué par le Change Manager</p>
-                               <p style={{ margin: 0, fontSize: '0.9rem', color: '#b45309' }}>{rfc.impact || 'Évaluation standard de l\'impact en attente.'}</p>
+                               <p style={{ margin: 0, fontSize: '0.9rem', color: '#b45309' }}>{rfc.impacte_estimee || rfc.impact || 'Évaluation standard de l\'impact en attente.'}</p>
                            </div>
-                           <p><strong>Risque évalué:</strong> {rfc.risque || 'Élevé'}</p>
+                           <p><strong>Risque évalué:</strong> {rfc.evaluationRisque?.score_risque || rfc.risque || 'Standard'}</p>
                         </div>
                     </div>
                 </div>

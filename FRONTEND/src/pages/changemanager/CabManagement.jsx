@@ -472,7 +472,7 @@ const CabManagement = () => {
       )}
 
       {/* ═══ HEADER ══════════════════════════════════════════ */}
-      <div className="premium-header-card">
+      <div className="premium-header-card" style={{ marginBottom: '1rem' }}>
         <div className="premium-header-left">
           <div className="premium-header-icon" style={{ background: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }}><FiUsers /></div>
           <div className="premium-header-text">
@@ -480,17 +480,19 @@ const CabManagement = () => {
             <p>Planifiez les sessions, gérez les membres et enregistrez les décisions collectives.</p>
           </div>
         </div>
-        <div className="premium-header-actions">
-          <button className="btn-secondary-cab" onClick={() => initData()} style={{ marginRight: '0.75rem', background: '#f8fafc' }}>
-            <FiRefreshCw /> Actualiser
-          </button>
-          <button className="btn-secondary-cab" onClick={() => setShowAddMember(true)} style={{ marginRight: '0.75rem' }}>
-            <FiUserPlus /> Gérer les profils
-          </button>
-          <button className="btn-create-premium" onClick={() => setShowCreateReunion(true)}>
-            <FiPlus /> Nouvelle réunion
-          </button>
-        </div>
+      </div>
+
+      {/* ── TOOLBAR ACTIONS ── */}
+      <div className="rfc-mgr-toolbar" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+        <button className="btn-secondary-cab" onClick={() => initData()} style={{ background: '#f8fafc' }}>
+          <FiRefreshCw /> Actualiser
+        </button>
+        <button className="btn-secondary-cab" onClick={() => setShowAddMember(true)}>
+          <FiUserPlus /> Gérer les profils
+        </button>
+        <button className="btn-create-premium" onClick={() => setShowCreateReunion(true)}>
+          <FiPlus /> Nouvelle réunion
+        </button>
       </div>
 
       {/* ═══ KPIs ════════════════════════════════════════════ */}

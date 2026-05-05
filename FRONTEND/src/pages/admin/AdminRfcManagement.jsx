@@ -16,9 +16,8 @@ import ConfirmModal from '../../components/common/ConfirmModal';
 import InlineEditableBadge from '../../components/common/InlineEditableBadge';
 import Badge from '../../components/common/Badge';
 import Toast from '../../components/common/Toast';
-import Avatar from '../../components/common/Avatar';
 import RfcCreate from '../demandeur/RfcCreate';
-import './RfcManagement.css';
+import '../changemanager/RfcManagement.css';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -47,11 +46,11 @@ const isLate = (rfc) => {
 };
 
 // ── Main Component ───────────────────────────────────────────
-const RfcManagement = () => {
+const AdminRfcManagement = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // État des données
+  // ├ëtat des données
   const [rfcs,           setRfcs]           = useState([]);
   const [deletedRfcIds,  setDeletedRfcIds]  = useState(
     () => JSON.parse(localStorage.getItem('deleted_rfcs') || '[]')
@@ -65,7 +64,7 @@ const RfcManagement = () => {
   const [newComment,     setNewComment]     = useState('');
   const [priorities,     setPriorities]     = useState([]);
 
-  // État UI
+  // ├ëtat UI
   const [search,       setSearch]       = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterType,   setFilterType]   = useState('');
@@ -92,13 +91,13 @@ const RfcManagement = () => {
   const [selectedEnv,  setSelectedEnv]  = useState('');
   const [pirChecklist, setPirChecklist] = useState({ objectives: false, incidents: false, rollback: false, stakeholders: false });
 
-  // État Création RFC
+  // ├ëtat Création RFC
   const [showCreate,    setShowCreate]    = useState(false);
   const [cis,           setCis]           = useState([]);
   const [createForm,    setCreateForm]    = useState({ titre_rfc: '', description: '', justification: '', date_souhaitee: '', urgence: false, impacte_estimee: '', ci_ids: [] });
   const [createLoading, setCreateLoading] = useState(false);
 
-  // État Édition
+  // ├ëtat ├ëdition
   const [editDetail,  setEditDetail]  = useState(false);
   const [detailForm,  setDetailForm]  = useState({ titre_rfc: '', description: '', justification: '', date_souhaitee: '', impacte_estimee: '', ci_ids: [], id_statut: '' });
 
@@ -108,6 +107,12 @@ const RfcManagement = () => {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [toast,             setToast]             = useState(null);
   const [rfcToDelete,       setRfcToDelete]       = useState(null);
+
+  // Service Desk Triage variables
+  const [showTriageModal, setShowTriageModal] = useState(false);
+  const [triageAnalysis, setTriageAnalysis] = useState('');
+  const [selectedPriority, setSelectedPriority] = useState('');
+  const [submittingTriage, setSubmittingTriage] = useState(false);
 
   const showToast = (msg, type = 'success') => setToast({ msg, type });
 
@@ -127,25 +132,17 @@ const RfcManagement = () => {
   const fetchMetadata = useCallback(async () => {
     try {
       const [t, s, e, cm, ciList, p] = await Promise.all([
-        rfcService.getTypesRfc().catch(() => []),
-        rfcService.getStatuts('RFC').catch(() => []),
-        rfcService.getEnvironnements().catch(() => []),
-        rfcService.getChangeManagers().catch(() => []),
-        rfcService.getConfigurationItems().catch(() => []),
-        rfcService.getPriorites().catch(() => [])
+        rfcService.getTypesRfc(),
+        rfcService.getStatuts('RFC'),
+        rfcService.getEnvironnements(),
+        rfcService.getChangeManagers(),
+        rfcService.getConfigurationItems(),
+        rfcService.getPriorites()
       ]);
       setRfcTypes(t);
       setStatuses(s);
       setEnvironments(e);
-      let managers = Array.isArray(cm) ? cm : (cm?.data || cm?.users || []);
-      // Fallback: Si la liste est vide (ex: 403 Forbidden pour non-admin), on ajoute au moins l'utilisateur actuel
-      if (managers.length === 0 && user) {
-        managers = [{ id_user: user.id_user, nom_user: user.nom_user, prenom_user: user.prenom_user }];
-      } else if (user && !managers.find(m => m.id_user === user.id_user)) {
-        // Optionnel: s'assurer que l'utilisateur actuel est toujours dans la liste
-        managers.push({ id_user: user.id_user, nom_user: user.nom_user, prenom_user: user.prenom_user });
-      }
-      setChangeManagers(managers);
+      setChangeManagers(Array.isArray(cm) ? cm : (cm?.data || cm?.users || []));
       setCis(ciList);
       setPriorities(p);
     } catch (e) {
@@ -170,6 +167,17 @@ const RfcManagement = () => {
 
   const handleOpenProcess = (rfc) => {
     if (!rfc) return;
+    
+    if (rfc.statut?.code_statut === 'SOUMIS') {
+      setSelectedRfc(rfc);
+      setSelectedType(rfc.typeRfc?.id_type || rfc.id_type || '');
+      setSelectedEnv(rfc.environnement?.id_env || rfc.id_env || '');
+      setSelectedPriority(rfc.id_priorite || '');
+      setTriageAnalysis('');
+      setShowTriageModal(true);
+      return;
+    }
+
     setShowProcess(true);
     setSelectedRfc(rfc);
     setSelectedType(rfc.typeRfc?.id_type || rfc.id_type || '');
@@ -186,6 +194,57 @@ const RfcManagement = () => {
       id_type: rfc.id_type || ''
     });
     if (rfc.id_rfc) fetchComments(rfc.id_rfc);
+  };
+
+  const handlePreevaluer = async () => {
+    if (!selectedRfc) return;
+    const preApprouvedStatus = statuses.find(s => s.code_statut === 'PRE_APPROUVEE');
+    if (!preApprouvedStatus) { showToast('Statut PRE_APPROUVEE introuvable.', 'error'); return; }
+
+    setSubmittingTriage(true);
+    try {
+      await api.put(`/rfc/${selectedRfc.id_rfc}`, {
+        id_type: selectedType || undefined,
+        id_env: selectedEnv || undefined,
+        id_priorite: selectedPriority || undefined,
+      });
+
+      await api.patch(`/rfc/${selectedRfc.id_rfc}/status`, {
+        id_statut: preApprouvedStatus.id_statut,
+        commentaire: triageAnalysis.trim() || 'Pré-évaluation (Admin) — Transfert au Change Manager.'
+      });
+
+      showToast('RFC pré-évaluée et transférée avec succès !', 'success');
+      setShowTriageModal(false);
+      setSelectedRfc(null);
+      fetchData();
+    } catch (error) {
+      showToast('Erreur lors de la pré-évaluation.', 'error');
+    } finally {
+      setSubmittingTriage(false);
+    }
+  };
+
+  const handleTriageDecision = async (statusCode) => {
+    if (!selectedRfc) return;
+    const targetStatus = statuses.find(s => s.code_statut === statusCode);
+    if (!targetStatus) { showToast('Statut introuvable.', 'error'); return; }
+
+    setSubmittingTriage(true);
+    try {
+      await api.patch(`/rfc/${selectedRfc.id_rfc}/status`, {
+        id_statut: targetStatus.id_statut,
+        commentaire: triageAnalysis.trim() || undefined
+      });
+      showToast(`RFC mise à jour vers le statut ${statusCode} avec succès.`, 'success');
+      setShowTriageModal(false);
+      setSelectedRfc(null);
+      fetchData();
+    } catch (error) {
+      showToast('Erreur lors du traitement du triage.', 'error');
+    } finally {
+      setSubmittingTriage(false);
+    }
   };
 
   const closeModals = () => {
@@ -291,12 +350,20 @@ const RfcManagement = () => {
     } catch (e) { alert('Erreur lors du traitement de la décision.'); }
   };
 
-  const handleApproveRfc = (rfc, pendingId) => {
-    setApprovalModal({ open: true, rfc, pendingId });
-    setApprovalForm({ 
-      id_change_manager: user?.id_user || '', 
-      id_env: rfc.id_env || rfc.environnement?.id_env || '' 
-    });
+  const handleApproveRfc = async (rfc, newStatusId) => {
+    const targetStatut = statuses.find(s => String(s.id_statut) === String(newStatusId));
+    if (targetStatut?.code_statut === 'APPROUVEE') {
+      setApprovalModal({ open: true, rfc, pendingId: newStatusId });
+      setApprovalForm({ id_change_manager: '', id_env: '' });
+      return;
+    }
+    try {
+      await rfcService.updateRfcStatus(rfc.id_rfc, newStatusId, {});
+      fetchData();
+      setToast({ msg: 'Statut mis à jour.', type: 'success' });
+    } catch (err) {
+      showToast(err?.error?.message || err?.message || 'Erreur lors du changement de statut.', 'error');
+    }
   };
 
   const submitApproval = async () => {
@@ -351,26 +418,24 @@ const RfcManagement = () => {
       r.code_rfc?.toLowerCase().includes(q) ||
       `${r.demandeur?.prenom_user} ${r.demandeur?.nom_user}`.toLowerCase().includes(q);
 
-    // Filter by KPI if kpiFilter is set
+    let matchStatus;
     if (kpiFilter) {
-      if (kpiFilter === 'REJETEE') return matchSearch && r.statut?.code_statut === 'REJETEE';
-      if (kpiFilter === 'LATE') return matchSearch && isLate(r);
-      if (kpiFilter === 'APPROUVEE') return matchSearch && r.statut?.code_statut === 'APPROUVEE';
-      if (kpiFilter === 'PRE_APPROUVEE') return matchSearch && r.statut?.code_statut === 'PRE_APPROUVEE';
+      if (kpiFilter === 'BACKLOG') matchStatus = !['CLOTUREE', 'ANNULEE'].includes(r.statut?.code_statut);
+      else if (kpiFilter === 'LATE') matchStatus = isLate(r);
+      else matchStatus = r.statut?.code_statut === kpiFilter;
+    } else {
+      matchStatus = filterStatus
+        ? r.statut?.code_statut === filterStatus
+        : !['CLOTUREE', 'ANNULEE'].includes(r.statut?.code_statut);
     }
-
-    // Default status logic for Change Manager
-    const activeStatusFilter = filterStatus || 'PRE_APPROUVEE';
-
-    const matchStatus = !activeStatusFilter || r.statut?.code_statut === activeStatusFilter;
 
     const matchType = !filterType || r.typeRfc?.type === filterType;
     return matchSearch && matchStatus && matchType;
   });
 
   // ── KPI — toujours sur rfcs complet (BDD) ─────────────────
-  const kpiRejetee = rfcs.filter(r => r.statut?.code_statut === 'REJETEE').length;
-  const kpiPreApprouvee = rfcs.filter(r => r.statut?.code_statut === 'PRE_APPROUVEE').length;
+  const kpiBacklog  = rfcs.filter(r => !['CLOTUREE', 'ANNULEE'].includes(r.statut?.code_statut)).length;
+  const kpiSoumis   = rfcs.filter(r => r.statut?.code_statut === 'SOUMIS').length;
   const kpiLate     = rfcs.filter(r => isLate(r)).length;
   const kpiApprouve = rfcs.filter(r => r.statut?.code_statut === 'APPROUVEE').length;
 
@@ -435,37 +500,42 @@ const RfcManagement = () => {
         </div>
       </div>
 
-      {/* ── KPI ROW — Interactif ────────────── */}
+      {/* ── KPI ROW — toujours sur rfcs complet ────────────── */}
       <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-        <div className={`stat-card amber ${(!kpiFilter && !filterStatus) || kpiFilter === 'PRE_APPROUVEE' ? 'selected-active' : ''}`} style={{ cursor: 'pointer' }} onClick={() => { setKpiFilter('PRE_APPROUVEE'); setFilterStatus(''); }}>
+        <div className={`stat-card blue ${kpiFilter === 'BACKLOG' ? 'selected-active' : ''}`}
+          onClick={() => setKpiFilter(k => k === 'BACKLOG' ? '' : 'BACKLOG')} style={{ cursor: 'pointer' }}>
+          <div className="stat-icon-wrapper"><FiFileText size={24} /></div>
+          <div className="stat-info">
+            <div className="stat-value">{kpiBacklog}</div>
+            <div className="stat-label">Total RFC</div>
+          </div>
+        </div>
+
+        <div className={`stat-card amber ${kpiFilter === 'SOUMIS' ? 'selected-active' : ''}`}
+          onClick={() => setKpiFilter(k => k === 'SOUMIS' ? '' : 'SOUMIS')} style={{ cursor: 'pointer' }}>
           <div className="stat-icon-wrapper"><FiClock size={24} /></div>
           <div className="stat-info">
-            <div className="stat-value">{kpiPreApprouvee}</div>
-            <div className="stat-label">À Évaluer</div>
+            <div className="stat-value">{kpiSoumis}</div>
+            <div className="stat-label">En attente</div>
           </div>
         </div>
 
-        <div className={`stat-card green ${kpiFilter === 'APPROUVEE' ? 'selected-active' : ''}`} style={{ cursor: 'pointer' }} onClick={() => { setKpiFilter('APPROUVEE'); setFilterStatus(''); }}>
-          <div className="stat-icon-wrapper"><FiCheckCircle size={24} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{kpiApprouve}</div>
-            <div className="stat-label">Approuvées</div>
-          </div>
-        </div>
-
-        <div className={`stat-card red ${kpiFilter === 'REJETEE' ? 'selected-active' : ''}`} style={{ borderLeft: '3px solid #ef4444', cursor: 'pointer' }} onClick={() => { setKpiFilter('REJETEE'); setFilterStatus(''); }}>
-          <div className="stat-icon-wrapper" style={{ background: '#fef2f2', color: '#dc2626' }}><FiXCircle size={24} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{kpiRejetee}</div>
-            <div className="stat-label">Rejetées</div>
-          </div>
-        </div>
-
-        <div className={`stat-card red ${kpiFilter === 'LATE' ? 'selected-active' : ''}`} style={{ borderLeft: '3px solid #ef4444', cursor: 'pointer' }} onClick={() => { setKpiFilter('LATE'); setFilterStatus(''); }}>
+        <div className={`stat-card red ${kpiFilter === 'LATE' ? 'selected-active' : ''}`}
+          onClick={() => setKpiFilter(k => k === 'LATE' ? '' : 'LATE')}
+          style={{ cursor: 'pointer', borderLeft: '3px solid #ef4444' }}>
           <div className="stat-icon-wrapper" style={{ background: '#fef2f2', color: '#dc2626' }}><FiAlertTriangle size={24} /></div>
           <div className="stat-info">
             <div className="stat-value">{kpiLate}</div>
             <div className="stat-label">En Retard</div>
+          </div>
+        </div>
+
+        <div className={`stat-card green ${kpiFilter === 'APPROUVEE' ? 'selected-active' : ''}`}
+          onClick={() => setKpiFilter(k => k === 'APPROUVEE' ? '' : 'APPROUVEE')} style={{ cursor: 'pointer' }}>
+          <div className="stat-icon-wrapper"><FiCheckCircle size={24} /></div>
+          <div className="stat-info">
+            <div className="stat-value">{kpiApprouve}</div>
+            <div className="stat-label">Approuvées</div>
           </div>
         </div>
       </div>
@@ -547,12 +617,26 @@ const RfcManagement = () => {
                   {/* 2. Demandeur */}
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <Avatar 
-                        prenom={rfc.demandeur?.prenom_user} 
-                        nom={rfc.demandeur?.nom_user} 
-                        size={34} 
-                        radius="10px" 
-                      />
+                      {(() => {
+                        const prenom = rfc.demandeur?.prenom_user || '';
+                        const nom    = rfc.demandeur?.nom_user    || '';
+                        const initiales = `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
+                        const colors = [
+                          { bg: '#dbeafe', color: '#1d4ed8' }, { bg: '#d1fae5', color: '#065f46' },
+                          { bg: '#fef3c7', color: '#92400e' }, { bg: '#ede9fe', color: '#5b21b6' },
+                          { bg: '#fce7f3', color: '#9d174d' }, { bg: '#e0f2fe', color: '#0369a1' },
+                        ];
+                        const palette = colors[(prenom.charCodeAt(0) || 0) % colors.length];
+                        return initiales ? (
+                          <div style={{ width: 34, height: 34, borderRadius: '10px', flexShrink: 0, background: palette.bg, color: palette.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.03em' }}>
+                            {initiales}
+                          </div>
+                        ) : (
+                          <div style={{ width: 34, height: 34, borderRadius: '10px', flexShrink: 0, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <FiFileText size={14} color="#94a3b8" />
+                          </div>
+                        );
+                      })()}
                       <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>
                         {`${rfc.demandeur?.prenom_user || '—'} ${rfc.demandeur?.nom_user || ''}`.trim()}
                       </span>
@@ -561,110 +645,89 @@ const RfcManagement = () => {
 
                   {/* 3. Type */}
                   <td style={tdStyle}>
-                    {(() => {
-                        const tId = rfc.id_type || rfc.typeRfc?.id_type;
-                        const t = rfcTypes.find(tp => String(tp.id_type) === String(tId));
-                        const label = t?.type || '—';
-                        return (
-                          <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '700', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>
-                            {label}
-                          </span>
-                        );
-                      })()}
+                    <InlineEditableBadge
+                      currentValue={rfc.id_type || rfc.typeRfc?.id_type}
+                      options={rfcTypes.map(t => ({ value: t.id_type, label: t.type, code: t.type }))}
+                      getVariant={(val) => {
+                        const t = rfcTypes.find(tp => tp.id_type === val);
+                        if (!t) return 'default';
+                        if (t.type === 'URGENT') return 'danger';
+                        if (t.type === 'NORMAL') return 'primary';
+                        return 'info';
+                      }}
+                      onUpdate={async (newId) => {
+                        try { await rfcService.updateRfc(rfc.id_rfc, { id_type: newId }); fetchData(); }
+                        catch (err) { alert('Erreur lors de la mise à jour du type'); }
+                      }}
+                      isEditable={true}
+                    />
                   </td>
 
                   {/* 4. Priorité */}
                   <td style={tdStyle}>
-                    {(() => {
-                        const pId = rfc.id_priorite || rfc.priorite?.id_priorite;
-                        const p = priorities.find(pr => String(pr.id_priorite) === String(pId));
-                        const label = p?.libelle?.toUpperCase() || '—';
-                        
-                        const colors = {
-                          'FAIBLE':   { bg: '#f0fdf4', color: '#16a34a', border: '#dcfce7' }, // Vert clair
-                          'BASSE':    { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }, // Vert foncé
-                          'MOYENNE':  { bg: '#fefce8', color: '#a16207', border: '#fef9c3' }, // Jaune
-                          'NORMAL':   { bg: '#fefce8', color: '#a16207', border: '#fef9c3' }, // Jaune
-                          'HAUTE':    { bg: '#fff7ed', color: '#ea580c', border: '#ffedd5' }, // Orange
-                          'URGENT':   { bg: '#fef2f2', color: '#dc2626', border: '#fee2e2' }, // Rouge
-                          'CRITIQUE': { bg: '#fef2f2', color: '#dc2626', border: '#fee2e2' }, // Rouge
-                          'P0':       { bg: '#fef2f2', color: '#dc2626', border: '#fee2e2' }, // Rouge
-                        };
-                        const style = colors[label] || { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' };
-                        return (
-                          <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '700', background: style.bg, color: style.color, border: `1px solid ${style.border}` }}>
-                            {p?.libelle || '—'}
-                          </span>
-                        );
-                      })()}
+                    <InlineEditableBadge
+                      currentValue={rfc.id_priorite}
+                      options={priorities.map(p => ({ value: p.id_priorite, label: p.libelle, code: p.code_priorite }))}
+                      getVariant={(val) => {
+                        const p = priorities.find(pr => pr.id_priorite === val);
+                        if (p?.code_priorite === 'P0' || p?.code_priorite === 'P1') return 'danger';
+                        if (p?.code_priorite === 'P2') return 'warning';
+                        return 'success';
+                      }}
+                      onUpdate={async (newId) => {
+                        try { await rfcService.updateRfc(rfc.id_rfc, { id_priorite: newId }); fetchData(); }
+                        catch (err) { alert('Erreur lors de la mise à jour de la priorité'); }
+                      }}
+                      isEditable={true}
+                    />
                   </td>
 
                   {/* 5. Environnement */}
                   <td style={tdStyle}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontSize: '0.72rem', color: '#475569', fontWeight: 600 }}>
-                      {rfc.environnement?.nom_env || environments.find(e => String(e.id_env) === String(rfc.id_env))?.nom_env || 'N/A'}
+                      {rfc.environnement?.nom_env || 'N/A'}
                     </span>
                   </td>
 
                   {/* 6. Statut */}
                   <td style={{ ...tdStyle, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                    <Badge variant={
-                      ['APPROUVEE', 'CLOTUREE', 'REUSSI'].includes(rfc.statut?.code_statut) ? 'success' :
-                      ['REJETEE', 'ANNULEE'].includes(rfc.statut?.code_statut) ? 'danger' :
-                      ['EN_COURS', 'PLANIFIEE'].includes(rfc.statut?.code_statut) ? 'info' :
-                      ['EN_EVALUATION', 'EVALUEE'].includes(rfc.statut?.code_statut) ? 'purple' :
-                      ['SOUMIS', 'PRE_APPROUVEE'].includes(rfc.statut?.code_statut) ? 'warning' : 'primary'
-                    }>
-                      {rfc.statut?.libelle || '—'}
-                    </Badge>
+                    <InlineEditableBadge
+                      currentValue={rfc.statut?.id_statut}
+                      label={rfc.statut?.libelle || 'N/A'}
+                      currentCode={rfc.statut?.code_statut}
+                      options={statuses.map(s => ({ value: s.id_statut, label: s.libelle, code: s.code_statut }))}
+                      allowedCodes={RFC_TRANSITIONS[rfc.statut?.code_statut] || []}
+                      getVariantByCode={(code) => RFC_STATUS_VARIANT[code] || 'default'}
+                      onUpdate={(newId) => handleApproveRfc(rfc, newId)}
+                      isEditable={true}
+                      dropdownPosition="up"
+                    />
                   </td>
 
                   {/* 7. Actions */}
                   <td style={{ position: 'sticky', right: 0, zIndex: 2, background: 'inherit', padding: '14px 16px', borderLeft: '1px solid #f1f5f9' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px' }}>
-                      {/* Bouton Modifier - mis à jour seulement si SOUMIS */}
-                      {(() => {
-                        const canEdit = ['SOUMIS', 'PRE_APPROUVEE'].includes(rfc.statut?.code_statut);
-                        return (
-                          <button 
-                            onClick={e => { 
-                              e.stopPropagation(); 
-                              if (!canEdit) {
-                                setToast({ msg: `Mise à jour impossible : la RFC doit être au statut SOUMIS (statut actuel : ${rfc.statut?.libelle || rfc.statut?.code_statut}).`, type: 'error' });
-                                return;
-                              }
-                              handleOpenProcess(rfc); 
-                            }} 
-                            title={canEdit ? "Modifier" : `Modification impossible (statut : ${rfc.statut?.libelle || rfc.statut?.code_statut})`}
-                            style={{ 
-                              width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                              background: canEdit ? '#f1f5f9' : '#f8fafc', 
-                              color: canEdit ? '#3b82f6' : '#cbd5e1', 
-                              border: 'none', borderRadius: '8px', 
-                              cursor: canEdit ? 'pointer' : 'not-allowed', 
-                              transition: 'background 0.15s',
-                              opacity: canEdit ? 1 : 0.5
-                            }}
-                            onMouseEnter={e => { if (canEdit) e.currentTarget.style.background = '#dbeafe'; }}
-                            onMouseLeave={e => { if (canEdit) e.currentTarget.style.background = '#f1f5f9'; }}>
-                            <FiEdit3 size={15} />
-                          </button>
-                        );
-                      })()}
+                      <button onClick={e => { e.stopPropagation(); handleOpenProcess(rfc); }} title="Modifier"
+                        style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', color: '#3b82f6', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#dbeafe'}
+                        onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}>
+                        <FiEdit3 size={15} />
+                      </button>
                       {/* Bouton Supprimer - visible seulement si SOUMIS */}
                       {(() => {
-                        const canDelete = ['SOUMIS', 'PRE_APPROUVEE'].includes(rfc.statut?.code_statut);
+                        const canDelete = rfc.statut?.code_statut === 'SOUMIS';
                         return (
                           <button
                             onClick={e => {
                               e.stopPropagation();
                               if (!canDelete) {
-                                setToast({ msg: `Suppression impossible : la RFC doit être au statut SOUMIS (statut actuel : ${rfc.statut?.libelle || rfc.statut?.code_statut}).`, type: 'error' });
+                                setToast({ msg: `Suppression impossible : la RFC doit ├¬tre au statut SOUMIS (statut actuel┬á: ${rfc.statut?.libelle || rfc.statut?.code_statut}).`, type: 'error' });
                                 return;
                               }
                               setRfcToDelete(rfc); setShowConfirmDelete(true);
                             }}
-                            title={canDelete ? 'Supprimer' : `Suppression impossible (statut : ${rfc.statut?.libelle || rfc.statut?.code_statut})`}
+                            title={canDelete ? 'Supprimer' : `Suppression impossible (statut┬á: ${rfc.statut?.libelle || rfc.statut?.code_statut})`}
+                            disabled={!canDelete}
                             style={{
                               width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
                               background: canDelete ? '#fef2f2' : '#f8fafc',
@@ -700,12 +763,12 @@ const RfcManagement = () => {
               ? '0 résultat'
               : <>
                   <strong style={{ color: '#64748b' }}>
-                    {(safePage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(safePage * ITEMS_PER_PAGE, filtered.length)}
+                    {(safePage - 1) * ITEMS_PER_PAGE + 1}ÔÇô{Math.min(safePage * ITEMS_PER_PAGE, filtered.length)}
                   </strong>
                   {' '}sur{' '}
                   <strong style={{ color: '#64748b' }}>{filtered.length}</strong>
                   {filtered.length !== rfcs.length && (
-                    <span style={{ color: '#cbd5e1' }}> (filtré · {rfcs.length} au total)</span>
+                    <span style={{ color: '#cbd5e1' }}> (filtré ┬À {rfcs.length} au total)</span>
                   )}
                 </>
             }
@@ -722,7 +785,7 @@ const RfcManagement = () => {
 
               {getPageNumbers().map((p, idx) =>
                 p === '...'
-                  ? <span key={`dots-${idx}`} style={{ padding: '0 6px', color: '#94a3b8', fontSize: '0.85rem' }}>…</span>
+                  ? <span key={`dots-${idx}`} style={{ padding: '0 6px', color: '#94a3b8', fontSize: '0.85rem' }}>ÔÇª</span>
                   : (
                     <button key={p} onClick={() => setCurrentPage(p)}
                       style={{ ...btnPage(false), border: `1.5px solid ${p === safePage ? '#7c3aed' : '#e2e8f0'}`, background: p === safePage ? '#7c3aed' : 'white', color: p === safePage ? 'white' : '#475569', fontWeight: p === safePage ? '700' : '500', minWidth: '34px' }}>
@@ -745,7 +808,7 @@ const RfcManagement = () => {
       {/* ── MODAL TRAITEMENT ───────────────────────────────── */}
       {showProcess && selectedRfc && (
         <div className="modal-backdrop" onClick={closeModals}>
-          <div className="modal-box glass-card" style={{ maxWidth: '1000px', width: '95%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-box glass-card" style={{ maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <button className="close-btn-rfc-style" onClick={closeModals} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', zIndex: 10 }}>
               <FiX size={24} />
             </button>
@@ -761,22 +824,7 @@ const RfcManagement = () => {
                 <button onClick={() => setShowReportForm(!showReportForm)} style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#b45309', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600', fontSize: '0.85rem' }}>
                   <FiFileText /> Rapport
                 </button>
-                <button onClick={() => { 
-                  if (!editDetail) {
-                    setDetailForm({
-                      titre_rfc: selectedRfc.titre_rfc || '',
-                      description: selectedRfc.description || '',
-                      justification: selectedRfc.justification || '',
-                      date_souhaitee: selectedRfc.date_souhaitee ? selectedRfc.date_souhaitee.split('T')[0] : '',
-                      impacte_estimee: selectedRfc.impacte_estimee || '',
-                      ci_ids: selectedRfc.impactedCIs?.map(ci => ci.id_ci) || [],
-                      id_statut: selectedRfc.id_statut || selectedRfc.statut?.id_statut || '',
-                      id_priorite: selectedRfc.id_priorite || '',
-                      id_type: selectedRfc.id_type || ''
-                    });
-                  }
-                  setEditDetail(!editDetail); 
-                }}
+                <button onClick={() => { setDetailForm({ titre_rfc: selectedRfc.titre_rfc, description: selectedRfc.description, justification: selectedRfc.justification, date_souhaitee: selectedRfc.date_souhaitee ? selectedRfc.date_souhaitee.split('T')[0] : '', impacte_estimee: selectedRfc.impacte_estimee }); setEditDetail(!editDetail); }}
                   style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600', fontSize: '0.85rem' }}>
                   <FiEdit3 /> {editDetail ? 'Annuler' : 'Modifier'}
                 </button>
@@ -787,13 +835,13 @@ const RfcManagement = () => {
                     <button
                       onClick={() => {
                         if (!canDeleteSelected) {
-                          setToast({ msg: `Suppression impossible : la RFC doit être au statut SOUMIS (statut actuel : ${selectedRfc?.statut?.libelle || selectedRfc?.statut?.code_statut}).`, type: 'error' });
+                          setToast({ msg: `Suppression impossible : la RFC doit ├¬tre au statut SOUMIS (statut actuel┬á: ${selectedRfc?.statut?.libelle || selectedRfc?.statut?.code_statut}).`, type: 'error' });
                           return;
                         }
                         setRfcToDelete(selectedRfc); setShowConfirmDelete(true);
                       }}
                       disabled={!canDeleteSelected}
-                      title={canDeleteSelected ? 'Supprimer la RFC' : `Suppression impossible (statut : ${selectedRfc?.statut?.libelle})`}
+                      title={canDeleteSelected ? 'Supprimer la RFC' : `Suppression impossible (statut┬á: ${selectedRfc?.statut?.libelle})`}
                       style={{
                         background: canDeleteSelected ? '#fef2f2' : '#f8fafc',
                         border: `1px solid ${canDeleteSelected ? '#fee2e2' : '#e2e8f0'}`,
@@ -812,7 +860,7 @@ const RfcManagement = () => {
               </div>
             </div>
 
-            <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '2.5rem' }}>
+            <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '2rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
                 {/* Détails */}
                 <div>
@@ -863,7 +911,7 @@ const RfcManagement = () => {
                             <option value="">— Statut actuel —</option>
                             {statuses.map(s => <option key={s.id_statut} value={s.id_statut}>{s.libelle}</option>)}
                           </select>
-                          <p style={{ margin: '0.25rem 0 0', fontSize: '0.65rem', color: '#94a3b8' }}>⚠ Modifier le statut peut déclencher des transitions de workflow.</p>
+                          <p style={{ margin: '0.25rem 0 0', fontSize: '0.65rem', color: '#94a3b8' }}>ÔÜá Modifier le statut peut déclencher des transitions de workflow.</p>
                         </div>
                         <button onClick={handleUpdateDetail} className="btn-primary" style={{ alignSelf: 'flex-end', background: '#10b981', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer' }}>Enregistrer les modifications</button>
                       </div>
@@ -884,82 +932,53 @@ const RfcManagement = () => {
                   <div style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                     <h3 style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span><FiShield /> Paramètres ITIL</span>
-                      {!['APPROUVEE', 'PLANIFIEE', 'EN_COURS', 'CLOTUREE'].includes(selectedRfc.statut?.code_statut) && (
-                        <button onClick={handleUpdateDetail} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', fontSize: '0.65rem', fontWeight: '700', cursor: 'pointer' }}>Enregistrer</button>
-                      )}
+                      <button onClick={handleUpdateDetail} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', fontSize: '0.65rem', fontWeight: '700', cursor: 'pointer' }}>Enregistrer</button>
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                         <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Type de Workflow</label>
-                        <select 
-                          disabled={['APPROUVEE', 'PLANIFIEE', 'EN_COURS', 'CLOTUREE'].includes(selectedRfc.statut?.code_statut)}
-                          value={detailForm.id_type || selectedRfc.id_type || selectedRfc.typeRfc?.id_type || ''} 
-                          onChange={e => setDetailForm({...detailForm, id_type: e.target.value})} 
-                          style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}
-                        >
+                        <select value={detailForm.id_type} onChange={e => setDetailForm({...detailForm, id_type: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
                           <option value="">Sélectionner...</option>
                           {rfcTypes.map(t => <option key={t.id_type} value={t.id_type}>{t.type}</option>)}
                         </select>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                         <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Environnement Cible</label>
-                        <select 
-                          disabled={['APPROUVEE', 'PLANIFIEE', 'EN_COURS', 'CLOTUREE'].includes(selectedRfc.statut?.code_statut)}
-                          value={selectedEnv || selectedRfc.id_env || selectedRfc.environnement?.id_env || ''} 
-                          onChange={e => setSelectedEnv(e.target.value)} 
-                          style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}
-                        >
+                        <select value={selectedEnv} onChange={e => setSelectedEnv(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
                           <option value="">Sélectionner...</option>
                           {environments.map(env => <option key={env.id_env} value={env.id_env}>{env.nom_env}</option>)}
                         </select>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                         <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Priorité</label>
-                        <select 
-                          disabled={['APPROUVEE', 'PLANIFIEE', 'EN_COURS', 'CLOTUREE'].includes(selectedRfc.statut?.code_statut)}
-                          value={detailForm.id_priorite || selectedRfc.id_priorite || selectedRfc.priorite?.id_priorite || ''} 
-                          onChange={e => setDetailForm({...detailForm, id_priorite: e.target.value})} 
-                          style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}
-                        >
+                        <select value={detailForm.id_priorite} onChange={e => setDetailForm({...detailForm, id_priorite: e.target.value})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
                           <option value="">Sélectionner...</option>
                           {priorities.map(p => <option key={p.id_priorite} value={p.id_priorite}>{p.libelle}</option>)}
                         </select>
                       </div>
                     </div>
-                    {!['APPROUVEE', 'PLANIFIEE', 'EN_COURS', 'CLOTUREE'].includes(selectedRfc.statut?.code_statut) && (
-                      <div style={{ marginTop: '1rem', textAlign: 'right' }}>
-                        <button onClick={handleUpdateDetail} className="btn-primary" style={{ background: '#4f46e5', color: 'white', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(79,70,229,0.2)' }}>
-                          Enregistrer les modifications ITIL
-                        </button>
-                      </div>
-                    )}
+                    <div style={{ marginTop: '1rem', textAlign: 'right' }}>
+                      <button onClick={handleUpdateDetail} className="btn-primary" style={{ background: '#4f46e5', color: 'white', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(79,70,229,0.2)' }}>
+                        Enregistrer les modifications ITIL
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 {/* Timeline & Discussion */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                    <h3 style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}><FiAlertTriangle /> Évaluation des Risques</h3>
+                    <h3 style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}><FiAlertTriangle /> ├ëvaluation des Risques</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
                       <div>
                         <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Impact (1-5)</label>
-                        <select 
-                          disabled={['APPROUVEE', 'PLANIFIEE', 'EN_COURS', 'CLOTUREE'].includes(selectedRfc.statut?.code_statut)}
-                          value={risk.impact} 
-                          onChange={e => setRisk({...risk, impact: parseInt(e.target.value), score: parseInt(e.target.value) * risk.probabilite})} 
-                          style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}
-                        >
+                        <select value={risk.impact} onChange={e => setRisk({...risk, impact: parseInt(e.target.value), score: parseInt(e.target.value) * risk.probabilite})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
                           {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
                       </div>
                       <div>
                         <label style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Proba (1-5)</label>
-                        <select 
-                          disabled={['APPROUVEE', 'PLANIFIEE', 'EN_COURS', 'CLOTUREE'].includes(selectedRfc.statut?.code_statut)}
-                          value={risk.probabilite} 
-                          onChange={e => setRisk({...risk, probabilite: parseInt(e.target.value), score: parseInt(e.target.value) * risk.impact})} 
-                          style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}
-                        >
+                        <select value={risk.probabilite} onChange={e => setRisk({...risk, probabilite: parseInt(e.target.value), score: parseInt(e.target.value) * risk.impact})} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: '600' }}>
                           {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
                         </select>
                       </div>
@@ -990,7 +1009,20 @@ const RfcManagement = () => {
                     </div>
                   </div>
 
-
+                  <div style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                    <h3 style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}><FiActivity /> Journal d'Audit</h3>
+                    <div style={{ fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {history.length === 0 && <p style={{ color: '#94a3b8', fontStyle: 'italic' }}>Historique non disponible.</p>}
+                      {history.map((h, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '10px', paddingLeft: '10px', borderLeft: '2px solid #e2e8f0' }}>
+                          <div style={{ color: '#64748b', whiteSpace: 'nowrap', fontWeight: '600', fontSize: '0.75rem' }}>{new Date(h.date_changement).toLocaleDateString()}</div>
+                          <div style={{ color: '#334155', fontWeight: '500' }}>
+                            <span style={{ fontWeight: '700' }}>{h.utilisateur?.nom_user}</span> a changé le statut vers <span style={{ color: '#3b82f6', fontWeight: '700' }}>{h.nouveau_statut?.libelle}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1025,13 +1057,13 @@ const RfcManagement = () => {
             </div>
             <div className="modal-footer">
               <button className="modal-btn modal-btn-cancel" onClick={closeModals}>Annuler</button>
-              <button className="modal-btn modal-btn-approve" disabled={!pirAllChecked} onClick={() => handleDecision('CLOTUREE')}>Clôturer la RFC</button>
+              <button className="modal-btn modal-btn-approve" disabled={!pirAllChecked} onClick={() => handleDecision('CLOTUREE')}>Cl├┤turer la RFC</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── MODAL CRÉATION ─────────────────────────────────── */}
+      {/* ── MODAL CR├ëATION ─────────────────────────────────── */}
       {showCreate && (
         <div className="modal-backdrop" onClick={closeModals}>
           <div className="modal-box" style={{ maxWidth: '900px', width: '95%', display: 'flex', flexDirection: 'column', maxHeight: '95vh', padding: 0 }} onClick={e => e.stopPropagation()}>
@@ -1072,14 +1104,14 @@ const RfcManagement = () => {
                   <label>Change Manager <span className="tm-required">*</span></label>
                   <select value={approvalForm.id_change_manager} onChange={e => setApprovalForm(f => ({ ...f, id_change_manager: e.target.value }))} className="premium-input-style" required>
                     <option value="">Sélectionner un profil...</option>
-                    {changeManagers.map(cm => <option key={cm.id_user} value={cm.id_user}>👤 {cm.prenom_user} {cm.nom_user}</option>)}
+                    {changeManagers.map(cm => <option key={cm.id_user} value={cm.id_user}>­ƒæñ {cm.prenom_user} {cm.nom_user}</option>)}
                   </select>
                 </div>
                 <div className="form-group-cab">
                   <label>Environnement cible <span className="tm-required">*</span></label>
                   <select value={approvalForm.id_env} onChange={e => setApprovalForm(f => ({ ...f, id_env: e.target.value }))} className="premium-input-style" required>
                     <option value="">Sélectionner un environnement...</option>
-                    {environments.map(env => <option key={env.id_env} value={env.id_env}>🌐 {env.nom_env}</option>)}
+                    {environments.map(env => <option key={env.id_env} value={env.id_env}>­ƒîÉ {env.nom_env}</option>)}
                   </select>
                 </div>
               </div>
@@ -1109,8 +1141,76 @@ const RfcManagement = () => {
       )}
 
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* ── MODAL DE TRIAGE (Qualification Service Desk) ───────────────────────── */}
+      {showTriageModal && selectedRfc && (
+        <div className="modal-backdrop" onClick={() => setShowTriageModal(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: '750px', maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-top modal-top-approve" style={{ background: 'linear-gradient(135deg, #1e40af, #3b82f6)' }}>
+              <div className="modal-ico" style={{ background: 'rgba(255,255,255,0.2)' }}><FiZap /></div>
+              <div style={{ flex: 1 }}>
+                <h2>Qualification Service Desk</h2>
+                <p>Analyse et préparation de la RFC avant transfert au Change Manager</p>
+              </div>
+              <button onClick={() => setShowTriageModal(false)} style={{ background: 'transparent', border: 'none', color: '#ffffff', cursor: 'pointer', padding: '4px' }}><FiX size={24} /></button>
+            </div>
+            
+            <div className="modal-body" style={{ overflowY: 'auto' }}>
+              <div style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.5)', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                <label>details de la demande</label>
+                <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px' }}>{selectedRfc.titre_rfc}</div>
+                <div style={{ fontSize: '0.9rem', color: '#475569', lineHeight: '1.5' }}>{selectedRfc.description}</div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label>Type de Changement</label>
+                  <select value={selectedType} onChange={e => setSelectedType(e.target.value)}>
+                    <option value="">Sélectionner...</option>
+                    {rfcTypes.map(t => <option key={t.id_type} value={t.id_type}>{t.type}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label>Priorité Assignée</label>
+                  <select value={selectedPriority} onChange={e => setSelectedPriority(e.target.value)}>
+                    <option value="">Sélectionner...</option>
+                    {priorities?.map(p => <option key={p.id_priorite} value={p.id_priorite}>{p.libelle}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label>Environnement Impacté</label>
+                <select value={selectedEnv} onChange={e => setSelectedEnv(e.target.value)}>
+                  <option value="">Sélectionner...</option>
+                  {environments?.map(env => <option key={env.id_env} value={env.id_env}>{env.nom_env}</option>)}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1.25rem' }}>
+                <label>Analyse & Commentaires de triage</label>
+                <textarea 
+                  value={triageAnalysis} 
+                  onChange={e => setTriageAnalysis(e.target.value)} 
+                  placeholder="Notes pour le Change Manager..."
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button onClick={() => handleTriageDecision('REJETEE')} disabled={submittingTriage} className="modal-btn modal-btn-reject">
+                <FiXCircle /> Rejeter
+              </button>
+              <button onClick={handlePreevaluer} disabled={submittingTriage} className="modal-btn" style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: 'white' }}>
+                <FiSend /> Pré-évaluer & Transférer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default RfcManagement;
+export default AdminRfcManagement;

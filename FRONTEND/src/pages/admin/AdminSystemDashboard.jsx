@@ -44,7 +44,7 @@ const AdminSystemDashboard = () => {
                 const userRes = await userService.getAllUsers();
                 const allUsers = Array.isArray(userRes.users) ? userRes.users : [];
                 setUserStats({
-                    totalUsers:  allUsers.length,
+                    totalUsers:  userRes.total || allUsers.length,
                     activeUsers: allUsers.filter(u => u.actif).length,
                 });
 
@@ -238,8 +238,8 @@ const AdminSystemDashboard = () => {
                                         <div
                                             key={idx}
                                             className="bar-segment"
-                                            style={getSegmentStyle(item.statut, item.count)}
-                                            title={`${item.libelle} : ${item.count}`}
+                                            style={getSegmentStyle(item.statut || item.code_statut, item.count || item._count?.id_rfc || 0)}
+                                            title={`${item.libelle || item.statut?.libelle} : ${item.count || item._count?.id_rfc || 0}`}
                                         />
                                     ))}
                                 </div>
@@ -247,8 +247,8 @@ const AdminSystemDashboard = () => {
                                 <div className="asd-legend-wrap">
                                     {kpi.rfc.par_statut.map((item, idx) => (
                                         <div key={idx} className="asd-legend-item">
-                                            <div className="asd-legend-dot" style={getDotStyle(item.statut)} />
-                                            <span>{item.libelle} <strong>({item.count})</strong></span>
+                                            <div className="asd-legend-dot" style={getDotStyle(item.statut || item.code_statut)} />
+                                            <span>{item.libelle || item.statut?.libelle} <strong>({item.count || item._count?.id_rfc || 0})</strong></span>
                                         </div>
                                     ))}
                                 </div>

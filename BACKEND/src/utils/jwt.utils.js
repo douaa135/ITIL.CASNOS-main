@@ -5,16 +5,14 @@ const { v4: uuidv4 } = require('uuid');
 
 const ACCESS_SECRET      = process.env.JWT_SECRET              || 'itil_casnos_secret_change_me';
 const REFRESH_SECRET     = process.env.JWT_REFRESH_SECRET      || `${ACCESS_SECRET}_refresh`;
-const ACCESS_EXPIRES_IN  = process.env.JWT_ACCESS_EXPIRES_IN   || process.env.JWT_EXPIRES_IN || '1h';
-const REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN  || '7d';
+const ACCESS_EXPIRES_IN  = process.env.JWT_ACCESS_EXPIRES_IN   || '15m';
+const REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN  || '8h';
 
 const issuer   = 'casnos-itil';
 const audience = 'casnos-itil-client';
 
 /**
- * Génère un access token JWT
- * @param {Object} user  { id_user, email, roles, permissions, ... }
- * @returns {{ token: string, jti: string }}
+ * Génère un access token JWT (15 min)
  */
 const generateAccessToken = (user) => {
   const jti = uuidv4();
@@ -37,10 +35,7 @@ const generateAccessToken = (user) => {
 };
 
 /**
- * Génère un refresh token JWT
- * @param {string} id_user
- * @param {string} [refreshJti]  JTI existant (optionnel)
- * @returns {{ token: string, jti: string }}
+ * Génère un refresh token JWT (7 jours)
  */
 const generateRefreshToken = (id_user, refreshJti) => {
   const jti = refreshJti || uuidv4();
@@ -57,7 +52,6 @@ const generateRefreshToken = (id_user, refreshJti) => {
 
 /**
  * Vérifie un access token
- * @returns {{ valid: boolean, decoded: Object|null, error: string|null }}
  */
 const verifyAccessToken = (token) => {
   try {
@@ -77,7 +71,6 @@ const verifyAccessToken = (token) => {
 
 /**
  * Vérifie un refresh token
- * @returns {{ valid: boolean, decoded: Object|null, error: string|null }}
  */
 const verifyRefreshToken = (token) => {
   try {

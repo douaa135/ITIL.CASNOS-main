@@ -2,24 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FiCalendar, FiClock, FiFileText, FiCheckCircle, FiEdit, FiSave, 
   FiAlertCircle, FiUsers, FiTrendingUp, FiArrowRight, FiCheck, FiX, FiInfo,
-  FiPlus, FiLayers, FiHash, FiShield, FiTrash2
+  FiPlus, FiLayers, FiHash, FiShield, FiTrash2, FiFilter
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import Toast from '../../components/common/Toast';
+import Avatar from '../../components/common/Avatar';
+import StatCard from '../../components/common/StatCard';
 import './CabMeetings.css';
 
-// ── KPI Card (aligné avec AdminCabManagement) ────────────────
-const KpiCard = ({ label, value, icon, color }) => (
-  <div className={`cm-kpi-card cm-kpi-${color}`}>
-    <div className="cm-kpi-icon">{icon}</div>
-    <div className="cm-kpi-body">
-      <span className="cm-kpi-value">{value}</span>
-      <span className="cm-kpi-label">{label}</span>
-    </div>
-  </div>
-);
 
 const CabMeetings = () => {
   const { user: currentUser } = useAuth();
@@ -243,7 +235,7 @@ const CabMeetings = () => {
   const handleCreateReunion = async (e) => {
     e.preventDefault();
     if (!createForm.id_cab || !createForm.date_reunion) {
-      return alert('Le CAB et la date sont obligatoires.');
+      return setToast({ msg: 'Le CAB et la date sont obligatoires.', type: 'error' });
     }
     setCreating(true);
     try {
@@ -269,9 +261,19 @@ const CabMeetings = () => {
   const upcoming      = meetings.filter(m => new Date(m.date_reunion) > new Date()).length;
   const past          = meetings.filter(m => new Date(m.date_reunion) <= new Date()).length;
 
-  // Sidebar: filter by selected CAB
+  // Sidebar: filter by selected CAB AND current user participation
   const sortedMeetings = [...meetings]
     .filter(m => !selectedCab || m.id_cab === selectedCab.id_cab)
+    .filter(m => {
+      // Check if user is in cab_membres
+      const isMember = m.cab_membres?.some(member => {
+        const uid = member.utilisateur?.id_user || member.id_user;
+        return uid === currentUser?.id_user;
+      });
+      // Or check if user is in participants (though participants might not be loaded yet for all meetings)
+      // Usually, if they are in the CAB, they see the meeting.
+      return isMember;
+    })
     .sort((a, b) => new Date(b.date_reunion) - new Date(a.date_reunion));
 
   // Coherent participant count = API participants + CAB members not yet added
@@ -282,7 +284,7 @@ const CabMeetings = () => {
     <div className="cm-page">
 
       {/* ── HEADER CARD ── */}
-      <div className="premium-header-card">
+      <div className="premium-header-card" style={{ marginBottom: '1rem' }}>
         <div className="premium-header-left">
           <div className="premium-header-icon" style={{ background: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }}>
             <FiCalendar />
@@ -290,66 +292,59 @@ const CabMeetings = () => {
           <div className="premium-header-text">
             <h1>Espace Réunions CAB</h1>
             <p>Gestion des ordres du jour, votes des membres et procès-verbaux</p>
-            {selectedCab && (
-              <span className="cm-cab-badge" style={{ marginTop: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#475569', border: '1px solid #e2e8f0' }}>
-                <FiHash size={11} /> {selectedCab.nom_cab} · {selectedCab.type_cab}
-              </span>
-            )}
           </div>
-        </div>
-
-        <div className="premium-header-actions">
-          {/* CAB selector */}
-          {cabs.length > 1 && (
-            <select
-              className="cm-cab-select"
-              value={selectedCab?.id_cab || ''}
-              onChange={e => {
-                const c = cabs.find(c => c.id_cab === e.target.value);
-                setSelectedCab(c);
-              }}
-              style={{ padding: '0.65rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: '600', fontSize: '0.85rem' }}
-            >
-              {cabs.map(c => (
-                <option key={c.id_cab} value={c.id_cab}>{c.nom_cab}</option>
-              ))}
-            </select>
-          )}
-          <button className="btn-create-premium" onClick={() => setShowCreateModal(true)}>
-            <FiPlus /> Nouvelle Réunion
-          </button>
         </div>
       </div>
 
+      {/* ── TOOLBAR CAB ── */}
+      <div className="rfc-mgr-toolbar" style={{ marginBottom: '1rem' }}>
+        <div className="toolbar-filters" style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+          {cabs.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontWeight: 600, fontSize: '0.85rem' }}>
+                CAB :
+              </div>
+              <select
+                className="premium-select"
+                value={selectedCab?.id_cab || ''}
+                onChange={e => {
+                  const c = cabs.find(c => c.id_cab === e.target.value);
+                  setSelectedCab(c);
+                }}
+                style={{ minWidth: '280px' }}
+              >
+                {cabs.map(c => (
+                  <option key={c.id_cab} value={c.id_cab}>{c.nom_cab} — {c.type_cab}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        <button className="btn-create-premium" onClick={() => setShowCreateModal(true)}>
+          <FiPlus /> Nouvelle Réunion
+        </button>
+      </div>
+
       {/* ── KPIs ── */}
-      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-        <div className="stat-card blue">
-          <div className="stat-icon-wrapper">
-            <FiCalendar size={24} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-value">{totalMeetings}</div>
-            <div className="stat-label">Total Sessions</div>
-          </div>
-        </div>
-        <div className="stat-card purple">
-          <div className="stat-icon-wrapper">
-            <FiClock size={24} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-value">{upcoming}</div>
-            <div className="stat-label">À venir</div>
-          </div>
-        </div>
-        <div className="stat-card green">
-          <div className="stat-icon-wrapper">
-            <FiLayers size={24} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-value">{cabs.length}</div>
-            <div className="stat-label">Comités Actifs</div>
-          </div>
-        </div>
+      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+        <StatCard
+          title="Total Sessions"
+          value={meetings.length}
+          icon={<FiCalendar />}
+          color="blue"
+        />
+        <StatCard
+          title="À venir"
+          value={meetings.filter(m => new Date(m.date_reunion) >= new Date()).length}
+          icon={<FiClock />}
+          color="purple"
+        />
+        <StatCard
+          title="Comités Actifs"
+          value={cabs.length}
+          icon={<FiShield />}
+          color="green"
+        />
       </div>
 
       {/* ── LAYOUT ── */}
@@ -552,7 +547,7 @@ const CabMeetings = () => {
                                 return (
                                   <div key={u.id_user} className="cm-vd-row">
                                     <div className="cm-vd-user">
-                                      <div className="cm-vd-avatar">{(u.prenom_user || '?')[0]}</div>
+                                    <Avatar prenom={u.prenom_user} nom={u.nom_user} size={30} radius="8px" />
                                       <div className="cm-vd-info">
                                         <span className="cm-vd-name">{u.prenom_user} {u.nom_user}</span>
                                         <span className="cm-vd-role">{m.role === 'PRESIDENT' ? 'Président' : 'Membre'}</span>
@@ -611,7 +606,7 @@ const CabMeetings = () => {
                                 await api.post(`/cab/${selectedCab.id_cab}/membres`, { id_user: uid });
                                 fetchAll();
                               } catch (err) {
-                                alert(err?.error?.message || 'Erreur lors de l\'ajout au comité');
+                                setToast({ msg: err?.error?.message || 'Erreur lors de l\'ajout au comité', type: 'error' });
                               } finally {
                                 setPartLoading(false);
                               }
@@ -633,7 +628,7 @@ const CabMeetings = () => {
                           const isPres = m.role === 'PRESIDENT';
                           return (
                             <div key={u.id_user} className={`cm-member-badge-card ${isPres ? 'pres' : ''}`}>
-                              <div className="cm-mbc-avatar">{(u.prenom_user || '?')[0]}</div>
+                              <Avatar prenom={u.prenom_user} nom={u.nom_user} size={32} radius="8px" />
                               <div className="cm-mbc-body">
                                 <span className="cm-mbc-name">{u.prenom_user} {u.nom_user}</span>
                                 <span className="cm-mbc-role">{isPres ? 'Président' : 'Membre'}</span>
@@ -642,11 +637,18 @@ const CabMeetings = () => {
                                 <button 
                                   className="cm-mbc-remove" 
                                   onClick={async () => {
-                                    if(!window.confirm(`Retirer ${u.prenom_user} du comité CAB ?`)) return;
-                                    try {
-                                      await api.delete(`/cab/${selectedCab.id_cab}/membres/${u.id_user}`);
-                                      fetchAll();
-                                    } catch (err) { alert('Erreur lors du retrait'); }
+                                    setConfirmDel({
+                                      title: 'Retirer du comité',
+                                      message: `Voulez-vous vraiment retirer ${u.prenom_user} du comité CAB ?`,
+                                      onConfirm: async () => {
+                                        try {
+                                          await api.delete(`/cab/${selectedCab.id_cab}/membres/${u.id_user}`);
+                                          fetchAll();
+                                          setToast({ msg: 'Membre retiré avec succès.', type: 'success' });
+                                        } catch (err) { setToast({ msg: 'Erreur lors du retrait.', type: 'error' }); }
+                                        finally { setConfirmDel(null); }
+                                      }
+                                    });
                                   }}
                                 >
                                   <FiTrash2 size={14} />
@@ -696,7 +698,7 @@ const CabMeetings = () => {
                               const uid = p.utilisateur?.id_user || p.id_user;
                               return (
                                 <div key={uid} className="cm-part-tag">
-                                  <div className="cm-pt-avatar">{(p.utilisateur?.prenom_user || p.prenom_user || '?')[0]}</div>
+                                  <Avatar prenom={p.utilisateur?.prenom_user || p.prenom_user} nom={p.utilisateur?.nom_user || p.nom_user} size={30} radius="8px" />
                                   <div className="cm-pt-info">
                                     <span className="cm-pt-name">{p.utilisateur?.prenom_user || p.prenom_user} {p.utilisateur?.nom_user || p.nom_user}</span>
                                     <span className="cm-pt-email">{p.utilisateur?.email_user || p.email_user}</span>

@@ -1,337 +1,439 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  FiSearch, FiLayers, FiClock, FiInfo, FiActivity, FiX, FiFileText, FiCheckCircle, FiEdit2, FiXCircle, FiExternalLink, FiArrowRight, FiRefreshCw
+  FiSearch, FiLayers, FiClock, FiInfo, FiActivity, FiX, FiFileText, FiCheckCircle, FiEdit2, FiXCircle, 
+  FiExternalLink, FiArrowRight, FiRefreshCw, FiSend, FiFilter, FiUser, FiZap, FiTrash2, FiAlertTriangle, 
+  FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight, FiClipboard, FiCalendar, FiFlag
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
 import rfcService from '../../services/rfcService';
+import Toast from '../../components/common/Toast';
+import Badge from '../../components/common/Badge';
+import Avatar from '../../components/common/Avatar';
+import InlineEditableBadge from '../../components/common/InlineEditableBadge';
 import './InquiryHub.css';
+import '../changemanager/RfcManagement.css'; // On importe le CSS de l'admin pour avoir les mêmes classes
 
 const InquiryHub = () => {
-  const navigate = useNavigate();
   const [rfcs, setRfcs] = useState([]);
-  const [changements, setChangements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('ALL');
   const [selectedItem, setSelectedItem] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const [statuses, setStatuses] = useState([]);
   const [environnements, setEnvironnements] = useState([]);
   const [rfcTypes, setRfcTypes] = useState([]);
+  const [priorities, setPriorities] = useState([]);
 
+  // États du formulaire de triage
   const [selectedType, setSelectedType] = useState('');
   const [selectedEnv, setSelectedEnv] = useState('');
+  const [selectedPriority, setSelectedPriority] = useState('');
   const [analysis, setAnalysis] = useState('');
 
-  useEffect(() => {
-    fetchData();
-    fetchReferenceData();
-  }, []);
+  const [kpiFilter, setKpiFilter] = useState('SOUMIS');
+  const [filterType, setFilterType] = useState('');
+  const [filterDemandeur, setFilterDemandeur] = useState('');
+  const [filterEnv, setFilterEnv] = useState('');
 
-  const fetchData = async () => {
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const rfcsPromise = rfcService.getAllRfcs().catch(err => {
-        console.error('RFC Fetch Error:', err);
-        return [];
-      });
-      const chgsPromise = api.get('/changements').catch(err => {
-        console.error('CHG Fetch Error:', err);
-        return [];
-      });
-
-      const [allRfcs, allChgs] = await Promise.all([rfcsPromise, chgsPromise]);
-      
-      setRfcs(Array.isArray(allRfcs) ? allRfcs : []);
-      const chgData = allChgs?.data?.changements || allChgs?.changements || (Array.isArray(allChgs) ? allChgs : []);
-      setChangements(chgData);
+      const data = await rfcService.getAllRfcs();
+      setRfcs(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Inquiry Hub Critical Fetch Error:', error);
+      console.error('Inquiry Hub Fetch Error:', error);
+      showToast('Erreur lors de la récupération des données.', 'error');
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+    const fetchReferenceData = async () => {
+      try {
+        const [stats, envs, types, prios] = await Promise.all([
+          rfcService.getStatuts('RFC'),
+          rfcService.getEnvironnements(),
+          rfcService.getTypesRfc(),
+          rfcService.getPriorites()
+        ]);
+        setStatuses(stats);
+        setEnvironnements(envs);
+        setRfcTypes(types);
+        setPriorities(prios);
+      } catch (e) { console.error('Ref data error:', e); }
+    };
+    fetchReferenceData();
+  }, [fetchData]);
+
+  const handleOpenTriage = (item) => {
+    setSelectedItem(item);
+    setSelectedType(item.id_type || item.typeRfc?.id_type || '');
+    setSelectedEnv(item.id_env || item.environnement?.id_env || '');
+    setSelectedPriority(item.id_priorite || item.priorite?.id_priorite || '');
+    setAnalysis('');
   };
 
-
-  const fetchReferenceData = async () => {
-    try {
-      const [stats, envs, types] = await Promise.all([
-        rfcService.getStatuts('RFC'),
-        rfcService.getEnvironnements(),
-        rfcService.getTypesRfc()
-      ]);
-      setStatuses(stats);
-      setEnvironnements(envs);
-      setRfcTypes(types);
-    } catch (e) { console.error('Ref data error:', e); }
-  };
-
-  const handleTriageDecision = async (statusCode) => {
-    if (!selectedItem || selectedItem.dataType !== 'RFC') return;
-    if ((statusCode === 'A_COMPLETER' || statusCode === 'REFUSEE_SD') && !analysis.trim()) {
-      return alert('Un commentaire est requis pour cette action.');
-    }
-    if (statusCode === 'ACCEPTEE_SD' && (!selectedType || !selectedEnv)) {
-      return alert('Vous devez classifier le Type et assigner l\'Environnement avant d\'accepter.');
-    }
-
-    const targetStatus = statuses.find(s => s.code_statut === statusCode);
-    if (!targetStatus) return alert('Statut introuvable.');
+  const handlePreevaluer = async () => {
+    if (!selectedItem) return;
+    const preApprouvedStatus = statuses.find(s => s.code_statut === 'PRE_APPROUVEE');
+    if (!preApprouvedStatus) { showToast('Statut PRE_APPROUVEE introuvable.', 'error'); return; }
 
     setSubmitting(true);
     try {
-      // 1. Mettre à jour le type et l'environnement de la RFC
-      if (statusCode === 'EVALUEE') {
-        await api.put(`/rfc/${selectedItem.id_rfc}`, {
-          id_type: selectedType,
-          impacte_estimee: "Environnement ciblé: " + (environnements.find(e => e.id_env === selectedEnv)?.nom_env || 'Non spécifié')
-        });
-      }
+      await api.put(`/rfc/${selectedItem.id_rfc}`, {
+        id_type: selectedType || undefined,
+        id_env: selectedEnv || undefined,
+        id_priorite: selectedPriority || undefined,
+      });
 
-      // 2. Transmettre au statut suivant
-      const targetStatus = statuses.find(s => s.code_statut === statusCode);
-      if (!targetStatus) return alert('Statut introuvable.');
+      await api.patch(`/rfc/${selectedItem.id_rfc}/status`, {
+        id_statut: preApprouvedStatus.id_statut,
+        commentaire: analysis.trim() || 'Pré-évaluation Service Desk — Transfert au Change Manager.'
+      });
 
-      const res = await api.patch(`/rfc/${selectedItem.id_rfc}/status`, {
+      showToast('✅ RFC pré-évaluée et transférée au Change Manager avec succès !', 'success');
+      setSelectedItem(null);
+      fetchData();
+    } catch (error) {
+      showToast('Erreur lors de la pré-évaluation.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleTriageDecision = async (statusCode) => {
+    if (!selectedItem) return;
+    const targetStatus = statuses.find(s => s.code_statut === statusCode);
+    if (!targetStatus) { showToast('Statut introuvable.', 'error'); return; }
+
+    setSubmitting(true);
+    try {
+      await api.patch(`/rfc/${selectedItem.id_rfc}/status`, {
         id_statut: targetStatus.id_statut,
         commentaire: analysis.trim() || undefined
       });
-      
-      if (res.success) {
-         alert('RFC triée et classifiée avec succès.');
-
-        setSelectedItem(null);
-        fetchData();
-        setAnalysis('');
-        setSelectedType('');
-        setSelectedEnv('');
-      }
-    } catch (error) { 
-      alert('Erreur lors du traitement du triage.'); 
-      console.error(error);
-    }
-    finally { setSubmitting(false); }
-  };
-
-  const getStatusLabel = (item) => {
-    if (item.dataType === 'RFC' && item.statut?.code_statut === 'BROUILLON') {
-      return 'Soumise';
-    }
-    return item.statut?.libelle || 'Inconnu';
-  };
-
-  const getStatusClass = (code) => {
-    switch (code) {
-      case 'SOUMIS':      return 'status-warning';
-      case 'BROUILLON':   return 'status-warning'; // Display as Soumise
-      case 'A_COMPLETER': return 'status-warning';
-      case 'ACCEPTEE_SD': return 'status-working';
-      case 'REFUSEE_SD':  return 'status-danger';
-      case 'EVALUEE':     return 'status-working';
-      case 'APPROUVEE':   return 'status-success';
-      case 'REJETEE':     return 'status-danger';
-      case 'CLOTUREE':    return 'status-neutral';
-      default:            return 'status-neutral';
+      showToast(`RFC mise à jour vers le statut ${statusCode} avec succès.`, 'success');
+      setSelectedItem(null);
+      fetchData();
+    } catch (error) {
+      showToast('Erreur lors du traitement du triage.', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const filteredData = [
-    ...(filterType === 'ALL' || filterType === 'RFC' ? (rfcs || []).map(r => ({ 
-      ...r, 
-      typeLabel: 'RFC', 
-      dataType: 'RFC', 
-      titre_rfc: r.titre_rfc || r.titre, 
-      code_rfc: r.code_rfc || r.id_rfc 
-    })) : []),
-    ...(filterType === 'ALL' || filterType === 'CHG' ? (changements || []).map(c => ({ 
-      ...c, 
-      typeLabel: 'CHG', 
-      dataType: 'CHG', 
-      titre_rfc: c.rfc?.titre_rfc || c.titre_changement, 
-      code_rfc: c.rfc?.code_rfc || c.code_changement 
-    })) : [])
-  ].filter(item => {
+  const isLate = (rfc) => {
+    if (!rfc.date_souhaitee) return false;
+    if (['APPROUVEE', 'CLOTUREE', 'REJETEE'].includes(rfc.statut?.code_statut)) return false;
+    return new Date(rfc.date_souhaitee) < new Date();
+  };
 
+  const filteredData = rfcs.filter(r => {
+    const q = searchTerm.toLowerCase();
+    const matchSearch = !searchTerm ||
+      r.titre_rfc?.toLowerCase().includes(q) ||
+      r.code_rfc?.toLowerCase().includes(q) ||
+      `${r.demandeur?.prenom_user} ${r.demandeur?.nom_user}`.toLowerCase().includes(q);
 
-    const search = searchTerm.toLowerCase();
-    const code = (item.code_rfc || '').toLowerCase();
-    const title = (item.titre_rfc || '').toLowerCase();
-    return code.includes(search) || title.includes(search);
+    const matchStatus = r.statut?.code_statut === 'SOUMIS';
+    const matchType = !filterType || r.typeRfc?.id_type === filterType || r.id_type === filterType;
+    const matchEnv = !filterEnv || r.environnement?.id_env === filterEnv || r.id_env === filterEnv;
+    const matchDemandeur = !filterDemandeur ||
+      `${r.demandeur?.prenom_user} ${r.demandeur?.nom_user}`.toLowerCase().includes(filterDemandeur.toLowerCase());
+
+    return matchSearch && matchStatus && matchType && matchEnv && matchDemandeur;
   });
 
+  const demandeurs = useMemo(() => {
+    const seen = new Set();
+    return rfcs
+      .filter(r => r.statut?.code_statut === 'SOUMIS')
+      .filter(r => {
+        const key = `${r.demandeur?.prenom_user} ${r.demandeur?.nom_user}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(r => ({ label: `${r.demandeur?.prenom_user} ${r.demandeur?.nom_user}`, value: `${r.demandeur?.prenom_user} ${r.demandeur?.nom_user}` }));
+  }, [rfcs]);
+
+  const kpiBacklog  = rfcs.filter(r => !['CLOTUREE', 'ANNULEE'].includes(r.statut?.code_statut)).length;
+  const kpiSoumis   = rfcs.filter(r => r.statut?.code_statut === 'SOUMIS').length;
+  const kpiLate     = rfcs.filter(r => isLate(r)).length;
+  const kpiApprouve = rfcs.filter(r => r.statut?.code_statut === 'APPROUVEE').length;
+
+  // Styles identiques à l'admin
+  const thStyle = {
+    padding: '12px 16px', 
+    fontSize: '0.7rem', 
+    fontWeight: 700, 
+    textTransform: 'uppercase', 
+    letterSpacing: '0.07em', 
+    color: '#64748b', 
+    textAlign: 'left', 
+    whiteSpace: 'nowrap'
+  };
+
+  const tdStyle = {
+    padding: '14px 16px', 
+    fontSize: '0.875rem', 
+    color: '#334155', 
+    verticalAlign: 'middle'
+  };
+
   return (
-    <div className="inquiry-hub">
-      <div className="premium-header-card" style={{ marginBottom: '1rem' }}>
-        <div className="premium-header-left">
-          <div className="premium-header-icon" style={{ background: '#f5f3ff', color: '#7c3aed', borderColor: '#ddd6fe' }}><FiLayers /></div>
-          <div className="premium-header-text">
-            <h1>Triage des Requêtes</h1>
-            <p>Vérifiez et qualifiez les nouvelles demandes soumises par les demandeurs.</p>
-          </div>
+    <div className="rfc-mgr-page" style={{ padding: '1.5rem', background: '#f8fafc', minHeight: '100vh' }}>
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+      
+      {/* ── HEADER IDENTIQUE ADMIN ─────────────────────────────────────────── */}
+      <div className="rfc-mgr-header">
+        <div>
+          <h1><FiClipboard /> Service Desk Hub</h1>
+          <p>Supervision globale et triage des demandes de changement ITIL</p>
         </div>
-        <div className="premium-header-actions">
-           <button 
-             className="btn-create-premium" 
-             onClick={fetchData}
-             style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', boxShadow: '0 4px 6px -1px rgba(245, 158, 11, 0.2)' }}
-           >
-             <FiRefreshCw /> Actualiser
-           </button>
+        <div className="header-date-badge">
+          <FiCalendar /> {new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)' }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <FiSearch size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}/>
-          <input 
-            type="text" 
-            placeholder="Rechercher par référence ou titre..." 
-            value={searchTerm} 
-            onChange={e => setSearchTerm(e.target.value)} 
-            style={{ width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.4rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', outline: 'none' }}
-          />
+
+
+      {/* ── TOOLBAR ────────────────────────── */}
+      <div className="rfc-mgr-toolbar">
+        <div className="search-wrapper">
+          <FiSearch className="search-ico" />
+          <input type="text" placeholder="Rechercher par titre, code ou demandeur..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
-        <select 
-          value={filterType} 
-          onChange={e => setFilterType(e.target.value)}
-          style={{ padding: '0.65rem 1rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: '600', fontSize: '0.85rem', minWidth: '160px' }}
-        >
-          <option value="ALL">Tous les types</option>
-          <option value="RFC">RFC uniquement</option>
-          <option value="CHG">Changements uniquement</option>
-        </select>
+        <div className="toolbar-filters">
+          <select value={filterType} onChange={e => setFilterType(e.target.value)} className="premium-select">
+            <option value="">Tous les types</option>
+            {rfcTypes.map(t => <option key={t.id_type} value={t.id_type}>{t.type}</option>)}
+          </select>
+          <select value={filterDemandeur} onChange={e => setFilterDemandeur(e.target.value)} className="premium-select">
+            <option value="">Tous les demandeurs</option>
+            {demandeurs.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+          </select>
+          <select value={filterEnv} onChange={e => setFilterEnv(e.target.value)} className="premium-select">
+            <option value="">Tous les environnements</option>
+            {environnements.map(env => <option key={env.id_env} value={env.id_env}>{env.nom_env}</option>)}
+          </select>
+          <button className="refresh-btn" onClick={fetchData} title="Actualiser"><FiRefreshCw /></button>
+        </div>
       </div>
 
-      <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+
+      {/* ── TABLE ────────────────────────────────── */}
+      <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: '1000px', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                <th style={{ padding: '1rem 1.25rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Type</th>
-                <th style={{ padding: '1rem 1.25rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Référence</th>
-                <th style={{ padding: '1rem 1.25rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Titre de la Demande</th>
-                <th style={{ padding: '1rem 1.25rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Demandeur</th>
-                <th style={{ padding: '1rem 1.25rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Statut</th>
-                <th style={{ padding: '1rem 1.25rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Date</th>
-                <th style={{ padding: '1rem 1.25rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={{ position: 'sticky', left: 0, zIndex: 3, background: '#f8fafc', padding: '12px 16px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#64748b', textAlign: 'left', whiteSpace: 'nowrap', borderRight: '1px solid #e2e8f0' }}>
+                  RFC & Code
+                </th>
+                <th style={thStyle}>Demandeur</th>
+                <th style={thStyle}>Type</th>
+                <th style={thStyle}>Priorité</th>
+                <th style={thStyle}>Env</th>
+                <th style={{ ...thStyle, textAlign: 'center' }}>Statut</th>
+                <th style={{ position: 'sticky', right: 0, zIndex: 3, background: '#f8fafc', padding: '12px 16px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#64748b', textAlign: 'right', whiteSpace: 'nowrap', borderLeft: '1px solid #e2e8f0' }}>
+                  Actions
+                </th>
               </tr>
             </thead>
+
             <tbody>
               {loading ? (
-                 <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Chargement des données...</td></tr>
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>Chargement des RFCs...</td>
+                </tr>
               ) : filteredData.length === 0 ? (
-                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>Aucune requête en attente.</td></tr>
-              ) : filteredData.map((item, idx) => (
-                <tr key={idx} onClick={() => setSelectedItem(item)} style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', background: idx % 2 === 0 ? 'white' : '#fafbfc', transition: 'background 0.2s' }} className="hover-row">
-                  <td style={{ padding: '1rem 1.25rem' }}><span className={`item-badge ${item.dataType}`}>{item.typeLabel}</span></td>
-                  <td style={{ padding: '1rem 1.25rem', fontWeight: '700', color: '#0f172a' }}>{item.code_rfc || item.code_changement}</td>
-                  <td style={{ padding: '1rem 1.25rem', fontWeight: '600', color: '#1e293b' }}>{item.titre_rfc || item.titre_changement}</td>
-                  <td style={{ padding: '1rem 1.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '800' }}>
-                        {item.demandeur?.prenom_user?.[0]}{item.demandeur?.nom_user?.[0]}
-                      </div>
-                      <span style={{ fontSize: '0.85rem', fontWeight: '500', color: '#475569' }}>
-                        {item.demandeur?.prenom_user} {item.demandeur?.nom_user}
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                    <FiFileText size={40} style={{ display: 'block', margin: '0 auto 1rem', opacity: 0.3 }} />
+                    Aucune RFC trouvée.
+                  </td>
+                </tr>
+              ) : filteredData.map((rfc) => (
+                <tr key={rfc.id_rfc} onClick={() => handleOpenTriage(rfc)}
+                  style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', background: '#ffffff', transition: 'background 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}
+                >
+                  {/* 1. RFC titre + code */}
+                  <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'inherit', padding: '14px 16px', borderRight: '1px solid #f1f5f9' }}>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.82rem', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '3px' }} title={rfc.titre_rfc}>
+                      {rfc.titre_rfc}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#3b82f6', fontWeight: 600 }}>#{rfc.code_rfc}</div>
+                  </td>
+
+                  {/* 2. Demandeur */}
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Avatar 
+                        prenom={rfc.demandeur?.prenom_user} 
+                        nom={rfc.demandeur?.nom_user} 
+                        size={34} 
+                        radius="10px" 
+                      />
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>
+                        {`${rfc.demandeur?.prenom_user || '—'} ${rfc.demandeur?.nom_user || ''}`.trim()}
                       </span>
                     </div>
                   </td>
-                  <td style={{ padding: '1rem 1.25rem' }}>
-                    <span className={`status-pill ${getStatusClass(item.statut?.code_statut)}`}>
-                      {getStatusLabel(item)}
+
+                  {/* 3. Type */}
+                  <td style={tdStyle}>
+                    <span style={{ padding: '4px 10px', borderRadius: '6px', background: '#f1f5f9', color: '#475569', fontSize: '0.75rem', fontWeight: 600 }}>
+                      {rfc.typeRfc?.type || '—'}
                     </span>
                   </td>
-                  <td style={{ padding: '1rem 1.25rem', color: '#64748b', fontSize: '0.85rem' }}>{new Date(item.date_creation || item.createdAt).toLocaleDateString('fr-FR')}</td>
-                  <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}><button className="sd-view-btn" style={{ padding: '6px', borderRadius: '8px' }}><FiArrowRight /></button></td>
+
+                  {/* 4. Priorité */}
+                  <td style={tdStyle}>
+                    {(() => {
+                        const pId = rfc.id_priorite || rfc.priorite?.id_priorite;
+                        const p = priorities.find(pr => String(pr.id_priorite) === String(pId));
+                        const label = p?.libelle?.toUpperCase() || '—';
+                        
+                        const colors = {
+                          'FAIBLE':   { bg: '#f0fdf4', color: '#16a34a', border: '#dcfce7' },
+                          'BASSE':    { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
+                          'MOYENNE':  { bg: '#fefce8', color: '#a16207', border: '#fef9c3' },
+                          'NORMAL':   { bg: '#fefce8', color: '#a16207', border: '#fef9c3' },
+                          'HAUTE':    { bg: '#fff7ed', color: '#ea580c', border: '#ffedd5' },
+                          'URGENT':   { bg: '#fef2f2', color: '#dc2626', border: '#fee2e2' },
+                          'CRITIQUE': { bg: '#fef2f2', color: '#dc2626', border: '#fee2e2' },
+                          'P0':       { bg: '#fef2f2', color: '#dc2626', border: '#fee2e2' },
+                          'P1':       { bg: '#fef2f2', color: '#dc2626', border: '#fee2e2' },
+                        };
+                        const style = colors[label] || { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' };
+                        return (
+                          <span style={{ padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '700', background: style.bg, color: style.color, border: `1px solid ${style.border}` }}>
+                            {p?.libelle || '—'}
+                          </span>
+                        );
+                      })()}
+                  </td>
+
+                  {/* 5. Env */}
+                  <td style={tdStyle}>
+                    <span style={{ padding: '4px 10px', borderRadius: '6px', background: '#f8fafc', color: '#475569', fontSize: '0.75rem', fontWeight: 600, border: '1px solid #e2e8f0' }}>
+                      {rfc.environnement?.nom_env || environnements.find(e => String(e.id_env) === String(rfc.id_env))?.nom_env || '—'}
+                    </span>
+                  </td>
+
+                  {/* 6. Statut */}
+                  <td style={{ ...tdStyle, textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <Badge variant={
+                        rfc.statut?.code_statut === 'APPROUVEE' || rfc.statut?.code_statut === 'CLOTUREE' ? 'success' :
+                        rfc.statut?.code_statut === 'REJETEE' ? 'danger' :
+                        ['PLANIFIEE', 'EN_COURS'].includes(rfc.statut?.code_statut) ? 'primary' : 'warning'
+                      }>
+                        {rfc.statut?.libelle || '—'}
+                      </Badge>
+                    </div>
+                  </td>
+
+                  {/* 7. Actions */}
+                  <td style={{ position: 'sticky', right: 0, zIndex: 2, background: 'inherit', padding: '14px 16px', borderLeft: '1px solid #f1f5f9', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleOpenTriage(rfc); }}
+                        style={{ padding: '6px 12px', borderRadius: '6px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#dbeafe'}
+                        onMouseLeave={e => e.currentTarget.style.background = '#eff6ff'}
+                        title="Qualifier la demande"
+                      >
+                        <FiZap /> Qualifier
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
-         </table>
-      </div>
+          </table>
+        </div>
 
+      {/* ── MODAL DE TRIAGE (Transparent & Scrollable) ───────────────────────── */}
       {selectedItem && (
-        <div className="modal-backdrop-cab" onClick={() => setSelectedItem(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div className="modal-box-cab" onClick={e => e.stopPropagation()} style={{ width: '850px', maxWidth: '100%', background: 'white', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
-            <div className="modal-top-rfc-style" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '1.5rem', borderBottom: '1px solid #e2e8f0', background: '#fff' }}>
-              <div className="rfc-style-icon-wrapper tm-icon-success" style={{ width: '56px', height: '56px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}><FiCheckCircle /></div>
-              <div className="rfc-style-header-text" style={{ flex: 1 }}>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>Triage & Qualification</h2>
-                <div className="rfc-style-subtitle" style={{ color: '#64748b', fontSize: '0.85rem' }}>{selectedItem.dataType} #{selectedItem.code_rfc || selectedItem.code_changement} • Demandeur: {selectedItem.demandeur?.prenom_user} {selectedItem.demandeur?.nom_user}</div>
+        <div className="modal-backdrop" onClick={() => setSelectedItem(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ width: '750px', maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-top modal-top-approve">
+              <div className="modal-ico"><FiZap /></div>
+              <div style={{ flex: 1 }}>
+                <h2>Qualification Service Desk</h2>
+                <p>Analyse et préparation de la RFC avant transfert au Change Manager</p>
               </div>
-              <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px' }}><FiX size={24} /></button>
+              <button onClick={() => setSelectedItem(null)} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}><FiX size={24} /></button>
             </div>
             
-            <div className="modal-body-rfc-style" style={{ padding: '2rem', maxHeight: '75vh', overflowY: 'auto', background: '#f8fafc' }}>
-              <div style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', marginBottom: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Objet de la demande</div>
-                <div style={{ fontWeight: '800', fontSize: '1.2rem', color: '#0f172a', marginBottom: '1rem' }}>{selectedItem.titre_rfc || selectedItem.titre_changement}</div>
-                <div style={{ fontSize: '0.9rem', color: '#334155', lineHeight: '1.6', background: '#f1f5f9', padding: '1rem', borderRadius: '12px' }}>{selectedItem.description}</div>
+            <div className="modal-body" style={{ overflowY: 'auto' }}>
+              <div style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.5)', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                <label>Détails de la demande</label>
+                <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px' }}>{selectedItem.titre_rfc}</div>
+                <div style={{ fontSize: '0.9rem', color: '#475569', lineHeight: '1.5' }}>{selectedItem.description}</div>
               </div>
 
-              {selectedItem.dataType === 'RFC' && ['SOUMIS', 'BROUILLON'].includes(selectedItem.statut?.code_statut) ? (
-                <div className="action-form" style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                  <div className="tm-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                    <div className="form-group-cab">
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '8px', color: '#475569', textTransform: 'uppercase' }}>Classification RFC <span className="tm-required">*</span></label>
-                      <select value={selectedType} onChange={e => setSelectedType(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem', outline: 'none' }}>
-                        <option value="">Sélectionner un Type...</option>
-                        {rfcTypes.map(t => <option key={t.id_type} value={t.id_type}>{t.type}</option>)}
-                      </select>
-                    </div>
-                    <div className="form-group-cab">
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '8px', color: '#475569', textTransform: 'uppercase' }}>Environnement Cible <span className="tm-required">*</span></label>
-                      <select value={selectedEnv} onChange={e => setSelectedEnv(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem', outline: 'none' }}>
-                        <option value="">Cibler un environnement...</option>
-                        {environnements.map(env => <option key={env.id_env} value={env.id_env}>{env.nom_env}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', marginBottom: '8px', color: '#475569', textTransform: 'uppercase' }}>Analyse & Commentaires de Triage</label>
-                    <textarea 
-                      placeholder="Analyse préliminaire ou motif du rejet..."
-                      value={analysis} 
-                      onChange={e => setAnalysis(e.target.value)} 
-                      style={{ width: '100%', height: '100px', padding: '12px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', resize: 'vertical', fontSize: '0.95rem', outline: 'none' }} 
-                    />
-                  </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label>Type de Changement</label>
+                  <select value={selectedType} onChange={e => setSelectedType(e.target.value)}>
+                    <option value="">Sélectionner...</option>
+                    {rfcTypes.map(t => <option key={t.id_type} value={t.id_type}>{t.type}</option>)}
+                  </select>
                 </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '2rem', background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                   <p style={{ margin: 0, color: '#64748b', fontWeight: 600 }}>Cette demande est en cours de traitement ou déjà qualifiée.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label>Priorité Assignée</label>
+                  <select value={selectedPriority} onChange={e => setSelectedPriority(e.target.value)}>
+                    <option value="">Sélectionner...</option>
+                    {priorities.map(p => <option key={p.id_priorite} value={p.id_priorite}>{p.libelle}</option>)}
+                  </select>
                 </div>
-              )}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label>Environnement Impacté</label>
+                <select value={selectedEnv} onChange={e => setSelectedEnv(e.target.value)}>
+                  <option value="">Sélectionner...</option>
+                  {environnements.map(env => <option key={env.id_env} value={env.id_env}>{env.nom_env}</option>)}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1.25rem' }}>
+                <label>Analyse & Commentaires de triage</label>
+                <textarea 
+                  value={analysis} 
+                  onChange={e => setAnalysis(e.target.value)} 
+                  placeholder="Notes pour le Change Manager..."
+                  rows={4}
+                />
+              </div>
             </div>
 
-            <div className="modal-footer-rfc-style" style={{ padding: '1.25rem 2rem', background: '#fff', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-              <button onClick={() => setSelectedItem(null)} style={{ padding: '0.75rem 1.5rem', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: 'white', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
-              {selectedItem.dataType === 'RFC' && ['SOUMIS', 'BROUILLON'].includes(selectedItem.statut?.code_statut) && (
-                <>
-                  <button 
-                    onClick={() => handleTriageDecision('REJETEE')} 
-                    disabled={submitting} 
-                    style={{ padding: '0.75rem 1.5rem', borderRadius: '10px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fee2e2', fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    Rejeter
-                  </button>
-                  <button 
-                    onClick={() => handleTriageDecision('EVALUEE')} 
-                    disabled={submitting} 
-                    style={{ padding: '0.75rem 1.5rem', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}
-                  >
-                    Accepter & Transférer
-                  </button>
-                </>
-              )}
+            <div className="modal-footer">
+              <button onClick={() => handleTriageDecision('REJETEE')} disabled={submitting} className="modal-btn modal-btn-reject">
+                <FiXCircle /> Rejeter
+              </button>
+              <button onClick={handlePreevaluer} disabled={submitting} className="modal-btn" style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: 'white' }}>
+                <FiSend /> Pré-évaluer & Transférer
+              </button>
             </div>
           </div>
         </div>
       )}
-
-
-  </div>
+    </div>
   );
 };
 

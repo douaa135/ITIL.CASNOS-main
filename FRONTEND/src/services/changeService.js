@@ -4,7 +4,15 @@
 
 import api from '../api/axiosClient';
 
-const extract = (result, key, fallback = []) => result?.data?.[key] ?? fallback;
+const extract = (result, key, fallback = []) => {
+  if (!result) return fallback;
+  if (Array.isArray(result)) return result;
+  if (result.data && result.data[key]) return result.data[key];
+  if (result[key]) return result[key];
+  if (result.data && Array.isArray(result.data)) return result.data;
+  if (result.data && result.data.data) return result.data.data;
+  return fallback;
+};
 
 // ── Changements ───────────────────────────────────────────────
 

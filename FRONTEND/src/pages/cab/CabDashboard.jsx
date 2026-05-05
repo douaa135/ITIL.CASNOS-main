@@ -4,10 +4,11 @@ import {
   FiUsers, FiCalendar, FiClock, FiFileText, FiTrendingUp,
   FiCheckCircle, FiXCircle, FiAlertTriangle, FiBarChart2,
   FiChevronRight, FiRefreshCw, FiShield, FiTarget, FiActivity,
-  FiSearch, FiX, FiEdit2, FiTrash2
+  FiSearch, FiX, FiEdit2, FiTrash2, FiPlus
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
 import rfcService from '../../services/rfcService';
+import StatCard from '../../components/common/StatCard';
 import './dashboard.css';
 
 const CabDashboard = () => {
@@ -56,7 +57,7 @@ const CabDashboard = () => {
       setChangeManagers(changeManagersList);
 
       if (cabsRes.success) {
-        const cabList = cabsRes.cabs || [];
+        const cabList = cabsRes.data?.cabs || cabsRes.cabs || [];
         setCabs(cabList);
 
         if (cabList.length > 0) {
@@ -66,7 +67,7 @@ const CabDashboard = () => {
           // Charger les réunions du CAB
           const reunionsRes = await api.get(`/cab/${activeCabData.id_cab}/reunions`);
           if (reunionsRes.success) {
-            const reunions = reunionsRes.reunions || [];
+            const reunions = reunionsRes.data?.reunions || reunionsRes.reunions || [];
             setStats(prev => ({
               ...prev,
               totalReunions: reunions.length,
@@ -94,7 +95,7 @@ const CabDashboard = () => {
 
       // RFCs approuvées en attente d'évaluation CAB
       if (rfcsRes.success) {
-        const approvedRfcs = (rfcsRes.rfcs || []).filter(rfc =>
+        const approvedRfcs = (rfcsRes.data?.rfcs || rfcsRes.rfcs || []).filter(rfc =>
           rfc.statut?.code_statut === 'APPROUVEE'
         );
         setStats(prev => ({
@@ -114,7 +115,7 @@ const CabDashboard = () => {
     try {
       const res = await api.get(`/cab/${cabId}/membres`);
       if (res.success) {
-        setCabMembers(res.membres || []);
+        setCabMembers(res.data?.membres || res.membres || []);
       }
     } catch (err) {
       console.error('Fetch CAB members error:', err);
@@ -202,18 +203,6 @@ const CabDashboard = () => {
     }
   };
 
-  const StatCard = ({ icon: Icon, title, value, subtitle, color = '#6366f1' }) => (
-    <div className="stat-card" style={{ '--card-color': color }}>
-      <div className="stat-icon">
-        <Icon />
-      </div>
-      <div className="stat-content">
-        <div className="stat-value">{value}</div>
-        <div className="stat-title">{title}</div>
-        {subtitle && <div className="stat-subtitle">{subtitle}</div>}
-      </div>
-    </div>
-  );
 
   if (loading) {
     return (
@@ -369,38 +358,33 @@ const CabDashboard = () => {
       )}
 
       {/* Statistiques principales */}
-      <div className="stats-section">
-        <h2><FiBarChart2 /> Métriques Clés</h2>
-        <div className="stats-grid">
-          <StatCard
-            icon={FiCalendar}
-            title="Réunions"
-            value={stats.totalReunions}
-            subtitle="Sessions planifiées"
-            color="#6366f1"
-          />
-          <StatCard
-            icon={FiFileText}
-            title="RFCs en Attente"
-            value={stats.rfcsEnAttente}
-            subtitle="À évaluer"
-            color="#f59e0b"
-          />
-          <StatCard
-            icon={FiUsers}
-            title="Membres Actifs"
-            value={stats.membresActifs}
-            subtitle="Comité CAB"
-            color="#10b981"
-          />
-          <StatCard
-            icon={FiCheckCircle}
-            title="Décisions Récentes"
-            value={stats.decisionsRecentes}
-            subtitle="Ce mois"
-            color="#8b5cf6"
-          />
-        </div>
+      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+        <StatCard
+          title="RFCs en attente"
+          value={stats.rfcsEnAttente}
+          icon={<FiTarget />}
+          color="blue"
+          onClick={() => navigate('/cab/rfcs')}
+        />
+        <StatCard
+          title="Réunions CAB"
+          value={stats.totalReunions}
+          icon={<FiCalendar />}
+          color="purple"
+          onClick={() => navigate('/cab/meetings')}
+        />
+        <StatCard
+          title="Membres actifs"
+          value={stats.membresActifs}
+          icon={<FiUsers />}
+          color="green"
+        />
+        <StatCard
+          title="Décisions"
+          value={stats.decisionsRecentes}
+          icon={<FiCheckCircle />}
+          color="amber"
+        />
       </div>
 
       {/* Table CAB */}

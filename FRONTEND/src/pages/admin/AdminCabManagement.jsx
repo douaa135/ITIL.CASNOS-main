@@ -8,6 +8,8 @@ import api from '../../api/axiosClient';
 import Card from '../../components/common/Card';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import Toast from '../../components/common/Toast';
+import Avatar from '../../components/common/Avatar';
+import StatCard from '../../components/common/StatCard';
 import { useAuth } from '../../context/AuthContext';
 import './AdminCabManagement.css';
 
@@ -36,38 +38,6 @@ const tdStyle = {
   verticalAlign: 'middle',
 };
 
-// ── Avatar initiales ─────────────────────────────────────────
-const AVATAR_COLORS = [
-  { bg: '#dbeafe', color: '#1d4ed8' },
-  { bg: '#d1fae5', color: '#065f46' },
-  { bg: '#fef3c7', color: '#92400e' },
-  { bg: '#ede9fe', color: '#5b21b6' },
-  { bg: '#fce7f3', color: '#9d174d' },
-  { bg: '#e0f2fe', color: '#0369a1' },
-];
-
-const Avatar = ({ prenom = '', nom = '', size = 34, radius = '10px' }) => {
-  const initiales = `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
-  const palette   = AVATAR_COLORS[(prenom.charCodeAt(0) || 0) % AVATAR_COLORS.length];
-  return initiales ? (
-    <div style={{
-      width: size, height: size, borderRadius: radius, flexShrink: 0,
-      background: palette.bg, color: palette.color,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.03em',
-    }}>
-      {initiales}
-    </div>
-  ) : (
-    <div style={{
-      width: size, height: size, borderRadius: radius, flexShrink: 0,
-      background: '#f1f5f9',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <FiUser size={14} color="#94a3b8" />
-    </div>
-  );
-};
 
 // ── Badge type CAB ───────────────────────────────────────────
 const TYPE_COLORS = {
@@ -125,10 +95,10 @@ const AdminCabManagement = () => {
         api.get('/cab').catch(() => ({ cabs: [] })),
         api.get('/users?limit=1000').catch(() => ({ data: { data: [] } })),
       ]);
-      const cabData  = cabRes?.data?.cabs  || cabRes?.cabs  || cabRes?.data  || [];
-      const rawUsers = userRes?.data?.data  || userRes?.data?.users || userRes?.data || userRes?.users || [];
-      setCabs(Array.isArray(cabData)  ? cabData  : []);
-      setUsers(Array.isArray(rawUsers) ? rawUsers : []);
+      const cabData  = cabRes?.data?.cabs  || cabRes?.cabs  || (Array.isArray(cabRes?.data) ? cabRes.data : (Array.isArray(cabRes) ? cabRes : []));
+      const rawUsers = userRes?.data?.data  || userRes?.data?.users || userRes?.data || userRes?.users || (Array.isArray(userRes) ? userRes : []);
+      setCabs(cabData);
+      setUsers(rawUsers);
     } catch (e) {
       console.error('Fetch error', e);
     } finally {
@@ -365,51 +335,35 @@ const tdStyle = {
       </div>
 
       {/* KPI ─────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-        <div 
-          className={`stat-card blue ${filterType === 'ALL' ? 'active-kpi' : ''}`} 
-          style={{ cursor: 'pointer', transition: 'all 0.2s', outline: filterType === 'ALL' ? '2px solid #3b82f6' : 'none' }}
+      <div className="stats-grid" style={{ marginBottom: '2rem' }}>
+        <StatCard
+          title="Total CAB"
+          value={cabs.length}
+          icon={<FiLayers />}
+          color="blue"
           onClick={() => setFilterType('ALL')}
-        >
-          <div className="stat-icon-wrapper"><FiLayers size={24} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{cabs.length}</div>
-            <div className="stat-label">Total CAB</div>
-          </div>
-        </div>
-        <div 
-          className={`stat-card green ${filterType === 'STANDARD' ? 'active-kpi' : ''}`}
-          style={{ cursor: 'pointer', transition: 'all 0.2s', outline: filterType === 'STANDARD' ? '2px solid #22c55e' : 'none' }}
+        />
+        <StatCard
+          title="Standard"
+          value={cabs.filter(c => c.type_cab === 'STANDARD').length}
+          icon={<FiCheckCircle />}
+          color="green"
           onClick={() => setFilterType('STANDARD')}
-        >
-          <div className="stat-icon-wrapper"><FiCheckCircle size={24} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{cabs.filter(c => c.type_cab === 'STANDARD').length}</div>
-            <div className="stat-label">Standard</div>
-          </div>
-        </div>
-        <div 
-          className={`stat-card amber ${filterType === 'NORMAL' ? 'active-kpi' : ''}`}
-          style={{ cursor: 'pointer', transition: 'all 0.2s', outline: filterType === 'NORMAL' ? '2px solid #f59e0b' : 'none' }}
+        />
+        <StatCard
+          title="Normal"
+          value={cabs.filter(c => c.type_cab === 'NORMAL').length}
+          icon={<FiCheckCircle />}
+          color="amber"
           onClick={() => setFilterType('NORMAL')}
-        >
-          <div className="stat-icon-wrapper"><FiCheckCircle size={24} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{cabs.filter(c => c.type_cab === 'NORMAL').length}</div>
-            <div className="stat-label">Normal</div>
-          </div>
-        </div>
-        <div 
-          className={`stat-card purple ${filterType === 'URGENT' ? 'active-kpi' : ''}`}
-          style={{ cursor: 'pointer', transition: 'all 0.2s', outline: filterType === 'URGENT' ? '2px solid #7c3aed' : 'none' }}
+        />
+        <StatCard
+          title="Urgent"
+          value={cabs.filter(c => c.type_cab === 'URGENT').length}
+          icon={<FiClock />}
+          color="purple"
           onClick={() => setFilterType('URGENT')}
-        >
-          <div className="stat-icon-wrapper"><FiClock size={24} /></div>
-          <div className="stat-info">
-            <div className="stat-value">{cabs.filter(c => c.type_cab === 'URGENT').length}</div>
-            <div className="stat-label">Urgent</div>
-          </div>
-        </div>
+        />
       </div>
 
       {/* TOOLBAR ────────────────────────────────────────────── */}

@@ -290,61 +290,7 @@
   gap: 1rem;
 }
 
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  transition: all 0.2s;
-  cursor: pointer;
-  flex: 1 1 200px;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 12px 32px rgba(0, 51, 102, 0.12), 0 4px 8px rgba(0, 0, 0, 0.04);
-  border-color: var(--card-color, var(--casnos-blue-200));
-  z-index: 2;
-}
-
-.stat-icon {
-  width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 8px;
-  background: rgba(var(--card-color-rgb, 99, 102, 241), 0.1);
-  color: var(--card-color);
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-
-.stat-content {
-  flex: 1;
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: 900;
-  color: #0f172a;
-  line-height: 1;
-  margin-bottom: 0.25rem;
-}
-
-.stat-title {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #374151;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.stat-subtitle {
-  font-size: 0.75rem;
-  color: #6b7280;
-  margin-top: 0.25rem;
-}
+/* ── Main Grid ── */
 
 /* ── Main Grid ────────────────────────────────────────────── */
 .dashboard-main-grid {

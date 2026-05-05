@@ -2,9 +2,8 @@ import { FiHome, FiSearch } from 'react-icons/fi';
 import RoleLayout from './RoleLayout';
 
 const NAV_ITEMS = [
-  { path: '/servicedesk',          end: true, icon: <FiHome />,   label: 'Tableau de Bord' },
-  { path: '/servicedesk/inquiry',             icon: <FiSearch />, label: 'Analyse & Évaluation' },
-
+  { path: '/servicedesk',             end: true, icon: <FiHome />,   label: 'Tableau de Bord' },
+  { path: '/servicedesk/inquiry',                icon: <FiSearch />, label: 'Triage des Requêtes' },
 ];
 
 const ServiceDeskLayout = ({ children }) => (

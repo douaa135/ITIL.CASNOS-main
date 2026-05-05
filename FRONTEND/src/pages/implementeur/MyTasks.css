@@ -1,8 +1,10 @@
 .my-tasks-container {
   display: flex;
-  height: calc(100vh - 120px);
-  gap: 1.5rem;
+  flex-direction: column;
+  min-height: calc(100vh - 120px);
+  gap: 0.25rem;
   animation: fadeIn 0.4s ease-out;
+  padding: 1.5rem;
 }
 
 /* ─── List Panel ─── */
@@ -31,10 +33,12 @@
   margin-bottom: 1.25rem;
 }
 
-.search-bar {
-  position: relative;
-  margin-bottom: 1.25rem;
+.premium-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
 }
+
 
 .search-bar svg {
   position: absolute;
@@ -46,10 +50,10 @@
 
 .search-bar input {
   width: 100%;
-  padding: 0.85rem 1rem 0.85rem 2.75rem;
+  padding: 1.1rem 1rem 1.1rem 3.5rem;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  font-size: 0.9rem;
+  border-radius: 16px;
+  font-size: 1.05rem;
   background: white;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -63,18 +67,18 @@
 .filter-tabs {
   display: flex;
   gap: 0.5rem;
-  padding: 4px;
+  padding: 6px;
   background: #f1f5f9;
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
 .filter-tabs button {
   flex: 1;
-  padding: 0.6rem;
-  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
   border: none;
   background: transparent;
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #64748b;
   cursor: pointer;
