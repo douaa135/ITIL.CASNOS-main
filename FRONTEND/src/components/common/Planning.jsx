@@ -5,10 +5,10 @@ import {
 } from 'react-icons/fi';
 import planningService from '../../services/planningService';
 import { useAuth } from '../../context/AuthContext';
-import Card from '../../components/common/Card';
-import Badge from '../../components/common/Badge';
-import Toast from '../../components/common/Toast';
-import ConfirmModal from '../../components/common/ConfirmModal';
+import Card from './Card';
+import Badge from './Badge';
+import Toast from './Toast';
+import ConfirmModal from './ConfirmModal';
 import './Planning.css';
 
 const MONTHS_FR = [
@@ -144,7 +144,22 @@ const BlackoutModal = ({ selectedBlackout, blackoutForm, setBlackoutForm, onClos
 
 const Planning = () => {
   const { user } = useAuth();
-  const isAdmin = user?.roles?.includes('ADMIN');
+  
+  const hasRole = (name) => {
+    if (!user) return false;
+    const roleList = [];
+    if (Array.isArray(user.roles)) {
+      user.roles.forEach(r => {
+        if (typeof r === 'string') roleList.push(r.toUpperCase());
+        else if (r && r.nom_role) roleList.push(r.nom_role.toUpperCase());
+      });
+    }
+    if (user.role?.nom_role) roleList.push(user.role.nom_role.toUpperCase());
+    if (user.nom_role) roleList.push(user.nom_role.toUpperCase());
+    return roleList.includes(name.toUpperCase());
+  };
+
+  const isAdmin = hasRole('ADMIN');
 
   // State
   const [view, setView] = useState('month'); // 'month' | 'semester' | 'blackouts'

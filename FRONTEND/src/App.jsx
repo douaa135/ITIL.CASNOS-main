@@ -32,7 +32,7 @@ import AdminChangementList  from './pages/admin/AdminChangementList';
 import DirectionManagement  from './pages/admin/DirectionManagement';
 import TaskManagement from './pages/admin/TaskManagement';
 import AdminCabManagement from './pages/admin/AdminCabManagement';
-import Planning from './pages/common/Planning';
+import Planning from './components/common/Planning';
 import BroadcastCenter from './pages/admin/BroadcastCenter';
 
 
