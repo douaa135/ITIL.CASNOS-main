@@ -1,0 +1,35 @@
+# Dependency directories
+node_modules/
+FRONTEND/node_modules/
+BACKEND/node_modules/
+
+# Build outputs
+FRONTEND/dist/
+FRONTEND/build/
+
+# Environment variables
+.env
+BACKEND/.env
+FRONTEND/.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Editor folders and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Database / Prisma
+BACKEND/prisma/*.db
+BACKEND/prisma/*.db-journal
+/src/generated/prisma

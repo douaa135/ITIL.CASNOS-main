@@ -1,0 +1,33 @@
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  color: #64748b;
+}
+
+.loading-spinner-fullpage {
+  flex-direction: column;
+  justify-content: center;
+  height: 60vh;
+  gap: 1rem;
+}
+
+.loading-spinner-icon {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #1e40af;
+  border-radius: 50%;
+  animation: loadingSpinnerSpin 0.8s linear infinite;
+}
+
+.loading-spinner-message {
+  color: #64748b;
+  font-weight: 500;
+  margin: 0;
+}
+
+@keyframes loadingSpinnerSpin {
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,263 @@
+@import './AdminUnified.css';
+
+/* ── LAYOUT & HEADER ─────────────────────────────────────────── */
+.ci-page {
+  padding: 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.ci-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ci-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ci-subtitle {
+  color: #64748b;
+  margin-top: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+/* ── TOOLBAR & FILTERS ────────────────────────────────────────── */
+.ci-filters {
+  display: flex;
+  gap: 1.25rem;
+  margin-bottom: 0.5rem;
+  background: white;
+  padding: 1.25rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.ci-search-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.ci-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.ci-search-input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.75rem;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.ci-filter-select {
+  padding: 0.75rem 2.25rem 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  font-size: 0.875rem;
+  background: #f8fafc;
+  cursor: pointer;
+  font-weight: 600;
+  color: #475569;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+}
+
+/* ── TABLE STYLES (MATCHING RFC) ────────────────────────────── */
+.ci-table-card {
+  padding: 0 !important;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.ci-table-wrap {
+  overflow-x: auto;
+}
+
+.ci-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.ci-head-row {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ci-head-cell {
+  padding: 12px 16px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.ci-cell {
+  padding: 14px 16px;
+  font-size: 0.875rem;
+  color: #334155;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ci-row {
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.ci-row:hover {
+  background: #f8fafc !important;
+}
+
+.ci-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.82rem;
+  margin-bottom: 3px;
+}
+
+.ci-code {
+  font-size: 0.72rem;
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+/* ── BADGES & PILLS ─────────────────────────────────────────── */
+.ci-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.ci-env-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1px solid #c7d2fe;
+}
+
+.ci-muted-italic {
+  color: #cbd5e1;
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+/* ── ACTIONS ─────────────────────────────────────────────────── */
+.ci-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.ci-action-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ci-action-btn.edit {
+  background: #f1f5f9;
+  color: #3b82f6;
+}
+
+.ci-action-btn.edit:hover {
+  background: #dbeafe;
+}
+
+.ci-action-btn.delete {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.ci-action-btn.delete:hover {
+  background: #fee2e2;
+}
+
+/* ── STATES ─────────────────────────────────────────────────── */
+.ci-state-cell, .ci-empty-cell {
+  text-align: center;
+  padding: 3rem;
+  color: #94a3b8;
+}
+
+.ci-empty-icon {
+  display: block;
+  margin: 0 auto 1rem;
+  opacity: 0.3;
+}
+
+.ci-table-footer {
+  padding: 12px 20px;
+  background: #fafafa;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+/* ── MODALS ─────────────────────────────────────────────────── */
+.ci-modal-medium { max-width: 520px; }
+.ci-modal-large { max-width: 600px; }
+.ci-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.ci-grid-span-2 { grid-column: span 2; }
+.ci-required { color: #ef4444; }
+
+.ci-env-tags-wrap { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+.ci-env-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.ci-env-chip.selected {
+  background: #e0e7ff;
+  color: #3730a3;
+  border-color: #a5b4fc;
+}
