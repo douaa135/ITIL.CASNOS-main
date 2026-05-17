@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-// ✅ Prend automatiquement l'IP depuis laquelle la page est chargée
+//  Prend automatiquement l'IP depuis laquelle la page est chargée
 // - Sur desktop : localhost:3000
 // - Sur mobile via réseau : 192.168.x.x:3000
 const SOCKET_URL = `http://${window.location.hostname}:3000`;

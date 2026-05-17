@@ -39,7 +39,7 @@ const ServiceDeskDashboard = () => {
       // 2. Statistiques RFC via le service centralisé
       setStats({
         pending: rfcData.stats.pending,
-        urgent: rfcData.stats.urgent,
+        urgent: rfcData.stats.urgentPending,
         preevaluee: rfcData.stats.preevaluee,
         late: rfcData.stats.late,
       });

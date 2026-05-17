@@ -17,6 +17,7 @@ import './demandeur.css';
 import '../admin/AdminChangementList.css'; // Pour réutiliser acl-table si possible
 import RfcDetailModal from './components/RfcDetailModal';
 import EnvironmentBadge from '../../components/common/EnvironmentBadge';
+import PremiumToolbar from '../../components/common/PremiumToolbar';
 
 
 /**
@@ -93,6 +94,8 @@ const MesRfcs = () => {
   const [tab,     setTab]     = useState('all');
   const [search,  setSearch]  = useState('');
   const [statusF, setStatusF] = useState('');
+  const [typeF,   setTypeF]   = useState('');
+  const [envF,    setEnvF]    = useState('');
   const [sortBy,  setSortBy]  = useState('date_desc');
   const [toast,   setToast]   = useState(location.state?.success ? { msg: location.state?.isEdit ? 'RFC mise à jour avec succès !' : 'RFC créée avec succès !', type: 'success' } : null);
   const [selectedRfc, setSelectedRfc] = useState(null);
@@ -183,6 +186,11 @@ const MesRfcs = () => {
     r.id_rfc.toLowerCase().includes(search.toLowerCase())
   );
   if (statusF) rfcs = rfcs.filter(r => r.statut.code === statusF);
+  if (typeF) rfcs = rfcs.filter(r => (r.type || 'NORMAL').toUpperCase() === typeF.toUpperCase());
+  if (envF) rfcs = rfcs.filter(r => {
+    const targetId = r.id_env || r.id_environnement || r.environnement?.id_env || r.environnement?.id || r.demande?.environnement?.id_env;
+    return String(targetId) === String(envF);
+  });
   rfcs = [...rfcs].sort((a, b) => {
     if (sortBy === 'date_desc') return new Date(b.date_creation) - new Date(a.date_creation);
     if (sortBy === 'date_asc')  return new Date(a.date_creation) - new Date(b.date_creation);
@@ -254,13 +262,54 @@ const MesRfcs = () => {
         </div>
       </div>
 
+      {/* Filters Bar */}
+      <PremiumToolbar 
+        searchProps={{
+            value: search,
+            onChange: (e) => setSearch(e.target.value),
+            placeholder: "Rechercher par code ou titre..."
+        }}
+        filters={[
+            {
+                value: statusF,
+                onChange: (e) => setStatusF(e.target.value),
+                placeholder: "Tous les statuts",
+                options: [
+                  { value: 'SOUMIS', label: 'Soumis' },
+                  { value: 'PRE_APPROUVEE', label: 'Pré-approuvée' },
+                  { value: 'APPROUVEE', label: 'Approuvée' },
+                  { value: 'CLOTUREE', label: 'Clôturée' },
+                  { value: 'REJETEE', label: 'Rejetée' }
+                ]
+            },
+            {
+                value: typeF,
+                onChange: (e) => setTypeF(e.target.value),
+                placeholder: "Tous les types",
+                options: [
+                  { value: 'NORMAL', label: 'Normal' },
+                  { value: 'STANDARD', label: 'Standard' },
+                  { value: 'URGENT', label: 'Urgent' }
+                ]
+            },
+            {
+                value: envF,
+                onChange: (e) => setEnvF(e.target.value),
+                placeholder: "Environnements",
+                options: environments.map(env => ({ value: env.id_env, label: env.nom_env }))
+            }
+        ]}
+        showReset={false}
+      />
+
       {/* Table Section */}
       <div style={{ 
         background: '#ffffff', 
         borderRadius: '16px', 
         border: '1px solid #e2e8f0',
         overflow: 'hidden',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        marginTop: '-0.8rem'
       }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', minWidth: '1000px', borderCollapse: 'collapse' }}>
@@ -361,7 +410,7 @@ const MesRfcs = () => {
                       borderLeft: '1px solid #f1f5f9', textAlign: 'right' 
                     }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                        {['BROUILLON', 'SOUMIS', 'A_COMPLETER', 'REJETEE'].includes(rfc.statut.code) && (
+                        {['BROUILLON', 'SOUMIS', 'A_COMPLETER'].includes(rfc.statut.code) && (
                           <button
                             onClick={() => navigate('/rfcs/new', { state: { edit: true, rfcData: rfc } })}
                             title="Modifier"
@@ -395,6 +444,7 @@ const MesRfcs = () => {
 
       <RfcDetailModal 
         rfc={selectedRfc}
+        environments={environments}
         onClose={() => setSelectedRfc(null)}
       />
 

@@ -184,17 +184,7 @@ const DemandeurDashboard = () => {
             </div>
             </Card>
 
-            <Card style={{ padding: '2rem', borderRadius: '1.25rem', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                <FiInfo size={32} color="#1e40af" style={{ marginBottom: '1rem' }} />
-                <h4 style={{ margin: '0 0 0.5rem', fontWeight: 700 }}>Besoin d'aide ?</h4>
-                <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 1.5rem' }}>Consultez la base de connaissances ITIL ou contactez le support.</p>
-                <button 
-                  onClick={() => navigate('/profile')}
-                  style={{ width: '100%', padding: '0.8rem', borderRadius: '0.75rem', border: '1px solid #1e40af', background: 'transparent', color: '#1e40af', fontWeight: 700, cursor: 'pointer' }}
-                >
-                    Mon Compte
-                </button>
-            </Card>
+
         </div>
       </div>
     </div>

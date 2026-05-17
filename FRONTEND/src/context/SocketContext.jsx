@@ -6,7 +6,7 @@ const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {
   const { user, token } = useAuth();
-  const [socket,    setSocket]    = useState(null); // ✅ state, pas ref
+  const [socket,    setSocket]    = useState(null); //  state, pas ref
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export function SocketProvider({ children }) {
 
     s.on('connect', () => {
       setConnected(true);
-      setSocket(s); // ✅ re-render déclenché → les enfants reçoivent le socket
+      setSocket(s); //  re-render déclenché → les enfants reçoivent le socket
     });
 
     s.on('disconnect', () => setConnected(false));

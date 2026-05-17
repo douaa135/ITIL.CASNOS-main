@@ -178,10 +178,10 @@ async function computeUrgentCount(user) {
     // Calcul du total intelligent — Parité STRICTE avec les KPIs "Urgents" de chaque tableau de bord
     let finalTotal = 0;
     if (isAdmin) {
-      finalTotal = rfcCount + chgCount + tchCount + meetingCount;
+      finalTotal = rfcCount + chgCount + tchCount;
     } else if (isCM) {
-      // Pour le CM, l'alerte cumule désormais RFCs + Changements + Tâches + Sessions
-      finalTotal = rfcCount + chgCount + tchCount + meetingCount;
+      // Pour le CM, l'alerte cumule désormais RFCs + Changements + Tâches
+      finalTotal = rfcCount + chgCount + tchCount;
     } else if (isImp) {
       // Pour l'implémenteur, l'alerte correspond au KPI "Urgentes" des tâches (ImplementerDashboard.jsx)
       finalTotal = tchCount;
@@ -192,7 +192,7 @@ async function computeUrgentCount(user) {
       // Pour le CAB, l'alerte correspond au KPI "Sessions urgentes"
       finalTotal = meetingCount;
     } else {
-      finalTotal = rfcCount + chgCount + tchCount + meetingCount;
+      finalTotal = rfcCount + chgCount + tchCount;
     }
 
     return { total: finalTotal, rfc: rfcCount, changements: chgCount, taches: tchCount, reunions: meetingCount };
@@ -382,17 +382,6 @@ const UrgentAlert = () => {
               {urgentCounts.taches || 0}
             </span>
           </button>
-          {(isAdmin || isCM || isCAB) && (
-            <button
-              className="urgent-option-item"
-              onClick={() => handleSelectOption('/cab/meetings?kpi=URGENT')}
-            >
-              <span className="dot" style={{ background: '#ef4444' }} /> Sessions urgentes
-              <span style={{ marginLeft: 'auto', background: '#fef2f2', color: '#ef4444', padding: '2px 8px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: '800' }}>
-                {urgentCounts.reunions || 0}
-              </span>
-            </button>
-          )}
         </div>
       )}
     </div>

@@ -224,7 +224,7 @@ export const getDemandeurStats = async (userId) => {
     stats: {
       total:      rfcs.length,
       soumises:   rfcs.filter(r => r.statut?.code_statut === 'SOUMIS').length,
-      inProgress: rfcs.filter(r => ['BROUILLON', 'A_COMPLETER', 'ACCEPTEE_SD', 'EVALUEE', 'PLANIFIEE', 'EN_COURS'].includes(r.statut?.code_statut)).length,
+      inProgress: rfcs.filter(r => ['BROUILLON', 'A_COMPLETER', 'ACCEPTEE_SD', 'EVALUEE', 'PRE_APPROUVEE', 'PLANIFIEE', 'EN_COURS'].includes(r.statut?.code_statut)).length,
       finalized:  rfcs.filter(r => ['APPROUVEE', 'CLOTUREE', 'REJETEE'].includes(r.statut?.code_statut)).length,
     }
   };

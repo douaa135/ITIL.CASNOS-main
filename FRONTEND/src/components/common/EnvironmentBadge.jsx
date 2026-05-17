@@ -7,9 +7,24 @@ import { getEnvName } from '../../utils/rfcUtils';
  * @param {Array} environments - Liste de référence des environnements
  */
 const EnvironmentBadge = ({ item, environments = [] }) => {
-  const name = getEnvName(item, environments);
+  let name = null;
   
-  if (!name) return null;
+  // 1. Essayer d'abord de faire le mapping direct depuis id_env si c'est disponible
+  const directId = item?.id_env || item?.id_environnement || item?.environnement?.id_env || item?.environnement?.id || item?.demande?.environnement?.id_env;
+  if (directId && Array.isArray(environments)) {
+    const found = environments.find(e => String(e.id_env) === String(directId) || String(e.id) === String(directId));
+    if (found) name = found.nom_env || found.libelle;
+  }
+
+  // 2. Fallback sur l'utilitaire global si non trouvé
+  if (!name) {
+    name = getEnvName(item, environments);
+  }
+  
+  if (!name || name === 'N/A') {
+    if (directId) name = `ID: ${directId}`;
+    else return null;
+  }
 
   return (
     <span style={{ 
