@@ -152,16 +152,36 @@ async function computeUrgentCount(user) {
       }
     }
     
-    // --- Réunions CAB supprimées du compte d'alertes ---
+    // --- Sessions CAB Urgentes ---
     let meetingCount = 0;
+    if (isAdmin || isCM || isCAB) {
+      try {
+        const cabRes = await api.get('/cab').catch(() => null);
+        const allCabs = cabRes?.data?.cabs || cabRes?.cabs || (Array.isArray(cabRes?.data) ? cabRes.data : []);
+        
+        let allReunions = [];
+        for (const cab of allCabs) {
+          try {
+            const rRes = await api.get(`/cab/${cab.id_cab}/reunions`);
+            const reunions = rRes?.data?.reunions || rRes?.reunions || (Array.isArray(rRes?.data) ? rRes.data : []);
+            allReunions = [...allReunions, ...reunions.map(r => ({ ...r, cab_type: cab.type_cab }))];
+          } catch(e) {}
+        }
+        
+        const urgentReunions = allReunions.filter(m => 
+          ['URGENT', 'URGENCE'].includes((m.cab_type || '').toUpperCase())
+        );
+        meetingCount = urgentReunions.length;
+      } catch (err) {}
+    }
 
     // Calcul du total intelligent — Parité STRICTE avec les KPIs "Urgents" de chaque tableau de bord
     let finalTotal = 0;
     if (isAdmin) {
-      finalTotal = rfcCount + chgCount + tchCount;
+      finalTotal = rfcCount + chgCount + tchCount + meetingCount;
     } else if (isCM) {
-      // Pour le CM, l'alerte cumule désormais RFCs + Changements + Tâches
-      finalTotal = rfcCount + chgCount + tchCount;
+      // Pour le CM, l'alerte cumule désormais RFCs + Changements + Tâches + Sessions
+      finalTotal = rfcCount + chgCount + tchCount + meetingCount;
     } else if (isImp) {
       // Pour l'implémenteur, l'alerte correspond au KPI "Urgentes" des tâches (ImplementerDashboard.jsx)
       finalTotal = tchCount;
@@ -169,10 +189,10 @@ async function computeUrgentCount(user) {
       // Pour le SD, l'alerte correspond au KPI "Urgents" des RFCs (InquiryHub.jsx)
       finalTotal = rfcCount;
     } else if (isCAB) {
-      // Pour le CAB, l'alerte est désormais vide car on a supprimé les réunions du compte
-      finalTotal = 0;
+      // Pour le CAB, l'alerte correspond au KPI "Sessions urgentes"
+      finalTotal = meetingCount;
     } else {
-      finalTotal = rfcCount + chgCount + tchCount;
+      finalTotal = rfcCount + chgCount + tchCount + meetingCount;
     }
 
     return { total: finalTotal, rfc: rfcCount, changements: chgCount, taches: tchCount, reunions: meetingCount };
@@ -309,7 +329,7 @@ const UrgentAlert = () => {
       <div
         className={`urgent-alert-icon-wrapper ${urgentCounts.total > 0 ? 'radiant-glow' : ''}`}
         onClick={handleClick}
-        title={loading ? 'Recherche en cours…' : `${urgentCounts.total} élément(s) urgent(s)`}
+        title={loading ? 'Recherche en cours…' : (isCAB && !isAdmin && !isCM) ? `${urgentCounts.total} session(s) urgente(s)` : `${urgentCounts.total} élément(s) urgent(s)`}
         style={{ opacity: loading && urgentCounts.total === 0 ? 0.5 : 1 }}
       >
         <FiAlertTriangle className={`urgent-icon ${urgentCounts.total > 0 ? 'flashing-icon' : ''} ${loading && urgentCounts.total === 0 ? 'spin-icon' : ''}`} />
@@ -362,6 +382,17 @@ const UrgentAlert = () => {
               {urgentCounts.taches || 0}
             </span>
           </button>
+          {(isAdmin || isCM || isCAB) && (
+            <button
+              className="urgent-option-item"
+              onClick={() => handleSelectOption('/cab/meetings?kpi=URGENT')}
+            >
+              <span className="dot" style={{ background: '#ef4444' }} /> Sessions urgentes
+              <span style={{ marginLeft: 'auto', background: '#fef2f2', color: '#ef4444', padding: '2px 8px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: '800' }}>
+                {urgentCounts.reunions || 0}
+              </span>
+            </button>
+          )}
         </div>
       )}
     </div>

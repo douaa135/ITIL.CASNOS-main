@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import authService from '../services/authService';
-// ✅ Plus d'import socket ici
+//  Plus d'import socket ici
 
 const AuthContext = createContext(null);
 
@@ -37,14 +37,14 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    // ✅ Exposer aussi le token depuis localStorage
+    //  Exposer aussi le token depuis localStorage
     <AuthContext.Provider value={{
       user,
       loading,
       login,
       logout,
       refreshUser,
-      token: localStorage.getItem('accessToken'), // ✅ requis par SocketContext
+      token: localStorage.getItem('accessToken'), // requis par SocketContext
     }}>
       {children}
     </AuthContext.Provider>
@@ -57,6 +57,6 @@ export const useAuth = () => {
   return ctx;
 };
 
-// ✅ useSocket supprimé d'ici — il est dans SocketContext.jsx
+//  useSocket supprimé d'ici — il est dans SocketContext.jsx
 
 export default AuthContext;

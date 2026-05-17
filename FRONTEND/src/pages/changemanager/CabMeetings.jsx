@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FiCalendar, FiClock, FiFileText, FiCheckCircle, FiEdit, FiSave, 
   FiAlertCircle, FiUsers, FiTrendingUp, FiArrowRight, FiCheck, FiX, FiInfo,
@@ -10,7 +10,7 @@ import ConfirmModal from '../../components/common/ConfirmModal';
 import Toast from '../../components/common/Toast';
 import './CabMeetings.css';
 
-// ── KPI Card (aligné avec AdminCabManagement) ────────────────
+// â”€â”€ KPI Card (alignÃ© avec AdminCabManagement) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const KpiCard = ({ label, value, icon, color }) => (
   <div className={`cm-kpi-card cm-kpi-${color}`}>
     <div className="cm-kpi-icon">{icon}</div>
@@ -47,7 +47,7 @@ const CabMeetings = () => {
   const [currentRecs, setCurrentRecs] = useState(null);
   const [voteResultModal, setVoteResultModal] = useState(null); // { type: 'success'|'error', label: '' }
   
-  // Évaluation détaillée state
+  // Ã‰valuation dÃ©taillÃ©e state
   const [showEvaluationModal,   setShowEvaluationModal]   = useState(false);
   const [showRecEditModal,      setShowRecEditModal]      = useState(false);
   const [selectedRfcForEval,    setSelectedRfcForEval]    = useState(null);
@@ -80,7 +80,7 @@ const CabMeetings = () => {
   });
   const [creating, setCreating]         = useState(false);
 
-  // ── Fetch all CABs, meetings, and users ──────────────────────
+  // â”€â”€ Fetch all CABs, meetings, and users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -173,8 +173,8 @@ const CabMeetings = () => {
       const rawChanges = allChangesRes?.data?.data?.changements || allChangesRes?.data?.changements || allChangesRes?.data || allChangesRes || [];
       setAvailableChanges(Array.isArray(rawChanges) ? rawChanges : []);
     } catch (error) {
-      console.error('Erreur détails réunion:', error);
-      setToast({ msg: 'Erreur lors du chargement des détails.', type: 'error' });
+      console.error('Erreur dÃ©tails rÃ©union:', error);
+      setToast({ msg: 'Erreur lors du chargement des dÃ©tails.', type: 'error' });
     }
   }, []);
 
@@ -192,7 +192,7 @@ const CabMeetings = () => {
       await api.post(`/reunions/${selectedMeeting.id_reunion}/participants`, { id_user: addingUser });
       setAddingUser('');
       await fetchMeetingDetails(selectedMeeting.id_reunion);
-      setToast({ msg: 'Participant ajouté avec succès !', type: 'success' });
+      setToast({ msg: 'Participant ajoutÃ© avec succÃ¨s !', type: 'success' });
     } catch (err) {
       setToast({ msg: err?.error?.message || err?.message || 'Erreur lors de l\'ajout', type: 'error' });
     } finally {
@@ -212,7 +212,7 @@ const CabMeetings = () => {
         try {
           await api.delete(`/reunions/${selectedMeeting.id_reunion}/participants/${id_user}`);
           await fetchMeetingDetails(selectedMeeting.id_reunion);
-          setToast({ msg: 'Participant retiré avec succès.', type: 'error' });
+          setToast({ msg: 'Participant retirÃ© avec succÃ¨s.', type: 'error' });
         } catch (err) {
           setToast({ msg: err?.error?.message || err?.message || 'Erreur lors du retrait', type: 'error' });
         } finally {
@@ -230,7 +230,7 @@ const CabMeetings = () => {
     try {
       await api.post(`/reunions/${selectedMeeting.id_reunion}/participants`, { id_user });
       await fetchMeetingDetails(selectedMeeting.id_reunion);
-      setToast({ msg: 'Membre du CAB ajouté à la session.', type: 'success' });
+      setToast({ msg: 'Membre du CAB ajoutÃ© Ã  la session.', type: 'success' });
     } catch (err) {
       setToast({ msg: err?.error?.message || err?.message || 'Erreur lors de l\'ajout', type: 'error' });
     } finally {
@@ -243,7 +243,7 @@ const CabMeetings = () => {
     try {
       setSubmitting(true);
       await api.put(`/reunions/${selectedMeeting.id_reunion}`, { ordre_jour: ordreJourContent });
-      setToast({ msg: 'Ordre du jour enregistré avec succès !', type: 'success' });
+      setToast({ msg: 'Ordre du jour enregistrÃ© avec succÃ¨s !', type: 'success' });
       await fetchAll();
       setSelectedMeeting(prev => ({ ...prev, ordre_jour: ordreJourContent }));
     } catch (error) {
@@ -262,7 +262,7 @@ const CabMeetings = () => {
       // Show styled vote result modal
       setVoteResultModal({
         type: voteValue === 'APPROUVER' ? 'success' : 'error',
-        label: voteValue === 'APPROUVER' ? 'Vote « Approuver » enregistré !' : 'Vote « Rejeter » enregistré.'
+        label: voteValue === 'APPROUVER' ? 'Vote Â« Approuver Â» enregistrÃ© !' : 'Vote Â« Rejeter Â» enregistrÃ©.'
       });
       await fetchMeetingDetails(selectedMeeting.id_reunion);
     } catch (error) {
@@ -278,18 +278,18 @@ const CabMeetings = () => {
       const idRfcToRegister = selectedChange?.id_rfc || selectedChange?.rfc?.id_rfc;
 
       if (!idRfcToRegister) {
-        setToast({ msg: 'Ce changement n\'est pas lié à une RFC valide.', type: 'error' });
+        setToast({ msg: 'Ce changement n\'est pas liÃ© Ã  une RFC valide.', type: 'error' });
         return;
       }
 
       await api.post(`/reunions/${selectedMeeting.id_reunion}/rfcs`, { id_rfc: idRfcToRegister });
       setAddingRfc('');
       await fetchMeetingDetails(selectedMeeting.id_reunion);
-      setToast({ msg: 'Changement inscrit à l\'ordre du jour.', type: 'success' });
+      setToast({ msg: 'Changement inscrit Ã  l\'ordre du jour.', type: 'success' });
     } catch (err) {
       const errorMsg = err?.response?.data?.error?.message || err?.error?.message || err?.message;
       if (errorMsg?.toLowerCase().includes('permission') || err?.response?.status === 403) {
-        setToast({ msg: 'Permission insuffisante : seul le Président ou un Admin peut inscrire un changement.', type: 'error' });
+        setToast({ msg: 'Permission insuffisante : seul le PrÃ©sident ou un Admin peut inscrire un changement.', type: 'error' });
       } else {
         setToast({ msg: errorMsg || 'Erreur lors de l\'ajout du changement', type: 'error' });
       }
@@ -305,7 +305,7 @@ const CabMeetings = () => {
         try {
           await api.delete(`/reunions/${selectedMeeting.id_reunion}/rfcs/${rfcId}`);
           await fetchMeetingDetails(selectedMeeting.id_reunion);
-          setToast({ msg: 'RFC retirée de l\'ordre du jour.', type: 'error' });
+          setToast({ msg: 'RFC retirÃ©e de l\'ordre du jour.', type: 'error' });
         } catch (err) {
           setToast({ msg: err?.error?.message || err?.message || 'Erreur lors du retrait de la RFC', type: 'error' });
         } finally {
@@ -326,12 +326,12 @@ const CabMeetings = () => {
     setSelectedRfcForEval(rfc);
 
     try {
-      // 1. Charger les données COMPLÈTES de la RFC (description, justification, statut, etc.)
+      // 1. Charger les donnÃ©es COMPLÃˆTES de la RFC (description, justification, statut, etc.)
       const rfcRes = await api.get(`/rfc/${rfc.id_rfc}`);
       const fullRfc = rfcRes?.data?.data?.rfc || rfcRes?.data?.rfc || rfcRes?.rfc || rfc;
       setSelectedRfcForEval(fullRfc);
 
-      // 2. Charger l'évaluation de risque existante
+      // 2. Charger l'Ã©valuation de risque existante
       try {
         const res = await api.get(`/rfc/${rfc.id_rfc}/evaluation-risque`);
         const existingEval = res?.data?.data?.evaluation || res?.data?.evaluation || res?.evaluation;
@@ -350,7 +350,7 @@ const CabMeetings = () => {
         setEvaluation(defaultEval);
       }
     } catch (err) {
-      console.error('Erreur chargement RFC complète:', err);
+      console.error('Erreur chargement RFC complÃ¨te:', err);
       setEvaluation(defaultEval);
     }
 
@@ -405,13 +405,13 @@ const CabMeetings = () => {
         [selectedRfcForEval.id_rfc]: { ...evaluation }
       }));
       
-      setToast({ msg: 'Évaluation enregistrée avec succès.', type: 'success' });
+      setToast({ msg: 'Ã‰valuation enregistrÃ©e avec succÃ¨s.', type: 'success' });
       setShowEvaluationModal(false);
       setShowRecEditModal(false);
       setSelectedRfcForEval(null);
     } catch (err) {
       console.error('[CAB-Save] Error saving evaluation:', err);
-      setToast({ msg: 'Erreur lors de l\'enregistrement de l\'évaluation.', type: 'error' });
+      setToast({ msg: 'Erreur lors de l\'enregistrement de l\'Ã©valuation.', type: 'error' });
     }
   };
 
@@ -421,24 +421,24 @@ const CabMeetings = () => {
 
     let recData = null;
 
-    // 1. Essayer de lire les données depuis la décision CAB (motif JSON)
+    // 1. Essayer de lire les donnÃ©es depuis la dÃ©cision CAB (motif JSON)
     if (decision?.motif) {
       try {
         if (decision.motif.startsWith('{')) {
           const parsed = JSON.parse(decision.motif);
           if (parsed.conditions || parsed.securite_rollback || parsed.precautions) {
             recData = {
-              conditions: parsed.conditions || 'Non renseigné.',
-              securite_rollback: parsed.securite_rollback || parsed.actions_correctives || 'Non renseigné.',
-              precautions: parsed.precautions || 'Non renseigné.',
+              conditions: parsed.conditions || 'Non renseignÃ©.',
+              securite_rollback: parsed.securite_rollback || parsed.actions_correctives || 'Non renseignÃ©.',
+              precautions: parsed.precautions || 'Non renseignÃ©.',
               empty: false
             };
           }
         }
-      } catch (e) { /* pas du JSON structuré */ }
+      } catch (e) { /* pas du JSON structurÃ© */ }
     }
 
-    // 2. Fallback : lire depuis EvaluationRisque.description (JSON) si décision vide ou sans champs
+    // 2. Fallback : lire depuis EvaluationRisque.description (JSON) si dÃ©cision vide ou sans champs
     if (!recData) {
       try {
         const res = await api.get(`/rfc/${rfcId}/evaluation-risque`);
@@ -448,9 +448,9 @@ const CabMeetings = () => {
             const parsed = JSON.parse(existingEval.description);
             if (parsed.conditions || parsed.securite_rollback || parsed.precautions) {
               recData = {
-                conditions: parsed.conditions || 'Non renseigné.',
-                securite_rollback: parsed.securite_rollback || 'Non renseigné.',
-                precautions: parsed.precautions || 'Non renseigné.',
+                conditions: parsed.conditions || 'Non renseignÃ©.',
+                securite_rollback: parsed.securite_rollback || 'Non renseignÃ©.',
+                precautions: parsed.precautions || 'Non renseignÃ©.',
                 empty: false
               };
             }
@@ -458,16 +458,16 @@ const CabMeetings = () => {
              // Si c'est du texte brut
              recData = {
                 conditions: existingEval.description,
-                securite_rollback: 'Non renseigné.',
-                precautions: 'Non renseigné.',
+                securite_rollback: 'Non renseignÃ©.',
+                precautions: 'Non renseignÃ©.',
                 empty: false
              };
           }
         }
-      } catch (e) { /* pas d'évaluation */ }
+      } catch (e) { /* pas d'Ã©valuation */ }
     }
 
-    // 3. Si rien trouvé du tout
+    // 3. Si rien trouvÃ© du tout
     if (!recData) {
       setCurrentRecs({ empty: true, rfcCode });
       setShowRecModal(true);
@@ -500,9 +500,9 @@ const CabMeetings = () => {
             if (parsed.conditions || parsed.securite_rollback || parsed.precautions) {
               setSelectedMemberRec({
                 user, rfc,
-                conditions: parsed.conditions || 'Non renseigné.',
-                rollback:   parsed.securite_rollback || parsed.actions_correctives || 'Non renseigné.',
-                precautions: parsed.precautions || 'Non renseigné.'
+                conditions: parsed.conditions || 'Non renseignÃ©.',
+                rollback:   parsed.securite_rollback || parsed.actions_correctives || 'Non renseignÃ©.',
+                precautions: parsed.precautions || 'Non renseignÃ©.'
               });
               found = true;
               break;
@@ -513,21 +513,21 @@ const CabMeetings = () => {
 
       if (!found) {
         // Fallback: Show the last plain text comment as conditions
-        const lastText = userComments[0]?.contenu || 'Aucune recommandation trouvée pour ce membre.';
+        const lastText = userComments[0]?.contenu || 'Aucune recommandation trouvÃ©e pour ce membre.';
         setSelectedMemberRec({
           user, rfc,
           conditions: lastText,
-          rollback: 'Non renseigné.',
-          precautions: 'Non renseigné.'
+          rollback: 'Non renseignÃ©.',
+          precautions: 'Non renseignÃ©.'
         });
       }
     } catch (err) {
       console.error('Error fetching member recs:', err);
       setSelectedMemberRec({
         user, rfc,
-        conditions: 'Erreur lors de la récupération.',
-        rollback: '—',
-        precautions: '—'
+        conditions: 'Erreur lors de la rÃ©cupÃ©ration.',
+        rollback: 'â€”',
+        precautions: 'â€”'
       });
     }
   };
@@ -535,7 +535,7 @@ const CabMeetings = () => {
   const handleCreateReunion = async (e) => {
     e.preventDefault();
     if (!createForm.id_cab || !createForm.date_reunion) {
-      return alert('Le CAB et la date sont obligatoires.');
+      return setToast({ msg: 'Le CAB et la date sont obligatoires.', type: 'error' });
     }
     setCreating(true);
     try {
@@ -553,9 +553,9 @@ const CabMeetings = () => {
       setShowCreateModal(false);
       setCreateForm({ id_cab: cabs[0]?.id_cab || '', date_reunion: '', heure_debut: '', heure_fin: '', ordre_jour: '', meet_link: '' });
       await fetchAll();
-      setToast({ msg: 'Réunion créée avec succès !', type: 'success' });
+      setToast({ msg: 'RÃ©union crÃ©Ã©e avec succÃ¨s !', type: 'success' });
     } catch (err) {
-      setToast({ msg: err?.error?.message || err?.message || 'Erreur lors de la création.', type: 'error' });
+      setToast({ msg: err?.error?.message || err?.message || 'Erreur lors de la crÃ©ation.', type: 'error' });
     } finally {
       setCreating(false);
     }
@@ -578,15 +578,15 @@ const CabMeetings = () => {
   return (
     <div className="cm-page">
 
-      {/* ── VOTE RESULT MODAL ── */}
+      {/* â”€â”€ VOTE RESULT MODAL â”€â”€ */}
       {voteResultModal && (
         <div onClick={() => setVoteResultModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '24px', padding: '3rem 2.5rem', maxWidth: '380px', width: '100%', textAlign: 'center', boxShadow: '0 25px 50px rgba(0,0,0,0.4)', border: `3px solid ${voteResultModal.type === 'success' ? '#22c55e' : '#ef4444'}` }}>
             <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: voteResultModal.type === 'success' ? '#dcfce7' : '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', fontSize: '2.5rem' }}>
-              {voteResultModal.type === 'success' ? '✅' : '❌'}
+              {voteResultModal.type === 'success' ? 'âœ…' : 'âŒ'}
             </div>
             <h2 style={{ margin: '0 0 0.75rem', fontSize: '1.4rem', fontWeight: 900, color: voteResultModal.type === 'success' ? '#15803d' : '#b91c1c' }}>
-              {voteResultModal.type === 'success' ? 'Vote Approuvé' : 'Vote Rejeté'}
+              {voteResultModal.type === 'success' ? 'Vote ApprouvÃ©' : 'Vote RejetÃ©'}
             </h2>
             <p style={{ color: '#64748b', margin: '0 0 2rem', fontSize: '0.95rem', lineHeight: 1.6 }}>{voteResultModal.label}</p>
             <button
@@ -599,18 +599,18 @@ const CabMeetings = () => {
         </div>
       )}
 
-      {/* ── HEADER CARD ── */}
+      {/* â”€â”€ HEADER CARD â”€â”€ */}
       <div className="premium-header-card">
         <div className="premium-header-left">
           <div className="premium-header-icon" style={{ background: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }}>
             <FiCalendar />
           </div>
           <div className="premium-header-text">
-            <h1>Espace Réunions CAB</h1>
-            <p>Gestion des ordres du jour, votes des membres et procès-verbaux</p>
+            <h1>Espace RÃ©unions CAB</h1>
+            <p>Gestion des ordres du jour, votes des membres et procÃ¨s-verbaux</p>
             {selectedCab && (
               <span className="cm-cab-badge" style={{ marginTop: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#475569', border: '1px solid #e2e8f0' }}>
-                <FiHash size={11} /> {selectedCab.nom_cab} · {selectedCab.type_cab === 'URGENT' ? 'e-CAB Urgent' : 'CAB'}
+                <FiHash size={11} /> {selectedCab.nom_cab} Â· {selectedCab.type_cab === 'URGENT' ? 'e-CAB Urgent' : 'CAB'}
               </span>
             )}
           </div>
@@ -634,12 +634,12 @@ const CabMeetings = () => {
             </select>
           )}
           <button className="btn-create-premium" onClick={() => setShowCreateModal(true)}>
-            <FiPlus /> Nouvelle Réunion
+            <FiPlus /> Nouvelle RÃ©union
           </button>
         </div>
       </div>
 
-      {/* ── KPIs ── */}
+      {/* â”€â”€ KPIs â”€â”€ */}
       <div className="stats-grid">
         <div className="stat-card blue">
           <div className="stat-icon-wrapper">
@@ -656,7 +656,7 @@ const CabMeetings = () => {
           </div>
           <div className="stat-info">
             <div className="stat-value">{upcoming}</div>
-            <div className="stat-label">À venir</div>
+            <div className="stat-label">Ã€ venir</div>
           </div>
         </div>
         <div className="stat-card green">
@@ -665,12 +665,12 @@ const CabMeetings = () => {
           </div>
           <div className="stat-info">
             <div className="stat-value">{cabs.length}</div>
-            <div className="stat-label">Comités Actifs</div>
+            <div className="stat-label">ComitÃ©s Actifs</div>
           </div>
         </div>
       </div>
 
-      {/* ── LAYOUT ── */}
+      {/* â”€â”€ LAYOUT â”€â”€ */}
       <div className="cm-layout">
 
         {/* Sidebar */}
@@ -685,7 +685,7 @@ const CabMeetings = () => {
             ) : sortedMeetings.length === 0 ? (
               <div className="cm-empty-sidebar">
                 <FiAlertCircle />
-                <p>Aucune réunion planifiée.<br />Créez-en une ci-dessus.</p>
+                <p>Aucune rÃ©union planifiÃ©e.<br />CrÃ©ez-en une ci-dessus.</p>
               </div>
             ) : (
               sortedMeetings.map(meeting => {
@@ -705,7 +705,7 @@ const CabMeetings = () => {
                       <div className="cm-meeting-title">{meeting.ordre_jour || 'Session CAB'}</div>
                       <div className="cm-meeting-meta">
                         <FiClock size={11} />
-                        {meeting.heure_debut?.substring(11, 16) || '—'} · {meeting.cab_nom || ''}
+                        {meeting.heure_debut?.substring(11, 16) || 'â€”'} Â· {meeting.cab_nom || ''}
                       </div>
                     </div>
                     <div className="cm-meeting-status">
@@ -726,7 +726,7 @@ const CabMeetings = () => {
             <div className="cm-workspace-inner">
 
               {/* Workspace Header */}
-              {/* Workspace Header — Premium Blue Frame Only */}
+              {/* Workspace Header â€” Premium Blue Frame Only */}
               <div className="cm-workspace-header">
                 <div style={{ flex: 1 }}>
                   <div className="cm-header-top-row">
@@ -741,8 +741,8 @@ const CabMeetings = () => {
 
                   <div className="cm-meta-grid">
                     <div className="cm-meta-item">
-                      <span className="cm-meta-label">Comité / Organisation</span>
-                      <span className="cm-meta-value"><FiLayers /> {selectedMeeting.cab_nom || 'Comité CAB'} — CASNOS</span>
+                      <span className="cm-meta-label">ComitÃ© / Organisation</span>
+                      <span className="cm-meta-value"><FiLayers /> {selectedMeeting.cab_nom || 'ComitÃ© CAB'} â€” CASNOS</span>
                     </div>
                     <div className="cm-meta-item">
                       <span className="cm-meta-label">Participants</span>
@@ -781,14 +781,14 @@ const CabMeetings = () => {
                 {activeTab === 'agenda_editor' && (
                   <div className="cm-editor-section">
                     <div className="cm-editor-intro">
-                      <h3><FiEdit /> Rédaction de l'ordre du jour</h3>
-                      <p>Consignez ici les points clés et les discussions prévues pour cette séance.</p>
+                      <h3><FiEdit /> RÃ©daction de l'ordre du jour</h3>
+                      <p>Consignez ici les points clÃ©s et les discussions prÃ©vues pour cette sÃ©ance.</p>
                     </div>
                     <form onSubmit={handleOrdreJourSubmit}>
                       <textarea
                         value={ordreJourContent}
                         onChange={e => setOrdreJourContent(e.target.value)}
-                        placeholder="Saisissez l'ordre du jour de la réunion..."
+                        placeholder="Saisissez l'ordre du jour de la rÃ©union..."
                         className="cm-textarea"
                       />
                       <div className="cm-form-actions">
@@ -831,7 +831,7 @@ const CabMeetings = () => {
                     </div>
 
                     {rfcs.length === 0 ? (
-                      <div className="cm-empty-block">Aucun changement inscrit à l'ordre du jour.</div>
+                      <div className="cm-empty-block">Aucun changement inscrit Ã  l'ordre du jour.</div>
                     ) : rfcs.map(rfc => {
                       const rfcDecision = decisions.find(d => d.id_rfc === rfc.id_rfc);
                       // Get all members of the CAB for this meeting
@@ -858,7 +858,7 @@ const CabMeetings = () => {
                                   <button 
                                     className="cm-rec-icon-btn" 
                                     onClick={(e) => { e.stopPropagation(); handleOpenRecommendations(rfc.id_rfc); }}
-                                    title="Voir Recommandations Détaillées"
+                                    title="Voir Recommandations DÃ©taillÃ©es"
                                   >
                                     <FiFileText />
                                   </button>
@@ -918,13 +918,13 @@ const CabMeetings = () => {
                             </div>
                           </div>
 
-                          {/* Détail des votes par membre */}
+                          {/* DÃ©tail des votes par membre */}
                           <div className="cm-votes-detail">
                             <div className="cm-vd-title">
                               {voteFilters[rfc.id_rfc] ? (
-                                <>Membres ayant voté « {voteFilters[rfc.id_rfc] === 'APPROUVER' ? 'Pour' : 'Contre'} »</>
+                                <>Membres ayant votÃ© Â« {voteFilters[rfc.id_rfc] === 'APPROUVER' ? 'Pour' : 'Contre'} Â»</>
                               ) : (
-                                <>Répartition des votes par membre</>
+                                <>RÃ©partition des votes par membre</>
                               )}
                             </div>
                             <div className="cm-vd-list">
@@ -944,7 +944,7 @@ const CabMeetings = () => {
                                       <div className="cm-vd-avatar">{(u.prenom_user || '?')[0]}</div>
                                       <div className="cm-vd-info">
                                         <span className="cm-vd-name">{u.prenom_user} {u.nom_user}</span>
-                                        <span className="cm-vd-role">{m.role === 'PRESIDENT' ? 'Président' : 'Membre'}</span>
+                                        <span className="cm-vd-role">{m.role === 'PRESIDENT' ? 'PrÃ©sident' : 'Membre'}</span>
                                       </div>
                                     </div>
                                     <div className="cm-vd-vote">
@@ -987,14 +987,14 @@ const CabMeetings = () => {
                 {activeTab === 'participants' && (
                   <div className="cm-participants-view">
                     
-                    {/* SECTION: GESTION DU COMITÉ CAB (Nouveau) */}
+                    {/* SECTION: GESTION DU COMITÃ‰ CAB (Nouveau) */}
                     <div className="cm-section-card">
                       <div className="cm-sc-header">
                         <div className="cm-sc-title">
                           <FiShield /> 
                           <div>
-                            <h4>Membres Permanents du Comité</h4>
-                            <p>Gérez la composition officielle du CAB {selectedCab?.nom_cab}</p>
+                            <h4>Membres Permanents du ComitÃ©</h4>
+                            <p>GÃ©rez la composition officielle du CAB {selectedCab?.nom_cab}</p>
                           </div>
                         </div>
                         <div className="cm-sc-actions">
@@ -1009,13 +1009,13 @@ const CabMeetings = () => {
                                 await api.post(`/cab/${selectedCab.id_cab}/membres`, { id_user: uid });
                                 fetchAll();
                               } catch (err) {
-                                alert(err?.error?.message || 'Erreur lors de l\'ajout au comité');
+                                setToast({ msg: err?.error?.message || "Erreur lors de l'ajout au comité", type: "error" });
                               } finally {
                                 setPartLoading(false);
                               }
                             }}
                           >
-                            <option value="">+ Ajouter un membre au comité...</option>
+                            <option value="">+ Ajouter un membre au comitÃ©...</option>
                             {allUsers
                               .filter(u => !selectedMeeting?.cab_membres?.some(m => (m.utilisateur?.id_user || m.id_user) === u.id_user))
                               .map(u => (
@@ -1034,17 +1034,17 @@ const CabMeetings = () => {
                               <div className="cm-mbc-avatar">{(u.prenom_user || '?')[0]}</div>
                               <div className="cm-mbc-body">
                                 <span className="cm-mbc-name">{u.prenom_user} {u.nom_user}</span>
-                                <span className="cm-mbc-role">{isPres ? 'Président' : 'Membre'}</span>
+                                <span className="cm-mbc-role">{isPres ? 'PrÃ©sident' : 'Membre'}</span>
                               </div>
                               {!isPres && (
                                 <button 
                                   className="cm-mbc-remove" 
                                   onClick={async () => {
-                                    if(!window.confirm(`Retirer ${u.prenom_user} du comité CAB ?`)) return;
+                                    if(!window.confirm(`Retirer ${u.prenom_user} du comitÃ© CAB ?`)) return;
                                     try {
                                       await api.delete(`/cab/${selectedCab.id_cab}/membres/${u.id_user}`);
                                       fetchAll();
-                                    } catch (err) { alert('Erreur lors du retrait'); }
+                                    } catch (err) { setToast({ msg: "Erreur lors du retrait", type: "error" }); }
                                   }}
                                 >
                                   <FiTrash2 size={14} />
@@ -1058,14 +1058,14 @@ const CabMeetings = () => {
 
                     <div style={{ height: '2rem' }}></div>
 
-                    {/* SECTION: PARTICIPANTS À LA SESSION */}
+                    {/* SECTION: PARTICIPANTS Ã€ LA SESSION */}
                     <div className="cm-section-card">
                       <div className="cm-sc-header">
                         <div className="cm-sc-title">
                           <FiUsers /> 
                           <div>
-                            <h4>Participants à cette Session</h4>
-                            <p>Experts et demandeurs invités pour cette séance spécifique</p>
+                            <h4>Participants Ã  cette Session</h4>
+                            <p>Experts et demandeurs invitÃ©s pour cette sÃ©ance spÃ©cifique</p>
                           </div>
                         </div>
                         <div className="cm-sc-actions">
@@ -1087,7 +1087,7 @@ const CabMeetings = () => {
 
                       <div className="cm-participants-list">
                         {participants.length === 0 ? (
-                          <div className="cm-empty-inline">Aucun participant invité pour le moment.</div>
+                          <div className="cm-empty-inline">Aucun participant invitÃ© pour le moment.</div>
                         ) : (
                           <div className="cm-part-flex">
                             {participants.map(p => {
@@ -1118,15 +1118,15 @@ const CabMeetings = () => {
             <div className="cm-placeholder">
               <div>
                 <div className="cm-placeholder-icon"><FiCalendar /></div>
-                <h2>Sélectionnez une session</h2>
-                <p>Choisissez une réunion dans le calendrier pour rédiger l'ordre du jour ou participer aux votes.</p>
+                <h2>SÃ©lectionnez une session</h2>
+                <p>Choisissez une rÃ©union dans le calendrier pour rÃ©diger l'ordre du jour ou participer aux votes.</p>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── CREATE REUNION MODAL ── */}
+      {/* â”€â”€ CREATE REUNION MODAL â”€â”€ */}
       {showCreateModal && (
         <div className="modal-backdrop-cab" onClick={() => setShowCreateModal(false)}>
           <div className="modal-box-cab glass-card-cab modal-box-medium" style={{ background: '#f0f9ff', border: '1px solid #bae6fd' }} onClick={e => e.stopPropagation()}>
@@ -1136,8 +1136,8 @@ const CabMeetings = () => {
                 <FiCalendar size={20} />
               </div>
               <div className="rfc-style-header-text">
-                <h2 style={{ color: '#ffffff' }}>Créer une Réunion CAB</h2>
-                <div className="rfc-style-subtitle" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Planifiez une nouvelle session du comité</div>
+                <h2 style={{ color: '#ffffff' }}>CrÃ©er une RÃ©union CAB</h2>
+                <div className="rfc-style-subtitle" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Planifiez une nouvelle session du comitÃ©</div>
               </div>
               <button className="close-btn-rfc-style" onClick={() => setShowCreateModal(false)} style={{ color: '#ffffff' }}><FiX size={24} /></button>
             </div>
@@ -1148,7 +1148,7 @@ const CabMeetings = () => {
                 {/* CAB Selector */}
                 <div className="form-group-cab" style={{ marginBottom: '1.25rem' }}>
                   <label style={{ display: 'flex', alignItems: 'center', fontSize: '0.85rem', fontWeight: '700', color: '#475569', marginBottom: '0.5rem' }}>
-                    <FiLayers size={14} style={{ marginRight: 6 }} />Comité CAB *
+                    <FiLayers size={14} style={{ marginRight: 6 }} />ComitÃ© CAB *
                   </label>
                   <select
                     className="modal-select-cab"
@@ -1157,7 +1157,7 @@ const CabMeetings = () => {
                     required
                     style={{ width: '100%' }}
                   >
-                    <option value="">Sélectionner un CAB...</option>
+                    <option value="">SÃ©lectionner un CAB...</option>
                     {cabs.map(c => (
                       <option key={c.id_cab} value={c.id_cab}>{c.nom_cab} ({c.type_cab})</option>
                     ))}
@@ -1167,7 +1167,7 @@ const CabMeetings = () => {
                 <div className="rfc-style-grid">
                   <div className="form-group-cab">
                     <label style={{ display: 'flex', alignItems: 'center', fontSize: '0.85rem', fontWeight: '700', color: '#475569', marginBottom: '0.5rem' }}>
-                      <FiCalendar size={14} style={{ marginRight: 6 }} />Date de la réunion *
+                      <FiCalendar size={14} style={{ marginRight: 6 }} />Date de la rÃ©union *
                     </label>
                     <input
                       type="date"
@@ -1180,7 +1180,7 @@ const CabMeetings = () => {
                   </div>
                   <div className="form-group-cab">
                     <label style={{ display: 'flex', alignItems: 'center', fontSize: '0.85rem', fontWeight: '700', color: '#475569', marginBottom: '0.5rem' }}>
-                      <FiClock size={14} style={{ marginRight: 6 }} />Heure de début
+                      <FiClock size={14} style={{ marginRight: 6 }} />Heure de dÃ©but
                     </label>
                     <input
                       type="time"
@@ -1204,7 +1204,7 @@ const CabMeetings = () => {
 
                 <div className="form-group-cab" style={{ marginTop: '1rem' }}>
                   <label style={{ display: 'flex', alignItems: 'center', fontSize: '0.85rem', fontWeight: '700', color: '#475569', marginBottom: '0.5rem' }}>
-                    <FiHash size={14} style={{ marginRight: 6 }} />Lien de la réunion (Google Meet)
+                    <FiHash size={14} style={{ marginRight: 6 }} />Lien de la rÃ©union (Google Meet)
                   </label>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <input
@@ -1223,7 +1223,7 @@ const CabMeetings = () => {
                       }}
                       style={{ padding: '0.75rem 1rem', background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem' }}
                     >
-                      Générer Meet
+                      GÃ©nÃ©rer Meet
                     </button>
                   </div>
                 </div>
@@ -1235,7 +1235,7 @@ const CabMeetings = () => {
                   <textarea
                     value={createForm.ordre_jour}
                     onChange={e => setCreateForm(f => ({ ...f, ordre_jour: e.target.value }))}
-                    placeholder="Décrivez les points à l'ordre du jour..."
+                    placeholder="DÃ©crivez les points Ã  l'ordre du jour..."
                     style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1.5px solid #bae6fd', minHeight: '100px', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
                   />
                 </div>
@@ -1244,7 +1244,7 @@ const CabMeetings = () => {
               <div className="modal-footer-rfc-style">
                 <button type="button" className="btn-cancel-rfc-style" onClick={() => setShowCreateModal(false)}>Annuler</button>
                 <button type="submit" className="btn-submit-rfc-style" disabled={creating}>
-                  {creating ? 'Création...' : <><FiPlus /> Créer la réunion</>}
+                  {creating ? 'CrÃ©ation...' : <><FiPlus /> CrÃ©er la rÃ©union</>}
                 </button>
               </div>
             </form>
@@ -1253,7 +1253,7 @@ const CabMeetings = () => {
         </div>
       )}
 
-      {/* ── RECOMMENDATIONS MODAL ── */}
+      {/* â”€â”€ RECOMMENDATIONS MODAL â”€â”€ */}
       {showRecModal && currentRecs && (
         <div className="cab-modal-overlay" onClick={() => setShowRecModal(false)}>
           <div className="cab-modal cab-modal--lg" style={{ background: '#f0f9ff', border: '1px solid #bae6fd' }} onClick={e => e.stopPropagation()}>
@@ -1266,8 +1266,8 @@ const CabMeetings = () => {
                 {currentRecs.empty ? <FiAlertCircle /> : <FiFileText />}
               </div>
               <div className="rfc-style-header-text">
-                <h2 style={{ color: '#ffffff' }}>Recommandations du Comité</h2>
-                <div className="rfc-style-subtitle" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>{currentRecs.empty ? 'Données manquantes' : `RFC #${currentRecs.rfcCode} · Rapport d'évaluation`}</div>
+                <h2 style={{ color: '#ffffff' }}>Recommandations du ComitÃ©</h2>
+                <div className="rfc-style-subtitle" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>{currentRecs.empty ? 'DonnÃ©es manquantes' : `RFC #${currentRecs.rfcCode} Â· Rapport d'Ã©valuation`}</div>
               </div>
               <button className="close-btn-rfc-style" onClick={() => setShowRecModal(false)} style={{ color: '#ffffff' }}><FiX size={24} /></button>
             </div>
@@ -1277,26 +1277,26 @@ const CabMeetings = () => {
                   <FiAlertCircle style={{ fontSize: '4rem', color: '#fca5a5', marginBottom: '1.5rem' }} />
                   <h3 style={{ color: '#1e293b' }}>Aucune recommandation disponible</h3>
                   <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                    Le président du CAB n'a pas encore validé les recommandations pour ce changement.
+                    Le prÃ©sident du CAB n'a pas encore validÃ© les recommandations pour ce changement.
                   </p>
                 </div>
               ) : (
                 <div className="recommendations-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', padding: '1.5rem' }}>
                   <div className="rec-item" style={{ background: '#ffffff', border: '1.5px solid #bae6fd', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                     <div className="rec-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', fontWeight: '800', color: '#0369a1', textTransform: 'uppercase', marginBottom: '10px' }}>
-                      <FiInfo /> Conditions d'exécution
+                      <FiInfo /> Conditions d'exÃ©cution
                     </div>
                     <div className="rec-value" style={{ fontSize: '0.95rem', color: '#1e293b', lineHeight: '1.6', fontWeight: '600' }}>{currentRecs.conditions}</div>
                   </div>
                   <div className="rec-item" style={{ background: '#ffffff', border: '1.5px solid #bae6fd', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                     <div className="rec-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', fontWeight: '800', color: '#0369a1', textTransform: 'uppercase', marginBottom: '10px' }}>
-                      <FiShield /> Sécurité & Rollback
+                      <FiShield /> SÃ©curitÃ© & Rollback
                     </div>
                     <div className="rec-value" style={{ fontSize: '0.95rem', color: '#1e293b', lineHeight: '1.6', fontWeight: '600' }}>{currentRecs.securite_rollback}</div>
                   </div>
                   <div className="rec-item" style={{ background: '#ffffff', border: '1.5px solid #bae6fd', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                     <div className="rec-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', fontWeight: '800', color: '#0369a1', textTransform: 'uppercase', marginBottom: '10px' }}>
-                      <FiAlertCircle /> Précautions
+                      <FiAlertCircle /> PrÃ©cautions
                     </div>
                     <div className="rec-value" style={{ fontSize: '0.95rem', color: '#1e293b', lineHeight: '1.6', fontWeight: '600' }}>{currentRecs.precautions}</div>
                   </div>
@@ -1329,16 +1329,16 @@ const CabMeetings = () => {
                 <FiFileText />
               </div>
               <div className="rfc-style-header-text">
-                <h2 style={{ color: '#ffffff' }}>Évaluation Détaillée — #{selectedRfcForEval.code_rfc}</h2>
-                <div className="rfc-style-subtitle" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Analyse complète de l'impact et des risques pour la prise de décision CAB</div>
+                <h2 style={{ color: '#ffffff' }}>Ã‰valuation DÃ©taillÃ©e â€” #{selectedRfcForEval.code_rfc}</h2>
+                <div className="rfc-style-subtitle" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Analyse complÃ¨te de l'impact et des risques pour la prise de dÃ©cision CAB</div>
               </div>
               <button className="close-btn-rfc-style" onClick={() => setShowEvaluationModal(false)} style={{ color: '#ffffff' }}><FiX size={24} /></button>
             </div>
             <div className="cab-modal-body">
               <div className="evaluation-form">
-                {/* Détails RFC — lecture seule */}
+                {/* DÃ©tails RFC â€” lecture seule */}
                 <div className="eval-section">
-                  <h3>📋 Détails de la RFC</h3>
+                  <h3>ðŸ“‹ DÃ©tails de la RFC</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
                     {/* Description */}
@@ -1383,7 +1383,7 @@ const CabMeetings = () => {
                       </div>
                       {(() => {
                         const code  = selectedRfcForEval.statut?.code_statut || '';
-                        const label = selectedRfcForEval.statut?.libelle || code || '—';
+                        const label = selectedRfcForEval.statut?.libelle || code || 'â€”';
                         const cfg = {
                           SOUMISE:   { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
                           EN_COURS:  { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
@@ -1410,7 +1410,7 @@ const CabMeetings = () => {
 
                 {/* Risque */}
                 <div className="eval-section">
-                  <h3>⚠️ Évaluation des Risques</h3>
+                  <h3>âš ï¸ Ã‰valuation des Risques</h3>
                   <div className="risk-buttons" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {['FAIBLE', 'MOYEN', 'ELEVE', 'CRITIQUE'].map(risk => (
                       <button
@@ -1434,10 +1434,10 @@ const CabMeetings = () => {
 
                 {/* Recommandations */}
                 <div className="eval-section">
-                  <h3>💡 Recommandations & Conditions</h3>
+                  <h3>ðŸ’¡ Recommandations & Conditions</h3>
                   <div className="impact-grid">
                     <div className="impact-field">
-                      <label>Conditions d'exécution</label>
+                      <label>Conditions d'exÃ©cution</label>
                       <textarea
                         value={evaluation.conditions}
                         onChange={e => setEvaluation({...evaluation, conditions: e.target.value})}
@@ -1445,7 +1445,7 @@ const CabMeetings = () => {
                       />
                     </div>
                     <div className="impact-field">
-                      <label>Sécurité / Rollback</label>
+                      <label>SÃ©curitÃ© / Rollback</label>
                       <textarea
                         value={evaluation.securite_rollback}
                         onChange={e => setEvaluation({...evaluation, securite_rollback: e.target.value})}
@@ -1453,7 +1453,7 @@ const CabMeetings = () => {
                       />
                     </div>
                     <div className="impact-field">
-                      <label>Précautions</label>
+                      <label>PrÃ©cautions</label>
                       <textarea
                         value={evaluation.precautions}
                         onChange={e => setEvaluation({...evaluation, precautions: e.target.value})}
@@ -1506,41 +1506,41 @@ const CabMeetings = () => {
                 <FiFileText />
               </div>
               <div className="rfc-style-header-text">
-                <h2 style={{ color: '#ffffff' }}>Recommandations & Conditions — #{selectedRfcForEval.code_rfc}</h2>
-                <div className="rfc-style-subtitle" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Définissez les recommandations spécifiques du comité pour cette RFC</div>
+                <h2 style={{ color: '#ffffff' }}>Recommandations & Conditions â€” #{selectedRfcForEval.code_rfc}</h2>
+                <div className="rfc-style-subtitle" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>DÃ©finissez les recommandations spÃ©cifiques du comitÃ© pour cette RFC</div>
               </div>
               <button className="close-btn-rfc-style" onClick={() => setShowRecEditModal(false)} style={{ color: '#ffffff' }}><FiX size={24} /></button>
             </div>
             <div className="cab-modal-body">
               <div className="evaluation-form">
                 <div className="eval-section">
-                  <h3>💡 Recommandations & Conditions</h3>
+                  <h3>ðŸ’¡ Recommandations & Conditions</h3>
                   <div className="impact-grid">
                     <div className="impact-field">
-                      <label>Conditions d'exécution</label>
+                      <label>Conditions d'exÃ©cution</label>
                       <textarea
                         value={evaluation.conditions}
                         onChange={e => setEvaluation({...evaluation, conditions: e.target.value})}
                         rows={3}
-                        placeholder="Quelles sont les conditions impératives pour ce changement ?"
+                        placeholder="Quelles sont les conditions impÃ©ratives pour ce changement ?"
                       />
                     </div>
                     <div className="impact-field">
-                      <label>Sécurité / Rollback</label>
+                      <label>SÃ©curitÃ© / Rollback</label>
                       <textarea
                         value={evaluation.securite_rollback}
                         onChange={e => setEvaluation({...evaluation, securite_rollback: e.target.value})}
                         rows={3}
-                        placeholder="Mesures de sécurité et plan de retour arrière..."
+                        placeholder="Mesures de sÃ©curitÃ© et plan de retour arriÃ¨re..."
                       />
                     </div>
                     <div className="impact-field">
-                      <label>Précautions</label>
+                      <label>PrÃ©cautions</label>
                       <textarea
                         value={evaluation.precautions}
                         onChange={e => setEvaluation({...evaluation, precautions: e.target.value})}
                         rows={3}
-                        placeholder="Précautions techniques ou opérationnelles..."
+                        placeholder="PrÃ©cautions techniques ou opÃ©rationnelles..."
                       />
                     </div>
                   </div>
@@ -1587,7 +1587,7 @@ const CabMeetings = () => {
       )}
 
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
-      {/* Modal Recommandations Membre Spécifique */}
+      {/* Modal Recommandations Membre SpÃ©cifique */}
       {showMemberRecModal && selectedMemberRec && (
         <div className="cab-modal-backdrop" onClick={() => setShowMemberRecModal(false)}>
           <div className="cab-modal cab-modal--md" style={{ background: '#f0f9ff', border: '1px solid #bae6fd' }} onClick={e => e.stopPropagation()}>
@@ -1604,15 +1604,15 @@ const CabMeetings = () => {
             <div className="cab-modal-body">
               <div className="cm-member-rec-viewer">
                 <div className="cm-mrv-field">
-                  <label>Conditions d'exécution</label>
+                  <label>Conditions d'exÃ©cution</label>
                   <div className="cm-mrv-content">{selectedMemberRec.conditions}</div>
                 </div>
                 <div className="cm-mrv-field">
-                  <label>Sécurité / Rollback</label>
+                  <label>SÃ©curitÃ© / Rollback</label>
                   <div className="cm-mrv-content">{selectedMemberRec.rollback}</div>
                 </div>
                 <div className="cm-mrv-field">
-                  <label>Précautions</label>
+                  <label>PrÃ©cautions</label>
                   <div className="cm-mrv-content">{selectedMemberRec.precautions}</div>
                 </div>
               </div>
@@ -1628,3 +1628,4 @@ const CabMeetings = () => {
 };
 
 export default CabMeetings;
+

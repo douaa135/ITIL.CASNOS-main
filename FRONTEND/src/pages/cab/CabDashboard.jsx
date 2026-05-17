@@ -9,11 +9,13 @@ import {
 import api from '../../api/axiosClient';
 import rfcService from '../../services/rfcService';
 import StatCard from '../../components/common/StatCard';
+import Toast from '../../components/common/Toast';
 import './dashboard.css';
 import '../admin/AdminUnified.css';
 
 const CabDashboard = () => {
   const navigate = useNavigate();
+  const [toast, setToast] = useState(null);
   const [stats, setStats] = useState({
     totalReunions: 0,
     rfcsEnAttente: 0,
@@ -186,7 +188,7 @@ const CabDashboard = () => {
   };
 
   const handleEditCab = (cab) => {
-    alert('Modification de CAB non implémentée.');
+    setToast({ msg: 'Modification de CAB non implémentée.', type: 'info' });
   };
 
   const handleDeleteCab = async (cabId) => {
@@ -200,7 +202,7 @@ const CabDashboard = () => {
       }
     } catch (err) {
       console.error('Erreur suppression CAB:', err);
-      alert('Erreur lors de la suppression du CAB.');
+      setToast({ msg: 'Erreur lors de la suppression du CAB.', type: 'error' });
     }
   };
 
@@ -470,6 +472,8 @@ const CabDashboard = () => {
         </div>
 
       </div>
+      
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 };
