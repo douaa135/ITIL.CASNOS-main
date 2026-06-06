@@ -1,0 +1,299 @@
+.evaluation-page {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.evaluation-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.back-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    color: #64748b;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0;
+    width: fit-content;
+}
+
+.back-btn:hover { color: #3b82f6; }
+
+.evaluation-header h1 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+}
+
+/* Layout Grid */
+.evaluation-grid {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 2rem;
+    align-items: start;
+}
+
+/* Summary Card */
+.rfc-summary-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.card-tag {
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 700;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    width: fit-content;
+    margin-bottom: 1rem;
+}
+
+.rfc-summary-card h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 1.5rem;
+    line-height: 1.4;
+}
+
+.summary-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.meta-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+}
+
+.meta-item .label { color: #64748b; font-weight: 500; }
+.meta-item .value { color: #1e293b; font-weight: 700; }
+
+.summary-desc h4 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+}
+
+.summary-desc p {
+    font-size: 0.925rem;
+    color: #475569;
+    line-height: 1.6;
+}
+
+/* Form Card */
+.evaluation-form-card {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 24px;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.03);
+}
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #3b82f6;
+}
+
+.section-title h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+/* Matrix Controls */
+.matrix-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+.control-group label {
+    display: block;
+    font-weight: 700;
+    color: #334155;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+}
+
+.control-hint {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-bottom: 1rem;
+}
+
+.range-input {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.range-input input[type="range"] {
+    flex: 1;
+    accent-color: #3b82f6;
+    height: 6px;
+    border-radius: 5px;
+}
+
+.range-value {
+    width: 32px;
+    height: 32px;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+/* Risk Result Box */
+.risk-result-box {
+    padding: 1.5rem;
+    border-radius: 16px;
+    margin-top: 0.5rem;
+}
+
+.risk-result-box.green { background: #f0fdf4; border: 1px solid #dcfce7; color: #166534; }
+.risk-result-box.orange { background: #fff7ed; border: 1px solid #ffedd5; color: #9a3412; }
+.risk-result-box.red { background: #fef2f2; border: 1px solid #fee2e2; color: #991b1b; }
+.risk-result-box.darkred { background: #450a0a; border: 1px solid #450a0a; color: white; }
+
+.result-main {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.score-circle {
+    width: 60px;
+    height: 60px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    font-weight: 900;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.risk-result-box.darkred .score-circle { background: #991b1b; }
+
+.result-text { display: flex; flex-direction: column; gap: 0.25rem; }
+.result-text strong { text-transform: uppercase; font-size: 1.1rem; }
+.result-text p { font-size: 0.85rem; opacity: 0.8; margin: 0; }
+
+/* Textarea */
+.input-group label {
+    display: block;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.input-group textarea {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: vertical;
+    transition: all 0.2s;
+}
+
+.input-group textarea:focus {
+    background: white;
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.05);
+}
+
+/* Info Alert */
+.info-alert {
+    background: #f1f5f9;
+    padding: 1rem 1.25rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: #475569;
+}
+
+.info-alert p { font-size: 0.85rem; margin: 0; }
+
+/* Actions */
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+}
+
+.cancel-btn {
+    background: white;
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.submit-eval-btn {
+    background: #0f172a;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.75rem;
+    border-radius: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.submit-eval-btn:hover { background: #3b82f6; transform: translateY(-1px); }
+.submit-eval-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 1024px) {
+    .evaluation-grid { grid-template-columns: 1fr; }
+    .rfc-summary-card { order: 2; }
+    .evaluation-form-card { order: 1; }
+}

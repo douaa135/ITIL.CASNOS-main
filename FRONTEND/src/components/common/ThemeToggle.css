@@ -1,0 +1,56 @@
+/* ── Theme Toggle Button ──────────────────────────────────── */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background-color: var(--slate-200);
+  border: 1px solid var(--slate-400);
+  border-radius: var(--radius-md);
+  color: var(--slate-700);
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: var(--transition-fast);
+}
+
+.theme-toggle-btn:hover {
+  background-color: var(--slate-300);
+  border-color: var(--slate-500);
+  transform: scale(1.05);
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+.theme-toggle-btn .theme-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Dark mode styles for toggle button */
+:root.dark-mode .theme-toggle-btn {
+  background-color: var(--slate-300);
+  border-color: var(--slate-500);
+  color: var(--slate-900);
+}
+
+:root.dark-mode .theme-toggle-btn:hover {
+  background-color: var(--slate-200);
+  border-color: var(--slate-400);
+}
+
+/* Animation for theme change */
+@keyframes themeRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.theme-toggle-btn:active .theme-icon {
+  animation: themeRotate 0.6s ease-out;
+}

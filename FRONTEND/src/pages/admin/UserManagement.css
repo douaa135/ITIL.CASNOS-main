@@ -1,0 +1,25 @@
+.um-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 10px;
+  margin-bottom: 0.5rem;
+  padding: 4px 2px;
+}
+
+@media (max-width: 1200px) {
+  .um-kpi-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .um-kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .um-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -1,0 +1,38 @@
+/* App.css — Global layout root */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-fallback-container {
+  padding: 2rem;
+}
+
+.app-placeholder-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.app-placeholder-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 1rem;
+}
+
+.app-placeholder-box {
+  background: white;
+  padding: 3rem;
+  border-radius: 16px;
+  border: 1px dashed #cbd5e1;
+  text-align: center;
+  color: #64748b;
+}
+
+.app-placeholder-lead {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
