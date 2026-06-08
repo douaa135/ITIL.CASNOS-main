@@ -1098,28 +1098,6 @@ const AdminChangementList = () => {
                                     />
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                    <label style={{
-                                        fontSize: '0.8rem', color: '#003366', fontWeight: 700,
-                                        textTransform: 'uppercase', letterSpacing: '0.04em',
-                                    }}>
-                                        Date et Heure de Fin d'implémentation
-                                    </label>
-                                    <input
-                                        type="datetime-local"
-                                        value={schedulerForm.date_fin}
-                                        onChange={e => setSchedulerForm({ ...schedulerForm, date_fin: e.target.value })}
-                                        style={{
-                                            width: '100%', padding: '0.7rem 0.9rem',
-                                            borderRadius: '10px', border: '1.5px solid #e2e8f0',
-                                            fontSize: '0.9rem', fontWeight: 600, outline: 'none',
-                                            color: '#1e293b', background: 'white', boxSizing: 'border-box',
-                                            transition: 'border-color 0.18s',
-                                        }}
-                                        onFocus={e => e.target.style.borderColor = '#0284c7'}
-                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                                    />
-                                </div>
                             </div>
 
                             {/* Note info */}
