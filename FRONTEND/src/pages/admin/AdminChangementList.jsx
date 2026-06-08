@@ -1108,7 +1108,7 @@ const AdminChangementList = () => {
                                 display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
                             }}>
                                 <FiCalendar size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-                                <span>La date sera reflétée dans le <strong>calendrier de planification</strong> et dans l'<strong>Analyse de la demande</strong>.</span>
+                                <span>La date sera reflétée dans le <strong>calendrier de planification</strong>.</span>
                             </div>
                         </div>
 
