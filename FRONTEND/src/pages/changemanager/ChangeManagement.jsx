@@ -384,7 +384,7 @@ const ChangeManagement = () => {
 
             await changeService.updateChangement(schedulingChangement.id_changement, payload);
 
-            const planStatut = changeStatuses.find(s => s.code_statut === 'PLANIFIEE');
+            const planStatut = changeStatuses.find(s => s.code_statut === 'EN_COURS');
             if (planStatut) {
                 await changeService.updateChangementStatus(schedulingChangement.id_changement, planStatut.id_statut);
             }
@@ -910,11 +910,27 @@ return (
                                     })()}
                                 </td>
 
-                                {/* Statut (Lecture seule pour le Change Manager) */}
+                                {/* Statut avec liste déroulante pour le Change Manager */}
                                 <td style={{ ...tdStyle, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                                    <Badge variant={getStatusColor(c.statut?.code_statut)}>
-                                        {CHANGE_STATUS_LABELS[c.statut?.code_statut] || c.statut?.libelle || 'N/A'}
-                                    </Badge>
+                                    <InlineEditableBadge
+                                        currentValue={changeStatuses.find(s => s.code_statut === c.statut?.code_statut)?.id_statut || c.statut?.id_statut || ''}
+                                        label={CHANGE_STATUS_LABELS[c.statut?.code_statut] || c.statut?.libelle || 'N/A'}
+                                        currentCode={c.statut?.code_statut}
+                                        options={changeStatuses.map(s => ({ value: s.id_statut, label: CHANGE_STATUS_LABELS[s.code_statut] || s.libelle, code: s.code_statut }))}
+                                        allowedCodes={CHANGE_TRANSITIONS[c.statut?.code_statut] || []}
+                                        getVariant={(val) => { const s = changeStatuses.find(st => st.id_statut == val); return s ? getStatusColor(s.code_statut) : 'default'; }}
+                                        onUpdate={async (newId) => {
+                                            try {
+                                                await changeService.updateChangementStatus(c.id_changement, newId, '');
+                                                const updated = await changeService.getAllChangements();
+                                                setChangements(updated);
+                                            } catch (err) {
+                                                setToast({ msg: err?.response?.data?.message || err?.message || 'Erreur.', type: 'error' });
+                                            }
+                                        }}
+                                        isEditable={!['CLOTUREE'].includes(c.statut?.code_statut)}
+                                        dropdownPosition="down"
+                                    />
                                 </td>
 
                                 {/* Tâches actives */}
