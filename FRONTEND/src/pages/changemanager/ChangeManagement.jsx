@@ -791,8 +791,8 @@ return (
                                     borderRight: '1px solid #f1f5f9',
                                 }}>
                                     <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.82rem', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '3px' }}
-                                        title={c.planChangement?.titre_plan || 'Changement Standard'}>
-                                        {c.planChangement?.titre_plan || 'Changement Standard'}
+                                        title={c.rfc?.titre_rfc || c.planChangement?.titre_plan || 'Changement Standard'}>
+                                        {c.rfc?.titre_rfc || c.planChangement?.titre_plan || 'Changement Standard'}
                                     </div>
                                     <div style={{ fontSize: '0.72rem', color: '#3b82f6', fontWeight: 600 }}>
                                         #{c.code_changement}

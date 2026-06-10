@@ -50,9 +50,8 @@ const CabMeetings = () => {
   // totalDecisionsKPI maintenu pour compatibilité — reflète globalDecisionsCount
   const [totalDecisionsKPI, setTotalDecisionsKPI] = useState(0);
   const [filterUpcoming, setFilterUpcoming] = useState(false);
-  const [ordreJourContent, setOrdreJourContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState('agenda_editor');
+  const [activeTab, setActiveTab] = useState('rfcs_votes');
   const [addingUser, setAddingUser] = useState('');
   const [availableRfcs, setAvailableRfcs] = useState([]);
   const [availableChanges, setAvailableChanges] = useState([]);
@@ -97,7 +96,6 @@ const CabMeetings = () => {
       date_reunion: '',
       heure_debut: '',
       heure_fin: '',
-      ordre_jour: '',
       meet_link: ''
     };
   });
@@ -278,7 +276,7 @@ const CabMeetings = () => {
 
   const handleSelectMeeting = (meeting) => {
     setSelectedMeeting(meeting);
-    setOrdreJourContent(meeting.ordre_jour || '');
+
     setAddingUser('');
     if (meeting.id_cab) {
       const meetingCab = cabs.find(c => String(c.id_cab) === String(meeting.id_cab));
@@ -337,21 +335,6 @@ const CabMeetings = () => {
       setToast({ msg: err?.error?.message || err?.message || 'Erreur lors de l\'ajout', type: 'error' });
     } finally {
       setPartLoading(false);
-    }
-  };
-
-  const handleOrdreJourSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      setSubmitting(true);
-      await api.put(`/reunions/${selectedMeeting.id_reunion}`, { ordre_jour: ordreJourContent });
-      setToast({ msg: 'Ordre du jour enregistré avec succès !', type: 'success' });
-      await fetchAll();
-      setSelectedMeeting(prev => ({ ...prev, ordre_jour: ordreJourContent }));
-    } catch (error) {
-      setToast({ msg: 'Erreur lors de l\'enregistrement de l\'ordre du jour.', type: 'error' });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -742,19 +725,13 @@ const CabMeetings = () => {
     }
     setCreating(true);
     try {
-      // Inclure le lien Meet dans l'ordre du jour si présent
-      const finalAgenda = createForm.meet_link
-        ? `Lien Meet: ${createForm.meet_link}\n\n${createForm.ordre_jour}`
-        : createForm.ordre_jour;
-
       await api.post(`/cab/${createForm.id_cab}/reunions`, {
         date_reunion: createForm.date_reunion,
         heure_debut: createForm.heure_debut || undefined,
         heure_fin: createForm.heure_fin || undefined,
-        ordre_jour: finalAgenda || undefined
       });
       setShowCreateModal(false);
-      setCreateForm({ id_cab: cabs[0]?.id_cab || '', date_reunion: '', heure_debut: '', heure_fin: '', ordre_jour: '', meet_link: '' });
+      setCreateForm({ id_cab: cabs[0]?.id_cab || '', date_reunion: '', heure_debut: '', heure_fin: '', meet_link: '' });
       localStorage.removeItem('cab_create_draft');
       await fetchAll();
       setToast({ msg: 'Réunion créée avec succès !', type: 'success' });
@@ -834,7 +811,7 @@ const CabMeetings = () => {
           </div>
           <div className="premium-header-text">
             <h1>Espace Réunions CAB</h1>
-            <p>Gestion des ordres du jour, votes des membres et procès-verbaux</p>
+            <p>Gestion des votes des membres et procès-verbaux</p>
             {selectedCab && (
               <span className="cm-cab-badge" style={{ marginTop: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: '#475569', border: '1px solid #e2e8f0' }}>
                 <FiHash size={11} /> {selectedCab.nom_cab}  · {selectedCab.type_cab === 'URGENT' ? 'e-CAB Urgent' : 'CAB'}
@@ -930,16 +907,13 @@ const CabMeetings = () => {
                       <span className="cm-month">{new Date(meeting.date_reunion).toLocaleDateString('fr-FR', { month: 'short' })}</span>
                     </div>
                     <div className="cm-meeting-info">
-                      <div className="cm-meeting-title">{meeting.ordre_jour || 'Session CAB'}</div>
+
                       <div className="cm-meeting-meta">
                         <FiClock size={11} />
                         {meeting.heure_debut?.substring(11, 16) || '--:--'} · {meeting.cab_nom || ''}
                       </div>
                     </div>
                     <div className="cm-meeting-status">
-                      {meeting.ordre_jour
-                        ? <FiCheckCircle className="done" />
-                        : <FiEdit className="pending" />}
                     </div>
                   </div>
                 );
@@ -964,8 +938,6 @@ const CabMeetings = () => {
                     </span>
                   </div>
 
-                  <h2>{selectedMeeting.ordre_jour || 'Session CAB'}</h2>
-
                   <div className="cm-meta-grid">
                     <div className="cm-meta-item">
                       <span className="cm-meta-label">Comité / Organisation</span>
@@ -989,7 +961,6 @@ const CabMeetings = () => {
               {/* Tabs */}
               <div className="cm-tabs">
                 {[
-                  { id: 'agenda_editor', icon: <FiFileText />, label: 'Ordre du Jour' },
                   { id: 'rfcs_votes', icon: <FiTrendingUp />, label: 'RFC & Vote' },
                   { id: 'participants', icon: <FiUsers />, label: 'Membres & Participants' },
                   { id: 'rfcs_traitees', icon: <FiCheckSquare />, label: 'RFCs Traitées' },
@@ -1006,28 +977,6 @@ const CabMeetings = () => {
 
               {/* Content */}
               <div className="cm-content">
-                {activeTab === 'agenda_editor' && (
-                  <div className="cm-editor-section">
-                    <div className="cm-editor-intro">
-                      <h3><FiEdit /> Rédaction de l'ordre du jour</h3>
-                      <p>Consignez ici les points clés et les discussions prévues pour cette séance.</p>
-                    </div>
-                    <form onSubmit={handleOrdreJourSubmit}>
-                      <textarea
-                        value={ordreJourContent}
-                        onChange={e => setOrdreJourContent(e.target.value)}
-                        placeholder="Saisissez l'ordre du jour de la réunion..."
-                        className="cm-textarea"
-                      />
-                      <div className="cm-form-actions">
-                        <button type="submit" className="cm-btn-save" disabled={submitting}>
-                          <FiSave /> {submitting ? 'Enregistrement...' : "Enregistrer l'ordre du jour"}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                )}
-
                 {activeTab === 'rfcs_votes' && (
                   <div className="cm-votes-view">
                     <div className="cm-section-header-inline">
@@ -1473,7 +1422,6 @@ const CabMeetings = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                   {sortedMeetings.map(m => {
                     const isPast = new Date(m.date_reunion) < new Date();
-                    const dateStr = new Date(m.date_reunion).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
                     return (
                       <div
                         key={m.id_reunion}
@@ -1501,7 +1449,6 @@ const CabMeetings = () => {
                           </span>
                         </div>
                         <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#1e293b', marginBottom: '0.35rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {m.ordre_jour || 'Session CAB'}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#64748b', fontSize: '0.8rem' }}>
                           <FiClock size={12} />
@@ -1621,19 +1568,6 @@ const CabMeetings = () => {
                     </button>
                   </div>
                 </div>
-
-                <div className="form-group-cab" style={{ marginTop: '1rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', fontSize: '0.85rem', fontWeight: '700', color: '#475569', marginBottom: '0.5rem' }}>
-                    <FiFileText size={14} style={{ marginRight: 6 }} />Ordre du jour (optionnel)
-                  </label>
-                  <textarea
-                    value={createForm.ordre_jour}
-                    onChange={e => setCreateForm(f => ({ ...f, ordre_jour: e.target.value }))}
-                    placeholder="Décrivez les points à l'ordre du jour..."
-                    style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1.5px solid #bae6fd', minHeight: '100px', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
-                  />
-                </div>
-
               </div>
               <div className="modal-footer-rfc-style">
                 <button type="button" className="btn-cancel-rfc-style" onClick={() => setShowCreateModal(false)}>Annuler</button>

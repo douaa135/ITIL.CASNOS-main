@@ -7,6 +7,8 @@ import {
   FiUser, FiFilter, FiRefreshCw, FiAlertCircle,
   FiActivity, FiInbox, FiSend, FiX, FiTarget, FiPaperclip, FiFile, FiMessageSquare
 } from 'react-icons/fi';
+import InlineEditableBadge from '../../components/common/InlineEditableBadge';
+import { RFC_TRANSITIONS, RFC_STATUS_VARIANT } from '../../utils/constants';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -92,6 +94,7 @@ const MesRfcs = () => {
   );
   const [loading, setLoading]     = useState(true);
   const [tab,     setTab]     = useState('all');
+  const [statuses, setStatuses] = useState([]);
   const [search,  setSearch]  = useState('');
   const [statusF, setStatusF] = useState('');
   const [typeF,   setTypeF]   = useState('');
@@ -138,7 +141,8 @@ const MesRfcs = () => {
           },
           statut: {
             code:     r.statut?.code_statut || 'NOUVEAU',
-            libelle:  r.statut?.libelle || 'Nouveau'
+            libelle:  r.statut?.libelle || 'Nouveau',
+            id_statut: r.statut?.id_statut
           },
           date_creation:   r.date_creation || new Date().toISOString(),
           date_souhaitee:  r.date_souhaitee ? new Date(r.date_souhaitee).toLocaleDateString('fr-FR') : '-',
@@ -157,10 +161,22 @@ const MesRfcs = () => {
     }
   };
 
+  // Fetch possible status values for inline editing
+  const fetchStatuses = async () => {
+    try {
+      const res = await api.get('/statuts?contexte=RFC');
+      const data = res?.data || res;
+      const list = Array.isArray(data?.statuts) ? data.statuts : Array.isArray(data) ? data : [];
+      setStatuses(list);
+    } catch (e) {
+      console.error('Statuses fetch error:', e);
+    }
+  };
+
 
 
   // Chargement initial
-  useEffect(() => { fetchMyRfcs(); }, [user?.id_user]);
+  useEffect(() => { fetchMyRfcs(); fetchStatuses(); }, [user?.id_user]);
 
   // Re-fetch après création d'une RFC
   useEffect(() => {
@@ -372,8 +388,25 @@ const MesRfcs = () => {
                         );
                       })()}
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <Badge variant={sc.badge}>{sc.label}</Badge>
+                    <td style={{ padding: '14px 16px' }} onClick={(e) => e.stopPropagation()}>
+                      <InlineEditableBadge
+                          currentValue={rfc.statut?.id_statut}
+                          label={sc.label}
+                          currentCode={rfc.statut?.code}
+                          options={statuses.map(s => ({ value: s.id_statut, label: s.libelle, code: s.code_statut }))}
+                          allowedCodes={RFC_TRANSITIONS[rfc.statut?.code] || []}
+                          getVariantByCode={(code) => RFC_STATUS_VARIANT[code] || 'default'}
+                          onUpdate={async (newId) => {
+                            try {
+                              await rfcService.updateRfcStatus(rfc.db_id, newId, {});
+                              fetchMyRfcs();
+                            } catch (err) {
+                              console.error('Erreur mise à jour statut', err);
+                            }
+                          }}
+                          isEditable={!['CLOTUREE', 'REJETEE'].includes(rfc.statut?.code)}
+                          dropdownPosition="down"
+                        />
                     </td>
                   </tr>
                 );
