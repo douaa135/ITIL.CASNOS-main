@@ -314,7 +314,6 @@ const MesRfcs = () => {
                 }}>
                   RFC & Code
                 </th>
-                <th style={{ padding: '12px 16px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#64748b', textAlign: 'left' }}>Type</th>
                 <th style={{ padding: '12px 16px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#64748b', textAlign: 'left' }}>Priorité</th>
                 <th style={{ padding: '12px 16px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#64748b', textAlign: 'left' }}>Statut</th>
               </tr>
@@ -322,7 +321,7 @@ const MesRfcs = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: '4rem' }}>
+                  <td colSpan={3} style={{ textAlign: 'center', padding: '4rem' }}>
                     <div className="impl-loading" style={{ background: 'transparent', padding: 0 }}>
                       <FiRefreshCw className="spinning" /> Chargement de vos demandes...
                     </div>
@@ -330,7 +329,7 @@ const MesRfcs = () => {
                 </tr>
               ) : rfcs.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
+                  <td colSpan={3} style={{ textAlign: 'center', padding: '4rem', color: '#94a3b8' }}>
                     <FiInbox size={48} style={{ marginBottom: '1rem', opacity: 0.2 }} />
                     <p style={{ margin: 0, fontWeight: 600 }}>Aucune RFC trouvée</p>
                   </td>
@@ -357,11 +356,6 @@ const MesRfcs = () => {
                     }}>
                       <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '0.82rem', marginBottom: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '250px' }}>{rfc.titre}</div>
                       <div style={{ fontSize: '0.72rem', color: '#3b82f6', fontWeight: '700' }}>#{rfc.id_rfc}</div>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span className={`type-badge type-${(rfc.type || 'NORMAL').toLowerCase()}`}>
-                        {rfc.type || 'NORMAL'}
-                      </span>
                     </td>
                     <td style={{ padding: '14px 16px' }}>
                       {(() => {

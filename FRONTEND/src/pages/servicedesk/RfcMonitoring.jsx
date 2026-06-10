@@ -7,9 +7,12 @@ import {
   FiCheckCircle, FiXCircle, FiPlus, FiArrowRight, FiInfo, FiEdit2, FiX, FiCheck
 } from 'react-icons/fi';
 import api from '../../api/axiosClient';
+import rfcService from '../../services/rfcService';
 import '../changemanager/RfcManagement.css'; 
 import '../admin/AdminUnified.css';
 import RfcProcessingModal from './components/RfcProcessingModal';
+import InlineEditableBadge from '../../components/common/InlineEditableBadge';
+import { RFC_TRANSITIONS, RFC_STATUS_VARIANT } from '../../utils/constants';
 
 /* ─── KPI Card ── */
 const KpiCard = ({ label, value, icon, color, sub }) => (
@@ -325,7 +328,6 @@ const RfcMonitoring = () => {
                 <th>Code RFC</th>
                 <th>Titre</th>
                 <th>Demandeur</th>
-                <th>Type</th>
                 <th>Statut</th>
                 <th>Date</th>
                 <th>Action</th>
@@ -346,21 +348,30 @@ const RfcMonitoring = () => {
                   <td style={{ fontWeight: '700', color: '#1e40af' }}>#{rfc.code_rfc || rfc.id_rfc?.slice(0,8)}</td>
                   <td>
                     <div style={{ fontWeight: '600' }}>{rfc.titre_rfc}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{rfc.typeRfc?.type}</div>
                   </td>
                   <td>
                     <div style={{ fontSize: '0.85rem' }}>{rfc.demandeur?.prenom_user} {rfc.demandeur?.nom_user}</div>
                     <div style={{ fontSize: '0.7rem', color: '#adafb5' }}>{rfc.demandeur?.direction?.nom_direction || 'Service Interne'}</div>
                   </td>
-                  <td>
-                    <span className={`type-badge type-${rfc.typeRfc?.type?.toLowerCase()}`}>
-                        {rfc.typeRfc?.type || '—'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`status-pill ${getStatusClass(rfc.statut?.code_statut)}`}>
-                      {rfc.statut?.libelle}
-                    </span>
+                  <td onClick={e => e.stopPropagation()}>
+                    <InlineEditableBadge
+                      currentValue={rfc.statut?.id_statut}
+                      label={rfc.statut?.libelle || 'N/A'}
+                      currentCode={rfc.statut?.code_statut}
+                      options={statuses.map(s => ({ value: s.id_statut, label: s.libelle, code: s.code_statut }))}
+                      allowedCodes={RFC_TRANSITIONS[rfc.statut?.code_statut] || []}
+                      getVariantByCode={(code) => RFC_STATUS_VARIANT[code] || 'default'}
+                      onUpdate={async (newId) => {
+                        try {
+                          await rfcService.updateRfcStatus(rfc.id_rfc, newId, {});
+                          fetchRfcs();
+                        } catch (err) {
+                          console.error('Erreur mise à jour statut', err);
+                        }
+                      }}
+                      isEditable={!['CLOTUREE', 'REJETEE'].includes(rfc.statut?.code_statut)}
+                      dropdownPosition="down"
+                    />
                   </td>
                   <td style={{ fontSize: '0.85rem', color: '#64748b' }}>
                     {new Date(rfc.date_creation).toLocaleDateString('fr-FR')}
